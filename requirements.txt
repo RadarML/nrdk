@@ -1,0 +1,4 @@
+lightning
+jaxtyping
+matplotlib
+ouster-sdk
