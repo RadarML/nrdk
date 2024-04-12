@@ -2,10 +2,12 @@
 
 import os, json
 import numpy as np
-
-from jaxtyping import Num, Complex64, UInt
-from ouster import client
 from torch.utils.data import Dataset
+
+from jaxtyping import Num
+from beartype.typing import Callable
+
+from .transforms import BaseTransform
 
 
 class RawChannel:
@@ -28,62 +30,37 @@ class RawChannel:
             raw = f.read(self.stride)
         return np.frombuffer(raw, dtype=self.dtype).reshape(self.shape)
 
-    def __len__(self) -> int:
-        return os.stat(self.path).st_size // self.stride
-
-
-class RadarChannel(RawChannel):
-    """Radar I/Q stream, including iiqq destaggering."""
-
-    def __init__(self, path: str) -> None:
-        super().__init__(path=os.path.join(path, "radar"), channel="iq")
-
-    def __getitem__(self, idx: int) -> Complex64[np.ndarray, "D Tx Rx R"]:
-        iiqq = super().__getitem__(idx)
-        shape = [*self.shape[:-1], self.shape[-1] // 2]
-        iq = np.zeros(shape, dtype=np.complex64)
-        iq[..., 0::2] = 1j * iiqq[..., 0::4] + iiqq[..., 2::4]
-        iq[..., 1::2] = 1j * iiqq[..., 1::4] + iiqq[..., 3::4]
-        return iq
-    
-
-class LidarChannel(RawChannel):
-    """Elevation-azimuth depth stream, including lidar destaggering."""
-
-    def __init__(self, path: str) -> None:
-        super().__init__(path=os.path.join(path, "_lidar"), channel="rng")
-        with open(os.path.join(path, "lidar", "lidar.json")) as f:
-            self._metadata = client.SensorInfo(f.read())
-        
-    def __getitem__(self, idx: int) -> UInt[np.ndarray, "El Az"]:
-        raw = super().__getitem__(idx)
-        full = client.destagger(self._metadata, raw)
-        N_el, N_az = full.shape
-        return full[N_el // 8: -N_el // 8, N_az // 4: -N_az // 4]
-
 
 class RoverTrace:
     """Single rover trace."""
 
     def __init__(
-        self, path: str, indices: str = "_fusion/indices.npz"
+        self, path: str, indices: str = "_fusion/indices.npz",
+        transform: dict[str, list[Callable[[str], BaseTransform]]] = {}
     ) -> None:
         npz = np.load(os.path.join(path, indices))
         self.indices = npz["indices"]
         self.channel_names = {
             n: i for i, n in enumerate(npz["sensors"])}
+        self.transform = {
+            k: [tf(path) for tf in v] for k, v in transform.items()}
 
         self.channels = {
-            "lidar": LidarChannel(path), "radar": RadarChannel(path)}
+            "radar": RawChannel(os.path.join(path, "radar"), "iq"),
+            "lidar": RawChannel(os.path.join(path, "_lidar"), "rng")}
 
     def __len__(self):
         return len(self.indices)
 
     def __getitem__(self, idx):
-        res = {
-            k: v[self.indices[idx, self.channel_names[k]]]
+        def apply_transform(k, data):# -> Any:
+            for tf in self.transform.get(k, []):
+                data = tf(data)
+            return data
+
+        return {
+            k: apply_transform(k, v[self.indices[idx, self.channel_names[k]]])
             for k, v in self.channels.items()}
-        return res
 
 
 class RoverData(Dataset):
@@ -93,12 +70,15 @@ class RoverData(Dataset):
     ----------
     paths: list of dataset paths to include.
     indices: correspondence indices, as a subpath within each dataset.
+    transform: transformations to apply to radar, lidar data.
     """
 
     def __init__(
         self, paths: list[str], indices: str = "_fusion/indices.npz",
+        transform: dict[str, list[Callable[[str], BaseTransform]]] = {}
     ) -> None:
-        self.traces = [RoverTrace(p, indices=indices) for p in paths]
+        self.traces = [
+            RoverTrace(p, transform=transform, indices=indices) for p in paths]
 
     def __len__(self):
         return sum(len(t) for t in self.traces)
