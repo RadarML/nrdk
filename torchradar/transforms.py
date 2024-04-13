@@ -36,14 +36,73 @@ class IIQQtoIQ(BaseTransform):
         return iq
 
 
+class DiscardTX2(BaseTransform):
+    """Discard antenna TX2 from data collected in 3x4 mode."""
+
+    def __call__(
+        self, data: Int16[np.ndarray, "D Tx Rx R"]
+    ) -> Int16[np.ndarray, "D Tx2 Rx R"]:
+        if data.shape[1] == 3:
+            return data[:, [0, 2]]
+        else:
+            return data
+
+
+class AssertTx2(BaseTransform):
+    """Assert that the radar data is collected in 3x4 mode."""
+
+    def __call__(
+        self, data: Int16[np.ndarray, "D Tx Rx R"]
+    ) -> Int16[np.ndarray, "D Tx Rx R"]:
+        assert data.shape[1] == 3, "Data was not collected in 3x4 mode."
+        return data
+
+
+class FFT2Pad(BaseTransform):
+    """Padded range-antenna FFT."""
+
+    def __init__(self, path: str, pad: int = 24) -> None:
+        self.pad = pad
+
+    def __call__(
+        self, data: Complex64[np.ndarray, "D Tx Rx R"]
+    ) -> Float32[np.ndarray, "D R A 2"]:
+        assert data.shape[1] == 2, "Only 2-tx mode is supported."
+
+        iq_dar = data.reshape(data.shape[0], -1, data.shape[-1])
+        zeros = np.zeros(
+            [data.shape[0], self.pad, data.shape[-1]], dtype=np.complex64)
+        iq_pad = np.concatenate([iq_dar, zeros], axis=1)
+        dar = fft.fftn(iq_pad, axes=(1, 2))
+        dar_shf = fft.fftshift(dar, axes=1)
+
+        dra = np.swapaxes(dar_shf, 1, 2)
+        return np.stack([np.abs(dra) / 1e6, np.angle(dra)], axis=-1)
+
+
+class FFT2(BaseTransform):
+    """Range-doppler FFT."""
+
+    def __call__(
+        self, data: Complex64[np.ndarray, "D Tx Rx R"]
+    ) -> Float32[np.ndarray, "D R F"]:
+        iq_dar = data.reshape(data.shape[0], -1, data.shape[-1])
+        dar = fft.fftn(iq_dar, axes=(0, 2))
+        dar_shf = fft.fftshift(dar, axes=0)
+
+        dra = np.swapaxes(dar_shf, 1, 2)
+        return np.concatenate([np.abs(dra) / 1e6, np.angle(dra)], axis=2)
+
+
 class FFT3(BaseTransform):
     """Range-doppler-antenna FFT."""
 
     def __call__(
         self, data: Complex64[np.ndarray, "D Tx Rx R"]
     ) -> Float32[np.ndarray, "D R F"]:
+        assert data.shape[1] == 2, "Only 2-tx mode is supported."
         iq_dar = data.reshape(data.shape[0], -1, data.shape[-1])
-        dar = fft.fftn(iq_dar, axes=(0, 1, 2), )
+        dar = fft.fftn(iq_dar, axes=(0, 1, 2))
         dar_shf = fft.fftshift(dar, axes=(0, 1))
 
         dra = np.swapaxes(dar_shf, 1, 2)
@@ -75,18 +134,29 @@ class Map2D(BaseTransform):
     def __call__(
         self, data: UInt16[np.ndarray, "El Az"]
     ) -> UInt[np.ndarray, "Nr Az2"]:
+        # Crop, convert mm -> m
         el, az = data.shape
-        crop_el = el // 2 - 2
+        crop_el = el // 4
         crop_az = az // 4
-        x_crop = data[crop_el:-crop_el, crop_az:-crop_az]
+        x_crop = data[crop_el:-crop_el, crop_az:-crop_az] / 1000
 
-        bin = (x_crop // (self.resolution * 1000)).astype(np.uint16)
+        # Project to polar
+        el_angles = np.linspace(
+            -np.pi / 2, np.pi / 2, x_crop.shape[0], dtype=np.float32)
+        z = np.sin(el_angles)[:, None] * x_crop
+        r = np.cos(el_angles)[:, None] * x_crop
+
+        # Crop to (-30cm, 0cm)
+        r[(z > 0.0) | (z < -0.3)] = 0
+
+        # Create map
+        bin = (r // (self.resolution)).astype(np.uint16)
         bin[bin >= self.bins] = 0
-        res = np.zeros((self.bins, bin.shape[1]), dtype=bool)
+        res = np.zeros((bin.shape[1], self.bins), dtype=bool)
         for i in range(bin.shape[1]):
-            res[:, i][bin[:, i]] = True
-        res[0, :] = 0
-        return res[:-1]
+            res[i][bin[:, i]] = True
+        res[:, 0] = 0
+        return res
 
 
 class Depth(BaseTransform):

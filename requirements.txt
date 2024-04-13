@@ -1,3 +1,5 @@
 jaxtyping
 matplotlib
 ouster-sdk
+tensorboard
+lightning
