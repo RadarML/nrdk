@@ -66,7 +66,7 @@ class FFT2Pad(BaseTransform):
 
     def __call__(
         self, data: Complex64[np.ndarray, "D Tx Rx R"]
-    ) -> Float32[np.ndarray, "D R A 2"]:
+    ) -> Complex64[np.ndarray, "D R A"]:
         assert data.shape[1] == 2, "Only 2-tx mode is supported."
 
         iq_dar = data.reshape(data.shape[0], -1, data.shape[-1])
@@ -76,8 +76,7 @@ class FFT2Pad(BaseTransform):
         dar = fft.fftn(iq_pad, axes=(1, 2))
         dar_shf = fft.fftshift(dar, axes=1)
 
-        dra = np.swapaxes(dar_shf, 1, 2)
-        return np.stack([np.abs(dra) / 1e6, np.angle(dra)], axis=-1)
+        return np.swapaxes(dar_shf, 1, 2)
 
 
 class FFT2(BaseTransform):
@@ -85,13 +84,12 @@ class FFT2(BaseTransform):
 
     def __call__(
         self, data: Complex64[np.ndarray, "D Tx Rx R"]
-    ) -> Float32[np.ndarray, "D R F"]:
+    ) -> Complex64[np.ndarray, "D R A"]:
         iq_dar = data.reshape(data.shape[0], -1, data.shape[-1])
         dar = fft.fftn(iq_dar, axes=(0, 2))
         dar_shf = fft.fftshift(dar, axes=0)
 
-        dra = np.swapaxes(dar_shf, 1, 2)
-        return np.concatenate([np.abs(dra) / 1e6, np.angle(dra)], axis=2)
+        return np.swapaxes(dar_shf, 1, 2)
 
 
 class FFT3(BaseTransform):
@@ -133,7 +131,7 @@ class Map2D(BaseTransform):
 
     def __call__(
         self, data: UInt16[np.ndarray, "El Az"]
-    ) -> UInt[np.ndarray, "Nr Az2"]:
+    ) -> UInt[np.ndarray, "Az2 Nr"]:
         # Crop, convert mm -> m
         el, az = data.shape
         crop_el = el // 4
