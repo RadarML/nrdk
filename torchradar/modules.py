@@ -1,36 +1,11 @@
 """RadarML modules."""
 
 import torch
-from torch import nn, Tensor, fft
-from jaxtyping import Float32, Complex64
+from torch import nn, Tensor
+from einops import rearrange
 
-
-class FFT2Pad(nn.Module):
-    """Padded range-antenna FFT.
-    
-    Parameters
-    ----------
-    pad: padding to apply.
-    """
-
-    def __init__(self, pad: int = 8) -> None:
-        super().__init__()
-        self.pad = pad
-
-    def forward(
-        self, x: Complex64[Tensor, "batch doppler tx rx range"]
-    ) -> Float32[Tensor, "batch doppler_iq azimuth range"]:
-        iq_dar = x.reshape(x.shape[0], x.shape[1], -1, x.shape[4])
-        zeros = torch.zeros(
-            x.shape[0], x.shape[1], self.pad, x.shape[4], device=x.device)
-
-        iq_pad = torch.concatenate([iq_dar, zeros], dim=2)
-        dar = fft.fftn(iq_pad, dim=(2, 3))
-        dar_shf = fft.fftshift(dar, dim=2)
-
-        dra = torch.swapaxes(dar_shf, 2, 3)
-        return torch.concatenate(
-            [torch.abs(dra) / 1e6, torch.angle(dra)], dim=1)
+from beartype.typing import Optional
+from jaxtyping import Float
 
 
 class Rotary2D(nn.Module):
@@ -48,16 +23,15 @@ class Rotary2D(nn.Module):
         self.d = features // 2
 
     def forward(
-        self, x: Float32[Tensor, "b x1 x2 f"]
-    ) -> Float32[Tensor, "b x1 x2 f"]:
+        self, x: Float[Tensor, "b x1 x2 f"]
+    ) -> Float[Tensor, "b x1 x2 f"]:
 
-        # Eq. 15. Extra zero since our dims are relatively small.
         i = torch.arange(x.shape[3] // 4, device=x.device)
-        theta = 100000 ** (-2 * (i - 1) / x.shape[1] // 2)
+        theta = 100000 ** (-i / x.shape[1])
         m1 = torch.arange(x.shape[1], device=x.device)
         m2 = torch.arange(x.shape[2], device=x.device)
 
-        def _get_R(m) -> Float32[torch.Tensor, "x d 2 2"]:
+        def _get_R(m) -> Float[torch.Tensor, "x d 2 2"]:
             mt = m[:, None] * theta[None, :]
             cos = torch.cos(mt)
             sin = torch.sin(mt)
@@ -65,29 +39,62 @@ class Rotary2D(nn.Module):
                 [torch.stack([cos, -sin]), torch.stack([sin, cos])])
             return torch.moveaxis(R_stack, (0, 1, 2, 3), (2, 3, 0, 1))
 
-        x1: Float32[torch.Tensor, "b x1 x2 d 2 1"] = (
+        x1: Float[torch.Tensor, "b x1 x2 d 2 1"] = (
             x[..., :self.d].reshape(*x.shape[:-1], -1, 2)[..., None])
-        R1: Float32[torch.Tensor, "1 x1  1 d 2 2"] = (
+        R1: Float[torch.Tensor, "1 x1  1 d 2 2"] = (
             _get_R(m1)[None, :, None, :, :, :])
         x1_emb = torch.matmul(R1, x1).reshape(*x.shape[:-1], -1)
 
-        x2: Float32[torch.Tensor, "b x1 x2 d 2 1"] = (
+        x2: Float[torch.Tensor, "b x1 x2 d 2 1"] = (
             x[..., self.d:].reshape(*x.shape[:-1], -1, 2)[..., None])
-        R2: Float32[torch.Tensor, "1 1  x2 d 2 2"] = (
+        R2: Float[torch.Tensor, "1 1  x2 d 2 2"] = (
             _get_R(m2)[None, None, :, :, :, :])
         x2_emb = torch.matmul(R2, x2).reshape(*x.shape[:-1], -1)
 
         return torch.concatenate([x1_emb, x2_emb], dim=3)
 
 
-class Patch(nn.Module):
-    """Split data into patches, and apply a 2D positional embedding.
-    
-    Patches are arranged in doppler-range order.
+class Sinusoid(nn.Module):
+    """Centered N-dimensional sinusoidal positional embedding."""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(
+        self, x: Float[Tensor, "b ... f"]
+    ) -> Float[Tensor, "b ... f"]:
+        
+        embedding_dim = x.shape[-1] // 2 // (len(x.shape) - 2)
+        i = torch.arange(embedding_dim, device=x.device)
+        theta = 100000 ** (-i / embedding_dim)
+
+        def _embed(i, d):
+            a = torch.arange(d, device=x.device) - d // 2
+            embedding = torch.concatenate([
+                torch.sin(theta[None, :] * a[:, None]),
+                torch.cos(theta[None, :] * a[:, None])], dim=1)
+            
+            shape = list(x.shape[1:-1]) + [1]
+            shape[i] = 1
+
+            reshape = [None] * (len(x.shape) - 1)
+            reshape[-1] = slice(None)  # type: ignore
+            reshape[i] = slice(None)   # type: ignore
+
+            tmp = torch.tile(embedding[reshape], shape)
+            return tmp
+
+        embedding = torch.concatenate(
+            [_embed(i, d) for i, d in enumerate(x.shape[1:-1])], dim=-1)
+        return embedding[None, ...] + x
+
+
+class Patch2D(nn.Module):
+    """Apply a linear patch embedding along two axes.
 
     Parameters
     ----------
-    in_channels: number of input channels (tx * rx * 2 for complex data).
+    in_channels: number of input channels.
     features: number of output features; should be `>= in_channels * size**2`.
     size: patch size.
     """
@@ -98,69 +105,134 @@ class Patch(nn.Module):
     ) -> None:
         super().__init__()
         self.size = size
-        self.patch_features = channels * size[0] * size[1]
-        self.features = features
-
         self.patch = nn.Unfold(kernel_size=size, stride=size)
-        self.linear = nn.Linear(self.patch_features, features)
-        self.rotary = Rotary2D(features)
+        self.linear = nn.Linear(channels * size[0] * size[1], features)
         
     def forward(
-        self, x: Float32[Tensor, "b f1 x1 x2"]
-    ) -> Float32[Tensor, "b p f2"]:
+        self, x: Float[Tensor, "xn xc x1 x2"]
+    ) -> Float[Tensor, "xn x1_out x2_out xc_out"]:
+        xn, xc, x1, x2 = x.shape
+        x1_out = x1 // self.size[0]
+        x2_out = x2 // self.size[1]
 
-        patches: Float32[Tensor, "b f1p p"] = self.patch(x)
-
-        patches_batch: Float32[Tensor, "bb f1p"] = (
-            torch.moveaxis(patches, 1, 2).reshape(-1, patches.shape[1]))
-        embedding_batch: Float32[Tensor, "bb f2"] = self.linear(patches_batch)
-        embedding: Float32[Tensor, "b x1p x2p f2"] = embedding_batch.reshape(
-            x.shape[0], x.shape[2] // self.size[0],
-            x.shape[3] // self.size[1], self.features)
-
-        embedding_rot: Float32[Tensor, "b x1p x2p f2"] = self.rotary(embedding)
-        return embedding_rot.reshape(x.shape[0], -1, self.features)
+        patched = self.patch(x)
+        embedded = self.linear(
+            rearrange(patched, "n c x1x2 -> (n x1x2) c"))
+        return rearrange(
+            embedded, "(n x1 x2) c -> n x1 x2 c", n=xn, x1=x1_out, x2=x2_out)
 
 
-class Unpatch(nn.Module):
-    """Unpatch data.
+class Patch4D(Patch2D):
+    """Split data into patches along two axes, keeping the other two constant.
+
+    This is necessary since Pytorch `nn.Unfold` only supports 2D data...
     
-    Patches are arranged in azimuth-range order.
+    Parameters
+    ----------
+    in_channels: number of input channels.
+    features: number of output features; should be `>= in_channels * size**2`.
+    size: patch size.
+    """
+        
+    def forward(
+        self, x: Float[Tensor, "xn xc x1 x2 x3 x4"]
+    ) -> Float[Tensor, "xn x1_out x2_out x3 x4 xc_out"]:
+        """Patch on axes x1, x2, keeping x3, x4 with a patch size of (1, 1)."""
+        xn, xc, x1, x2, x3, x4 = x.shape
+        x1_out = x1 // self.size[0]
+        x2_out = x2 // self.size[1]
+
+        patched = self.patch(
+            rearrange(x, "n c x1 x2 x3 x4 -> (n x3 x4) c x1 x2"))
+        embedded = self.linear(
+            rearrange(patched, "(nx3x4) c (x1x2) -> (nx3x4 x1x2) c"))    
+        return rearrange(
+            embedded, "(n x3 x4 x1 x2) c -> n x1 x2 x3 x4 c",
+            n=xn, x1=x1_out, x2=x2_out, x3=x3, x4=x4)
+
+
+class Unpatch2D(nn.Module):
+    """Unpatch data.
 
     Parameters
     ----------
-    output_size: (azimuth, range) bins.
+    output_size: output 2D shape.
     features: number of input features; should be `>= size * size`.
-    size: patch size.
+    size: patch size as (width, height, channels).
     """
 
     def __init__(
-        self, output_size: tuple[int, int] = (1024, 256), features: int = 512,
-        size: tuple[int, int] = (16, 16)
+        self, output_size: tuple[int, int, int] = (1024, 256, 1),
+        features: int = 512, size: tuple[int, int] = (16, 16)
     ) -> None:
         super().__init__()
-        self.features = features
-        self.size = size
-        self.output_size = output_size
-
-        self.linear = nn.Linear(features, size[0] * size[1])
-        self.unpatch = nn.Fold(output_size, kernel_size=size, stride=size)
+        self.linear = nn.Linear(features, output_size[-1] * size[0] * size[1])
+        self.unpatch = nn.Fold(output_size[:-1], kernel_size=size, stride=size)
 
     def forward(
-        self, x: Float32[Tensor, "b p f"]
-    ) -> Float32[Tensor, "b x1 x2"]:
-        patch_bps: Float32[Tensor, "b p s"] = self.linear(x).reshape(
-            x.shape[0], -1, self.size[0] * self.size[1])
-        patch_bsp: Float32[Tensor, "b s p"] = torch.swapaxes(patch_bps, 1, 2)
-        unpatch: Float32[Tensor, "b 1 x1 x2"] = self.unpatch(patch_bsp)
-        return unpatch.reshape(x.shape[0], *self.output_size)
+        self, x: Float[Tensor, "n x1x2 c"]
+    ) -> Float[Tensor, "n x1_out x2_out c_out"]:
+        embedding = self.linear(x)
+        return self.unpatch(rearrange(embedding, "b (x1x2) c -> b c (x1x2)"))
 
 
-class BasisTransform(nn.Module):
-    """Attention-based change of basis."""
+class TransformerLayer(nn.Module):
+    """Single transformer (encoder) layer.
+    
+    NOTE: we use only implement "pre-norm".
+    https://github.com/pytorch/pytorch/issues/55270
+    https://arxiv.org/pdf/2002.04745.pdf
+    """
 
     def __init__(
-        self, output_size: tuple[int, int] = (64, 16), features: int = 512
+        self, d_model: int = 512, n_head: int = 8, d_feedforward: int = 2048,
+        dropout: float = 0.0, activation: Optional[nn.Module] = None
     ) -> None:
-        self.output_size = output_size
-        self.features = features
+        super().__init__()
+
+        if activation is None:
+            activation = nn.GELU()
+
+        self.attn = nn.MultiheadAttention(
+            d_model, n_head, dropout=dropout, bias=True, batch_first=True)
+        self.dropout = nn.Dropout(dropout)
+        self.norm = nn.LayerNorm(d_model, eps=1e-5, bias=True)
+
+        self.feedforward = nn.Sequential(
+            nn.LayerNorm(d_model, eps=1e-5, bias=True),
+            nn.Linear(d_model, d_feedforward, bias=True),
+            activation,
+            nn.Dropout(dropout),
+            nn.Linear(d_feedforward, d_model, bias=True),
+            nn.Dropout(dropout))
+
+        self.activation = activation
+
+    def attention(self, x: Float[Tensor, "n t c"]) -> Float[Tensor, "n t c"]:
+        x = self.norm(x)
+        return self.dropout(self.attn(x, x, x, need_weights=False)[0])
+
+    def forward(self, x: Float[Tensor, "n t c"]) -> Float[Tensor, "n t c"]:
+        x = x + self.attention(x)
+        x = x + self.feedforward(x)
+        return x
+
+
+class TransformerQuery(nn.Module):
+    """Single "change-of-basis" query."""
+
+    def __init__(
+        self, d_model: int = 512, n_head: int = 8, queries: int = 256
+    ) -> None:
+        super().__init__()
+
+        self.attn = nn.MultiheadAttention(
+            d_model, n_head, dropout=0.0, bias=True, batch_first=True)
+        self.norm = nn.LayerNorm(d_model, eps=1e-5, bias=True)
+        self.embedding = nn.Parameter(
+            torch.normal(0, 0.01, size=(queries, d_model)))
+
+    def forward(self, x: Float[Tensor, "n t c"]) -> Float[Tensor, "n t2 c"]:
+        x = self.norm(x)
+        embedding = torch.tile(self.embedding[None, ...], (x.shape[0], 1, 1))
+        return self.attn(embedding, x, x, need_weights=False)[0]

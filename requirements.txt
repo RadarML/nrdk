@@ -3,3 +3,4 @@ matplotlib
 ouster-sdk
 tensorboard
 lightning
+einops
