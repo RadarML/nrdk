@@ -160,5 +160,5 @@ class RoverDataModule(L.LightningDataModule):
             [os.path.join(self.base, t) for t in self.val],
             transform=self.transform)
         return DataLoader(
-            ds, batch_size=self.batch_size, shuffle=False, drop_last=True,
+            ds, batch_size=self.batch_size, shuffle=True, drop_last=True,
             num_workers=self.nproc)

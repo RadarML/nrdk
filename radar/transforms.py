@@ -4,8 +4,8 @@ import os, json
 import numpy as np
 from scipy import fft
 
-from jaxtyping import Complex64, Int16, UInt, UInt16, Float32, Bool, PyTree
-from beartype.typing import Iterable
+from jaxtyping import Complex64, Int16, UInt, UInt16, Float32, Bool
+from beartype.typing import Iterable, Any
 
 from ouster import client
 
@@ -21,7 +21,7 @@ class BaseTransform:
     def __init__(self, path: str) -> None:
         pass
 
-    def __call__(self, data: PyTree) -> PyTree:
+    def __call__(self, data: Any) -> Any:
         raise NotImplementedError()
 
 
@@ -38,7 +38,7 @@ class IIQQtoIQ(BaseTransform):
         return iq
 
 
-class DiscardTX2(BaseTransform):
+class DiscardTx2(BaseTransform):
     """Discard antenna TX2 if data was collected in 3x4 mode."""
 
     def __call__(

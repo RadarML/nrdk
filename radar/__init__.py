@@ -2,9 +2,9 @@ from jaxtyping import install_import_hook
 
 with install_import_hook("torchradar", "beartype.beartype"):
     from .dataloader import RoverData, RoverDataModule
-    from . import transforms, modules
+    from . import transforms, modules, objectives
 
 
 __all__ = [
     "RoverData", "RoverDataModule",
-    "transforms", "modules"]
+    "transforms", "modules", "objectives"]
