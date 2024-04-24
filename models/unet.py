@@ -1,11 +1,9 @@
-"""U-net model.
+"""RadarHD U-net model.
 
 References
 ----------
 [1] RadarHD: High resolution point clouds from mmWave Radar
     https://akarsh-prabhakara.github.io/research/radarhd/
-[2] ConvNeXt: A ConvNet for the 2020s
-    https://arxiv.org/abs/2201.03545
 """
 
 import torch
@@ -18,140 +16,100 @@ from torch import nn
 from radar import modules
 
 
-class UNetDown(nn.Module):
-    """Single downsample U-net stage."""
+def _unetblock(
+    d_in: int = 64, d_out: int = 64, d_hidden: int = 64
+) -> nn.Module:
+    return nn.Sequential(
+        nn.Conv2d(d_in, d_hidden, kernel_size=3, padding='same'),
+        nn.BatchNorm2d(d_hidden),
+        nn.ReLU(inplace=True),
+        nn.Conv2d(d_hidden, d_out, kernel_size=3, padding='same'),
+        nn.BatchNorm2d(d_out),
+        nn.ReLU(inplace=True))
 
-    def __init__(self, width: int = 64, depth: int = 3) -> None:
-        super().__init__()
 
-        self.conv = nn.Sequential(*[
-            modules.ConvNeXTBlock(
-                d_model=width, d_bottleneck=width * 4, kernel_size=7,
-                activation="ReLU"
-            ) for _ in range(depth)])
-
-        self.down = modules.ConvDownsample(d_in=width, d_out=width * 2)
-
-    def forward(
-        self, x: Float[Tensor, "n c h w"]
-    ) -> tuple[Float[Tensor, "n c h w"], Float[Tensor, "n c2 h2 h2"]]:
-        x = self.conv(x)
-        return x, self.down(x)
+def _down(d_in: int = 64, d_out: int = 64) -> nn.Module:
+    return nn.Sequential(nn.MaxPool2d(2), _unetblock(d_in, d_out, d_out))
 
 
 class UNetUp(nn.Module):
     """Single upsample U-net stage."""
 
-    def __init__(self, width: int = 64, depth: int = 3) -> None:
+    def __init__(self, d_in: int = 64, d_out: int = 64) -> None:
         super().__init__()
 
-        self.up = nn.PixelShuffle(2)
-        self.linear_up = nn.Conv2d(
-            width * 2, width * 4, kernel_size=(1, 1), stride=1)
+        self.up = nn.Upsample(
+            scale_factor=2, mode='bilinear', align_corners=True)
+        self.conv = _unetblock(d_in, d_out, d_in // 2)
 
-        self.conv = nn.Sequential(*[
-            modules.ConvNeXTBlock(
-                d_model=width, d_bottleneck=width * 4, kernel_size=7,
-                activation="ReLU"
-            ) for _ in range(depth)])
+    def forward(self, x1, x2):
+        x1 = self.up(x1)
+        diffY = x2.size()[2] - x1.size()[2]
+        diffX = x2.size()[3] - x1.size()[3]
 
-    def forward(
-        self, x_down: Float[Tensor, "n c2 h w"],
-        x_skip: Float[Tensor, "n c h2 w2"]
-    ) -> Float[Tensor, "n c h2 w2"]:
-        x_upsampled = self.up(self.linear_up(x_down))
-        return self.conv(x_upsampled + x_skip)
+        x1 = nn.functional.pad(x1, [
+            diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2])
+        x = torch.cat([x2, x1], dim=1)
+        return self.conv(x)
 
 
 class AzimuthUp(nn.Module):
     """Upsample azimuth axis."""
 
-    def __init__(self, width: int, depth: int = 3) -> None:
+    def __init__(self, d_in: int = 64, d_out: int = 64) -> None:
         super().__init__()
+        self.up = nn.Upsample(
+            scale_factor=(2, 1), mode='bilinear', align_corners=True)
+        self.conv = _unetblock(d_in, d_out, d_in)
 
-        self.conv = nn.Sequential(*[
-            modules.ConvNeXTBlock(
-                d_model=width, d_bottleneck=width * 4, kernel_size=7,
-                activation='ReLU'
-            ) for _ in range(depth)])
-
-    def forward(
-        self, x: Float[Tensor, "n c h w"]
-    ) -> Float[Tensor, "n c2 h2 w"]:
-        x_shuffle = rearrange(x, "n (c f) h w -> n c (h f) w", f=2)
-        return self.conv(x_shuffle)
+    def forward(self, x1):
+        x1 = self.up(x1)
+        return self.conv(x1)
 
 
 class RadarUNet(nn.Module):
-    """Radar range-azimuth U-net.
+    """Generic U-net for range-azimuth radar [1]."""
 
-    We adopt some relevant recommendations from [2], including:
-    - Using layer norm instead of batch norm.
-    - Using the ConvNeXT block (7x7/d + 1x1/4d + 1x1/d) instead of a generic
-        3x3/d conv block.
-
-    We also take inspiration from the same concepts and change the following:
-    - Instead of concatenating skip connections, we upsample-project to the
-        same space, and add (similar to a residual layer).
-
-    Parameters
-    ----------
-    width: network width multiplier. Each stage has a width of
-        `width * 2**stage`, for stage = 0, 1, 2.
-    d_input: input dimension.
-    depth: number of conv blocks per encode/decode in each stage.
-    """
-
-    def __init__(
-        self, width: int = 64, d_input: int = 64, depth: int = 3
-    ) -> None:
+    def __init__(self, d_input: int = 64) -> None:
         super().__init__()
 
-        self.embed = nn.Conv2d(d_input, width, kernel_size=(1, 1))
-        self.s0_down = UNetDown(width, depth=depth)
-        self.s1_down = UNetDown(width * 2, depth=depth)
-        self.s2_down = UNetDown(width * 4, depth=depth)
+        self.fft = modules.FFTLinear(pad=56, axes=(1, 2))
 
-        self.bridge = nn.Sequential(*[
-            modules.ConvNeXTBlock(
-                d_model=width *  8, d_bottleneck=width * 32, kernel_size=7,
-                activation="ReLU"
-            ) for _ in range(depth)])
+        self.inc = _unetblock(d_input, 64)
+        self.down1 = _down(64, 128)
+        self.down2 = _down(128, 256)
+        self.down3 = _down(256, 512)
+        self.down4 = _down(512, 512)
+        self.up1 = UNetUp(1024, 256)
+        self.up2 = UNetUp(512, 128)
+        self.up3 = UNetUp(256, 64)
+        self.up4 = UNetUp(128, 64)
+        self.up5 = AzimuthUp(64, 64)
+        self.up6 = AzimuthUp(64, 64)
+        self.up7 = AzimuthUp(64, 64)
+        self.up8 = AzimuthUp(64, 64)
 
-        self.s0_up = UNetUp(width, depth=depth)
-        self.s1_up = UNetUp(width * 2, depth=depth)
-        self.s2_up = UNetUp(width * 4, depth=depth)
-
-        self.asym_up = nn.Sequential(
-            AzimuthUp(width // 2),
-            AzimuthUp(width // 4),
-            AzimuthUp(width // 8),
-            AzimuthUp(width // 16))
-
-        self.out = nn.Conv2d(width // 16, 1, kernel_size=(1, 1))
-
+        self.out = nn.Conv2d(64, 1, kernel_size=1)
         self.logits = nn.Sigmoid()
 
     def forward(
         self, x: Complex[Tensor, "n d 4 2 r"]
     ) -> Float[Tensor, "n 1024 256"]:
 
-        with torch.no_grad():
-            x_iq = rearrange(x, "n d tx rx r -> n d (tx rx) r")
-            zeros = torch.zeros(
-                (x.shape[0], x.shape[1], 56, x.shape[-1]), device=x.device)
-            x_pad = torch.concatenate([x_iq, zeros], dim=2)
-            x_dar = torch.fft.fftn(x_pad, dim=(2, 3))
-            x_shf = torch.fft.fftshift(x_dar, dim=[2])
-            x = torch.sqrt(torch.abs(x_shf)) / 1e3
+        x = torch.sqrt(torch.abs(self.fft(x))) / 1e3
 
-        x = self.embed(x)
-        x0, x = self.s0_down(x)
-        x1, x = self.s1_down(x)
-        x2, x = self.s2_down(x)
-        x_bridge = self.bridge(x)
-        x = self.s2_up(x_bridge, x2)
-        x = self.s1_up(x, x1)
-        x = self.s0_up(x, x0)
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+        x5 = self.down4(x4)
+        x = self.up1(x5, x4)
+        x = self.up2(x, x3)
+        x = self.up3(x, x2)
+        x = self.up4(x, x1)
+        x = self.up5(x)
+        x = self.up6(x)
+        x = self.up7(x)
+        x = self.up8(x)
 
-        return self.logits(self.out(self.asym_up(x))[:, 0])
+        return self.logits(self.out(x)[:, 0])

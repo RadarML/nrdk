@@ -12,13 +12,47 @@ References
     https://github.com/pytorch/pytorch/issues/55270
 """
 
-import numpy as np
 import torch
-from torch import nn, Tensor
+from torch import nn, Tensor, fft
 from einops import rearrange
 
-from beartype.typing import Optional, Union
-from jaxtyping import Float
+from beartype.typing import Union, Iterable
+from jaxtyping import Float, Complex
+
+
+class FFTLinear(nn.Module):
+    """GPU version of `transform.FFTLinear`.
+    
+    Parameters
+    ----------
+    pad: azimuth padding; output has shape (tx * rx + pad).
+    axes: axes to apply an FFT to; 0=doppler, 1=azimuth, 2=range.
+    """
+
+    def __init__(
+        self, pad: int = 0, axes: Iterable[int] = (0, 1, 2)
+    ) -> None:
+        super().__init__()
+        self.pad = pad
+        self.axes = axes
+
+    def forward(
+        self, data: Complex[Tensor, "N D Tx Rx R"]
+    ) -> Complex[Tensor, "N D A R"]:
+        n, d, tx, rx, r = data.shape
+        assert tx == 2, "Only 2-tx mode is supported."
+
+        iq_dar = data.reshape(n, d, tx * rx, r)
+
+        if self.pad > 0:
+            zeros = torch.zeros(
+                [n, d, self.pad, r], dtype=torch.complex64, device=data.device)
+            iq_dar = torch.concatenate([iq_dar, zeros], dim=2)
+        
+        dar = fft.fftn(iq_dar, dim=[x + 1 for x in self.axes])
+        dar_shf = fft.fftshift(
+            dar, dim=[x + 1 for x in self.axes if x in (0, 1)])
+        return dar_shf
 
 
 class Rotary2D(nn.Module):

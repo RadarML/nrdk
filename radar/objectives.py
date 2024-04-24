@@ -10,6 +10,7 @@ from beartype.typing import Any
 from jaxtyping import Float, Num
 
 import models
+from .dataloader import RoverDataModule
 
 
 class BaseModel(L.LightningModule):
@@ -17,9 +18,10 @@ class BaseModel(L.LightningModule):
     
     Parameters
     ----------
+    objective: objective name (ignored).
+    dataset: dataset specifications.
     model: model name; should be a `nn.Module` in `models`.
     model_args: args to pass to the model.
-    log_interval: how often to log images.
     optimizer: optimizer to use (from `torch.optim`).
     default_lr: default learning rate to use.
     optimizer_args: per-layer/parameter optimizer arguments; each key is a
@@ -28,7 +30,8 @@ class BaseModel(L.LightningModule):
     """
 
     def __init__(
-        self, model: str, model_args: dict[str, Any], log_interval: int = 500,
+        self, objective: str = "RadarHD", dataset: dict[str, Any] = {},
+        model: str = "UNet", model_args: dict[str, Any] = {},
         optimizer: str = "AdamW", default_lr: float = 1e-3,
         optimizer_args: dict[str, dict] = {}
     ) -> None:
@@ -36,11 +39,23 @@ class BaseModel(L.LightningModule):
 
         self.model = getattr(models, model)(**model_args)
 
-        self.save_hyperparameters()
-        self.log_interval = log_interval
+        self.log_interval = 1
+        self.dataset = dataset
         self.optimizer = optimizer
         self.optimizer_args = optimizer_args
         self.default_lr = default_lr
+
+        self.save_hyperparameters()
+
+    def get_dataset(self, path: str, debug: bool = False) -> RoverDataModule:
+        """Get datamodule.
+
+        Parameters
+        ----------
+        path: dataset root directory.
+        debug: whether to run in debug mode.
+        """
+        return RoverDataModule(**self.dataset, path=path, debug=debug)
 
     def add_image(
         self, path: str, img: Num[torch.Tensor, "n h w"],
@@ -86,7 +101,7 @@ class RadarHD(BaseModel):
     
     Parameters
     ----------
-    bce_weight: BCE loss weight for positive cells.
+    bce_weight: BCE loss weight; Dice loss is weighted `1 - bce_weight`.
     kwargs: see `BaseModel`.
     """
 
@@ -94,11 +109,21 @@ class RadarHD(BaseModel):
         super().__init__(**kwargs)
         self.bce_weight = bce_weight
 
-    def loss_func(
-        self, y_hat: Float[Tensor, "n ..."], y_true: Float[Tensor, "n ..."]
+    def _dice(
+        self, y_hat: Float[Tensor, "n a r"], y_true: Float[Tensor, "n a r"]
     ) -> Float[Tensor, ""]:
-        weight = self.bce_weight * y_true + (1 - self.bce_weight)
-        return nn.functional.binary_cross_entropy(y_hat, y_true, weight=weight)
+        denominator = (
+            torch.sum(y_hat * y_hat, dim=(1, 2))
+            + torch.sum(y_true, dim=(1, 2)))
+        numerator = 2 * torch.sum(y_hat * y_true, dim=(1, 2))
+        return torch.mean(1.0 - numerator / denominator)
+
+    def loss_func(
+        self, y_hat: Float[Tensor, "n a r"], y_true: Float[Tensor, "n a r"]
+    ) -> Float[Tensor, ""]:
+        dice = self._dice(y_hat, y_true)
+        bce = nn.functional.binary_cross_entropy(y_hat, y_true)
+        return bce * self.bce_weight + dice * (1 - self.bce_weight)
 
     def log_radarhd(
         self, path: str, y_true: Float[Tensor, "n h w"],
@@ -112,7 +137,7 @@ class RadarHD(BaseModel):
             f"{path}/y_true", torch.swapaxes(y_true[:8], 1, 2),
             size=(256, 512), columns=4)
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx):  # type: ignore
         y_hat = self.model(batch['radar'])
         y_true = batch['lidar'].to(torch.float32)
         loss = self.loss_func(y_hat, y_true)
@@ -123,7 +148,7 @@ class RadarHD(BaseModel):
 
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx):  # type: ignore
         y_hat = self.model(batch['radar'])
         y_true = batch['lidar'].to(torch.float32)
         loss = self.loss_func(y_hat, y_true)

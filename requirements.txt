@@ -4,3 +4,4 @@ ouster-sdk
 tensorboard
 lightning
 einops
+pyyaml

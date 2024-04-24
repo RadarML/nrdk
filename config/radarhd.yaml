@@ -1,0 +1,38 @@
+objective: RadarHD
+model: RadarUNet
+model_args:
+  d_input: 64
+optimizer: AdamW
+optimizer_args: {}
+default_lr: 0.001
+bce_weight: 0.9
+dataset:
+  batch_size: 16
+  train:
+  - carnival1
+  - carnival2
+  - cic1
+  - cic2
+  - ghc
+  - hamburg
+  - hammerschlag
+  - porter
+  - scaife
+  - scott
+  - tepper
+  - wean
+  val:
+  - cic4
+  - nsh
+  - smith
+  transform:
+    lidar:
+    - args: {}
+      name: Destagger
+    - args: {}
+      name: Map2D
+    radar:
+    - args: {}
+      name: DiscardTx2
+    - args: {}
+      name: IIQQtoIQ
