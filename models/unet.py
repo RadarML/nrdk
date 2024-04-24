@@ -8,7 +8,6 @@ References
 
 import torch
 from torch import Tensor
-from einops import rearrange
 
 from jaxtyping import Float, Complex
 

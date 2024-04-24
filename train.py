@@ -32,7 +32,7 @@ def _parse():
         "`<folder>/checkpoints/<checkpoint>.ckpt`, where `folder` contains a "
         "`hparams.yaml` file.")
     g.add_argument(
-        "-s", "--steps", default=-1, type=int, help="Maximum number of steps")
+        "-s", "--steps", default=-1, type=int, help="Maximum number of steps.")
 
     g = p.add_argument_group("Logging")
     g.add_argument(
@@ -45,7 +45,7 @@ def _parse():
         "--val_interval", default=2000, type=int,
         help="Validation interval, in steps.")
     g.add_argument(
-        "--log_example_interval", default=100, type=int,
+        "--log_example_interval", default=200, type=int,
         help="Interval to log example train images.")
     g.add_argument(
         "--log_interval", default=10, type=int,
