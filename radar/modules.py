@@ -1,4 +1,16 @@
-"""RadarML modules."""
+"""RadarML modules.
+
+References
+----------
+[1] RoFormer: Enhanced Transformer with Rotary Position Embedding
+    https://arxiv.org/abs/2104.09864
+[2] ConvNeXt: A ConvNet for the 2020s
+    https://arxiv.org/abs/2201.03545
+[3] On Layer Normalization in the Transformer Architecture
+    https://arxiv.org/pdf/2002.04745.pdf
+[4] Issue @ pytorch relating to post-norm:
+    https://github.com/pytorch/pytorch/issues/55270
+"""
 
 import numpy as np
 import torch
@@ -10,9 +22,7 @@ from jaxtyping import Float
 
 
 class Rotary2D(nn.Module):
-    """2D rotary encoding (RoPE).
-    
-    https://arxiv.org/abs/2104.09864
+    """2D rotary encoding [2].
 
     Parameters
     ----------
@@ -211,9 +221,7 @@ class Unpatch2D(nn.Module):
 class TransformerLayer(nn.Module):
     """Single transformer (encoder) layer.
     
-    NOTE: we use only implement "pre-norm".
-    https://github.com/pytorch/pytorch/issues/55270
-    https://arxiv.org/pdf/2002.04745.pdf
+    NOTE: we use only implement "pre-norm" [3, 4].
 
     Parameters
     ----------
@@ -227,12 +235,9 @@ class TransformerLayer(nn.Module):
 
     def __init__(
         self, d_model: int = 512, n_head: int = 8, d_feedforward: int = 2048,
-        dropout: float = 0.0, activation: Optional[nn.Module] = None
+        dropout: float = 0.0, activation: str = "GELU"
     ) -> None:
         super().__init__()
-
-        if activation is None:
-            activation = nn.GELU()
 
         self.attn = nn.MultiheadAttention(
             d_model, n_head, dropout=dropout, bias=True, batch_first=True)
@@ -242,12 +247,10 @@ class TransformerLayer(nn.Module):
         self.feedforward = nn.Sequential(
             nn.LayerNorm(d_model, eps=1e-5, bias=True),
             nn.Linear(d_model, d_feedforward, bias=True),
-            activation,
+            getattr(nn, activation)(),
             nn.Dropout(dropout),
             nn.Linear(d_feedforward, d_model, bias=True),
             nn.Dropout(dropout))
-
-        self.activation = activation
 
     def attention(self, x: Float[Tensor, "n t c"]) -> Float[Tensor, "n t c"]:
         x = self.norm(x)
@@ -257,6 +260,56 @@ class TransformerLayer(nn.Module):
         x = x + self.attention(x)
         x = x + self.feedforward(x)
         return x
+
+
+class ConvNeXTBlock(nn.Module):
+    """Single ConvNeXT block [1]."""
+
+    def __init__(
+        self, d_model: int = 64, d_bottleneck: int = 256, kernel_size: int = 7,
+        activation: str = 'ReLU'
+    ) -> None:
+        super().__init__()
+
+        self.dw = nn.Conv2d(
+            in_channels=d_model, out_channels=d_model,
+            kernel_size=(kernel_size, kernel_size), stride=1,
+            padding='same', groups=d_model)
+        self.norm = nn.LayerNorm(d_model, eps=1e-5, bias=True)
+        self.pw1 = nn.Conv2d(
+            d_model, d_bottleneck, kernel_size=(1, 1), stride=1)
+        self.activation = getattr(nn, activation)()
+        self.pw2 = nn.Conv2d(
+            d_bottleneck, d_model, kernel_size=(1, 1), stride=1)
+
+    def forward(self, x: Float[Tensor, "n c h w"]) -> Float[Tensor, "n c h w"]:
+        x0 = x
+        x = self.dw(x)
+        x = rearrange(
+            self.norm(rearrange(x, "n c h w -> n h w c")),
+            "n h w c -> n c h w")
+        x = self.pw1(x)
+        x = self.activation(x)
+        x = self.pw2(x)
+        return x0 + x
+
+
+class ConvDownsample(nn.Module):
+    """Downsampling block [1]."""
+
+    def __init__(self, d_in: int = 64, d_out: int = 128) -> None:
+        super().__init__()
+
+        self.norm = nn.LayerNorm(d_in, eps=1e-5)
+        self.conv = nn.Conv2d(d_in, d_out, kernel_size=2, stride=2)
+
+    def forward(
+        self, x: Float[Tensor, "n c1 h1 w1"]
+    ) -> Float[Tensor, "n c2 h2 w2"]:        
+        x_norm = rearrange(
+            self.norm(rearrange(x, "n c h w -> n h w c")),
+            "n h w c -> n c h w")
+        return self.conv(x_norm)
 
 
 class BasisChange(nn.Module):
