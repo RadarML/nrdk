@@ -1,8 +1,13 @@
 objective: RadarHD
-model: RadarUNet
+model: RadarTransformer
 model_args:
-  d_input: 64
-  doppler: False
+  dim: 512
+  ff_ratio: 4.0
+  heads: 8
+  dropout: 0.1
+  activation: GELU
+  in_shape: [64, 256, 8, 2]
+  out_shape: [1024, 256]
 optimizer: AdamW
 optimizer_args: {}
 default_lr: 0.001
@@ -37,3 +42,9 @@ dataset:
       name: DiscardTx2
     - args: {}
       name: IIQQtoIQ
+    - args:
+        pad: 0
+        axes: [0, 1, 2]
+      name: FFTLinear
+    - args: {}
+      name: ComplexPhase

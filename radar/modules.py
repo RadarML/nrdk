@@ -137,7 +137,7 @@ class Learnable1D(nn.Module):
     def __init__(self, d_model: int = 512, size: int = 1024) -> None:
         super().__init__()
         self.embeddings = nn.Parameter(
-            data=torch.normal(0, 0.001, (size, d_model)))
+            data=torch.normal(0, 0.02, (size, d_model)))
 
     def forward(
         self, x: Union[Float[Tensor, "n t c"], Float[Tensor, "n 1 c"]]
@@ -155,7 +155,7 @@ class LearnableND(nn.Module):
         super().__init__()
         self.shape = shape
         self.embeddings = nn.ParameterList([
-            torch.normal(0, 0.001, (d, d_model)) for d in shape])
+            torch.normal(0, 0.02, (d, d_model)) for d in shape])
 
     def forward(self, x: Float[Tensor, "n ... c"]) -> Float[Tensor, "n ... c"]:
         for i, e in enumerate(self.embeddings):
@@ -296,6 +296,64 @@ class TransformerLayer(nn.Module):
         return x
 
 
+class TransformerDecoder(nn.Module):
+    """Single transformer (decoder) layer.
+    
+    Parameters
+    ----------
+    d_model: model feature dimensions.
+    n_head: number of heads.
+    d_feedforward: feedforward block hidden units.
+    dropout: dropout to use during training.
+    activation: activation function to use; must be a `nn.Module` (i.e. not
+        `nn.functional.*`).
+    """
+
+    def __init__(
+        self, d_model: int = 512, n_head: int = 8, d_feedforward: int = 2048,
+        dropout: float = 0.0, activation: str = "GELU"
+    ) -> None:
+        super().__init__()
+
+        self.attn = nn.MultiheadAttention(
+            d_model, n_head, dropout=dropout, bias=True, batch_first=True)
+        self.dropout = nn.Dropout(dropout)
+        self.norm = nn.LayerNorm(d_model, eps=1e-5, bias=True)
+
+        self.attn2 = nn.MultiheadAttention(
+            d_model, n_head, dropout=dropout, bias=True, batch_first=True)
+        self.dropout2 = nn.Dropout(dropout)
+        self.norm2 = nn.LayerNorm(d_model, eps=1e-5, bias=True)
+
+        self.feedforward = nn.Sequential(
+            nn.LayerNorm(d_model, eps=1e-5, bias=True),
+            nn.Linear(d_model, d_feedforward, bias=True),
+            getattr(nn, activation)(),
+            nn.Dropout(dropout),
+            nn.Linear(d_feedforward, d_model, bias=True),
+            nn.Dropout(dropout))
+
+    def self_attention(
+        self, x: Float[Tensor, "n t c"]
+    ) -> Float[Tensor, "n t c"]:
+        x = self.norm(x)
+        return self.dropout(self.attn(x, x, x, need_weights=False)[0])
+
+    def cross_attention(
+        self, x: Float[Tensor, "n t c"], x_enc: Float[Tensor, "n t2 c"]
+    ) -> Float[Tensor, "n t c"]:
+        x = self.norm(x)
+        return self.dropout(self.attn2(x, x_enc, x_enc, need_weights=False)[0])
+
+    def forward(
+        self, x: Float[Tensor, "n t c"], x_enc: Float[Tensor, "n t2 c"]
+    ) -> Float[Tensor, "n t c"]:
+        x = x + self.self_attention(x)
+        x = x + self.cross_attention(x, x_enc)
+        x = x + self.feedforward(x)
+        return x
+
+
 class ConvNeXTBlock(nn.Module):
     """Single ConvNeXT block [1]."""
 
@@ -344,35 +402,3 @@ class ConvDownsample(nn.Module):
             self.norm(rearrange(x, "n c h w -> n h w c")),
             "n h w c -> n c h w")
         return self.conv(x_norm)
-
-
-class BasisChange(nn.Module):
-    """Single "change-of-basis" query."""
-
-    def __init__(
-        self, d_model: int = 512, n_head: int = 8,
-        shape: Union[list[int], tuple[int, ...]] = (16, 16)
-    ) -> None:
-        super().__init__()
-
-        self.attn = nn.MultiheadAttention(
-            d_model, n_head, dropout=0.0, bias=True, batch_first=True)
-        self.norm = nn.LayerNorm(d_model, eps=1e-5, bias=True)
-        self.normq = nn.LayerNorm(d_model, eps=1e-5, bias=True)
-
-        self.pos = LearnableND(d_model, shape=shape)
-        # self.pos = Sinusoid()
-        self.shape = shape
-
-    def forward(self, x: Float[Tensor, "n t c"]) -> Float[Tensor, "n t2 c"]:
-
-        x = self.norm(x)
-
-        avg = torch.mean(x, dim=1)
-        idxs = [slice(None)] + [None] * len(self.shape) + [slice(None)]
-        query = self.pos(avg[idxs]).reshape(x.shape[0], -1, x.shape[-1])
-        # query = self.pos(
-        #     torch.tile(avg[idxs], (1, *self.shape, 1))
-        # ).reshape(x.shape[0], -1, x.shape[-1])
-        
-        return self.attn(query, x, x, need_weights=False)[0]

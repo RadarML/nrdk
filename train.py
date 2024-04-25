@@ -42,16 +42,16 @@ def _parse():
         "-v", "--version", default=None,
         help="Experiment version (for experiment tracking only).")
     g.add_argument(
-        "--val_interval", default=2000, type=int,
-        help="Validation interval, in steps.")
+        "--val_interval", default=0.5, type=float,
+        help="Validation interval, as a fraction of each epoch.")
     g.add_argument(
         "--log_example_interval", default=200, type=int,
         help="Interval to log example train images.")
     g.add_argument(
-        "--log_interval", default=10, type=int,
+        "--log_interval", default=200, type=int,
         help="Logging interval for training statistics.")
     g.add_argument(
-        "--num_checkpoints", default=10, type=int,
+        "--num_checkpoints", default=-1, type=int,
         help="Number of checkpoints to save.")
 
     return p
@@ -84,7 +84,8 @@ def _main(args):
     model.log_interval = args.log_example_interval
 
     checkpoint = ModelCheckpoint(
-        save_top_k=5, monitor="loss/val", save_last=True, dirpath=None)
+        save_top_k=args.num_checkpoints, monitor="loss/val",
+        save_last=True, dirpath=None)
     logger = TensorBoardLogger(args.out, name=args.name, version=args.version)
 
     data = model.get_dataset(args.path)

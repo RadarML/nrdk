@@ -2,7 +2,7 @@ objective: RadarHD
 model: RadarUNet
 model_args:
   d_input: 64
-  doppler: False
+  doppler: True
 optimizer: AdamW
 optimizer_args: {}
 default_lr: 0.001

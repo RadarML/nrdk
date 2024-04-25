@@ -1,8 +1,10 @@
 objective: RadarHD
-model: RadarUNet
+model: RadarUNeXT
 model_args:
+  width: 64
   d_input: 64
-  doppler: False
+  depth: 2
+  doppler: True
 optimizer: AdamW
 optimizer_args: {}
 default_lr: 0.001

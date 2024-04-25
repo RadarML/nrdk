@@ -5,3 +5,4 @@ tensorboard
 lightning
 einops
 pyyaml
+beartype

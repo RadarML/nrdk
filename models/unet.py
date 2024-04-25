@@ -69,10 +69,11 @@ class AzimuthUp(nn.Module):
 class RadarUNet(nn.Module):
     """Generic U-net for range-azimuth radar [1]."""
 
-    def __init__(self, d_input: int = 64) -> None:
+    def __init__(self, d_input: int = 64, doppler: bool = False) -> None:
         super().__init__()
 
-        self.fft = modules.FFTLinear(pad=56, axes=(1, 2))
+        axes = (0, 1, 2) if doppler else (1, 2)
+        self.fft = modules.FFTLinear(pad=56, axes=axes)
 
         self.inc = _unetblock(d_input, 64)
         self.down1 = _down(64, 128)
