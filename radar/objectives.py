@@ -27,13 +27,14 @@ class BaseModel(L.LightningModule):
     optimizer_args: per-layer/parameter optimizer arguments; each key is a
         regex, and each value are additional parameters to pass to matching
         parameters.
+    warmup: learning rate warmup period.
     """
 
     def __init__(
         self, objective: str = "RadarHD", dataset: dict[str, Any] = {},
         model: str = "UNet", model_args: dict[str, Any] = {},
         optimizer: str = "AdamW", default_lr: float = 1e-3,
-        optimizer_args: dict[str, dict] = {}
+        optimizer_args: dict[str, dict] = {}, warmup: int = 0
     ) -> None:
         super().__init__()
 
@@ -43,6 +44,7 @@ class BaseModel(L.LightningModule):
         self.dataset = dataset
         self.optimizer = optimizer
         self.optimizer_args = optimizer_args
+        self.warmup = warmup
         self.default_lr = default_lr
 
         self.save_hyperparameters()
@@ -90,10 +92,23 @@ class BaseModel(L.LightningModule):
             else:
                 nomatch.append(param)
 
-        return getattr(torch.optim, self.optimizer)([
+        opt =  getattr(torch.optim, self.optimizer)([
             {"params": subsets[k], **self.optimizer_args[k]}
             for k in subsets
         ] + [{"params": nomatch}], lr=self.default_lr)
+
+        if self.warmup > 0:
+            return {
+                "optimizer": opt,
+                "lr_scheduler": {
+                    "scheduler": torch.optim.lr_scheduler.LinearLR(
+                        opt, start_factor=1e-3, end_factor=1.0,
+                        total_iters=self.warmup),
+                    "interval": "step"
+                }
+            }
+        else:
+            return opt
 
 
 class RadarHD(BaseModel):

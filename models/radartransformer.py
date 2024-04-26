@@ -1,67 +1,96 @@
+"""First prototype of the "Radar Transformer"."""
+
 import torch
+from torch import Tensor
 from einops import rearrange
 from radar import modules
 from torch import nn
+
+from beartype.typing import Iterable, Union
+from jaxtyping import Float
+
+from radar import modules
+
+
+class BasisChange(nn.Module):
+    """Create "change-of-basis" query.
+    
+    Uses a 'reference vector', e.g. the output for a readout token or the
+    token-wise mean of the output.
+
+    Parameters
+    ----------
+    shape: query shape.
+    """
+
+    def __init__(
+        self, shape: Union[list[int], tuple[int, ...]] = (16, 16)
+    ) -> None:
+        super().__init__()
+
+        self.pos = modules.Sinusoid()
+        self.shape = shape
+
+    def forward(self, x: Float[Tensor, "n c"]) -> Float[Tensor, "n t2 c"]:
+
+        idxs = [slice(None)] + [None] * len(self.shape) + [slice(None)]
+        query = self.pos(
+            torch.tile(x[idxs], (1, *self.shape, 1))
+        ).reshape(x.shape[0], -1, x.shape[-1])
+
+        return query
 
 
 class RadarTransformer(nn.Module):
 
     def __init__(
-        self, dim: int = 768, ff: int = 3072,
-        heads: int = 12, dropout: float = 0.1
+        self, dim: int = 768, ff_ratio: float = 4.0, heads: int = 12,
+        dropout: float = 0.1, activation: str = 'GELU',
+        out_shape: Iterable[int] = (1024, 256)
     ) -> None:
         super().__init__()
 
-        # self.patch = modules.Patch4D(
-        #    channels=2, features=dim, size=(16, 16))
-        # self.patch = modules.Patch2D(
-        #     channels=2 * 64, features=512, size=(1, 8))
-        self.patch = modules.Patch2D(
-            channels=2 * 2 * 64, features=dim, size=(1, 2))
+        tfspec = {
+            "d_feedforward": int(ff_ratio * dim), "d_model": dim,
+            "n_head": heads, "dropout": dropout, "activation": activation}
 
+        self.out_shape = out_shape
+
+        self.patch = modules.Patch4D(channels=2, features=dim, size=(16, 16))
         self.pos = modules.Sinusoid()
-        # self.pos = modules.Learnable1D(d_model=512, size=1024)
-        # self.pos = modules.LearnableND(d_model=512, shape=(4, 16, 8, 2))
-        # self.pos = modules.LearnableND(d_model=dim, shape=(8, 256 // 2))
 
-        self.encode = nn.Sequential(*[
-            modules.TransformerLayer(
-                d_model=dim, n_head=heads, d_feedforward=ff, dropout=dropout,
-                activation=torch.nn.GELU())
-            for _ in range(2)])
-    
-        # self.query = modules.BasisChange(
-        #     d_model=dim, n_head=heads, shape=(1024 // 16, 256 // 16))
+        self.readout = nn.Parameter(data=torch.normal(0, 0.02, (dim,)))
 
-        # self.decode = nn.Sequential(*[
-        #     modules.TransformerLayer(
-        #         d_model=dim, n_head=heads, d_feedforward=ff, dropout=dropout,
-        #         activation=torch.nn.GELU())
-        #     for _ in range(4)])
+        self.encode = nn.ModuleList([
+            modules.TransformerLayer(**tfspec) for _ in range(3)])
+        self.decode = nn.ModuleList([
+            modules.TransformerDecoder(**tfspec) for _ in range(3)])
+
+        self.query = BasisChange(
+            shape=(out_shape[0] // 16, out_shape[1] // 16))
 
         self.unpatch = modules.Unpatch2D(
-            output_size=(1024, 256, 1), features=dim, size=(16, 16))
-
+            output_size=(out_shape[0], out_shape[1], 1),
+            features=dim, size=(16, 16))
         self.activation = nn.Sigmoid()
 
     def forward(self, x):
-
-        # patch = self.patch(rearrange(x, "n d a e r c -> n c d r a e"))
-        patch = self.patch(rearrange(x, "n d a e r c -> n (d c e) a r"))
-        # patch = self.patch(rearrange(x, "n d a r c -> n (d c) a r"))
-
+        patch = self.patch(rearrange(x, "n d a e r c -> n c d r a e"))
         embedded = self.pos(patch)
-        enc = self.encode(
-            rearrange(embedded, "n a r c -> n (a r) c"))
-        # enc = self.encode(
-        #     rearrange(embedded, "n d r a e c -> n (d r a e) c"))
-        # tf = self.query(enc)
-        tf = enc
-        dec = tf
-        # dec = self.decode(tf)
-        # dec = self.encode(
-        #     rearrange(embedded, "n a r c -> n (a r) c"))
-        # dec = self.encode(rearrange(patch, "n a r c -> n (a r) c"))
 
-        unpatch = self.unpatch(dec)[:, 0]
+        x0 = rearrange(embedded, "n d r a e c -> n (d r a e) c")
+        readout = torch.tile(self.readout[None, None, :], (x0.shape[0], 1, 1))
+        x0 = torch.concatenate([x0, readout], axis=1)
+
+        x1 = self.encode[0](x0)
+        x2 = self.encode[1](x1)
+        x3 = self.encode[2](x2)
+
+        q = self.query(x3[:, -1, :])
+
+        y1 = self.decode[0](q, x1)
+        y2 = self.decode[1](y1, x2)
+        y3 = self.decode[2](y2, x3)
+
+        unpatch = self.unpatch(y3)[:, 0]
         return self.activation(unpatch)

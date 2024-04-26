@@ -4,16 +4,16 @@ model_args:
   dim: 512
   ff_ratio: 4.0
   heads: 8
-  dropout: 0.1
+  dropout: 0.0
   activation: GELU
-  in_shape: [64, 256, 8, 2]
   out_shape: [1024, 256]
 optimizer: AdamW
 optimizer_args: {}
-default_lr: 0.001
+warmup: 100
+default_lr: 0.0001
 bce_weight: 0.9
 dataset:
-  batch_size: 16
+  batch_size: 64
   train:
   - carnival1
   - carnival2
@@ -39,12 +39,12 @@ dataset:
       name: Map2D
     radar:
     - args: {}
-      name: DiscardTx2
+      name: AssertTx2
     - args: {}
       name: IIQQtoIQ
     - args:
         pad: 0
-        axes: [0, 1, 2]
-      name: FFTLinear
+        axes: [0, 1, 2, 3]
+      name: FFTArray
     - args: {}
       name: ComplexPhase
