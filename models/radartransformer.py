@@ -6,7 +6,7 @@ from einops import rearrange
 from radar import modules
 from torch import nn
 
-from beartype.typing import Iterable, Union
+from beartype.typing import Sequence, Union
 from jaxtyping import Float
 
 from radar import modules
@@ -46,13 +46,9 @@ class RadarTransformer(nn.Module):
     def __init__(
         self, dim: int = 768, ff_ratio: float = 4.0, heads: int = 12,
         dropout: float = 0.1, activation: str = 'GELU',
-        out_shape: Iterable[int] = (1024, 256)
+        out_shape: Sequence[int] = (1024, 256)
     ) -> None:
         super().__init__()
-
-        tfspec = {
-            "d_feedforward": int(ff_ratio * dim), "d_model": dim,
-            "n_head": heads, "dropout": dropout, "activation": activation}
 
         self.out_shape = out_shape
 
@@ -62,9 +58,13 @@ class RadarTransformer(nn.Module):
         self.readout = nn.Parameter(data=torch.normal(0, 0.02, (dim,)))
 
         self.encode = nn.ModuleList([
-            modules.TransformerLayer(**tfspec) for _ in range(3)])
+            modules.TransformerLayer(
+                d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
+                dropout=dropout, activation=activation) for _ in range(3)])
         self.decode = nn.ModuleList([
-            modules.TransformerDecoder(**tfspec) for _ in range(3)])
+            modules.TransformerDecoder(
+                d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
+                dropout=dropout, activation=activation) for _ in range(3)])
 
         self.query = BasisChange(
             shape=(out_shape[0] // 16, out_shape[1] // 16))
@@ -80,7 +80,7 @@ class RadarTransformer(nn.Module):
 
         x0 = rearrange(embedded, "n d r a e c -> n (d r a e) c")
         readout = torch.tile(self.readout[None, None, :], (x0.shape[0], 1, 1))
-        x0 = torch.concatenate([x0, readout], axis=1)
+        x0 = torch.concatenate([x0, readout], axis=1)  # type: ignore
 
         x1 = self.encode[0](x0)
         x2 = self.encode[1](x1)
@@ -88,9 +88,9 @@ class RadarTransformer(nn.Module):
 
         q = self.query(x3[:, -1, :])
 
-        y1 = self.decode[0](q, x1)
-        y2 = self.decode[1](y1, x2)
-        y3 = self.decode[2](y2, x3)
+        y3 = self.decode[2](q, x3)
+        y2 = self.decode[1](y3, x2)
+        y1 = self.decode[0](y2, x1)
 
-        unpatch = self.unpatch(y3)[:, 0]
+        unpatch = self.unpatch(y1)[:, 0]
         return self.activation(unpatch)
