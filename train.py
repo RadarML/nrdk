@@ -9,7 +9,7 @@ import torch
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from radar import objectives
+from deepradar import objectives
 
 
 def _parse():

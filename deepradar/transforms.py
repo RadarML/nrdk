@@ -1,4 +1,8 @@
-"""Composable data transformations."""
+"""Composable data transformations.
+
+.. [R1] RadarHD: High resolution point clouds from mmWave Radar
+    https://akarsh-prabhakara.github.io/research/radarhd/
+"""
 
 import os, json
 import numpy as np
@@ -13,9 +17,8 @@ from ouster import client
 class BaseTransform:
     """Generic transformation.
     
-    Parameters
-    ----------
-    path: dataset path to load any required metadata.
+    args:
+        path: dataset path to load any required metadata.
     """
 
     def __init__(self, path: str) -> None:
@@ -26,7 +29,18 @@ class BaseTransform:
 
 
 class IIQQtoIQ(BaseTransform):
-    """Convert IIQQ i16 raw data to I/Q complex64 data."""
+    """Convert IIQQ i16 raw data to I/Q complex64 data.
+    
+    Input shape (MIMO Radar Frames):
+
+    - D: Slow Time
+    - Tx: TX antenna index
+    - Rx: RX antenna index
+    - R2: Fast Time (IIQQ i16 data); is converted to `complex64` (with half
+      the length).
+
+    See `collect.radar_api.dca_types.RadarFrame` for details.
+    """
 
     def __call__(
         self, data: Int16[np.ndarray, "D Tx Rx R2"]
@@ -39,7 +53,7 @@ class IIQQtoIQ(BaseTransform):
 
 
 class DiscardTx2(BaseTransform):
-    """Discard antenna TX2 if data was collected in 3x4 mode."""
+    """Discard middle antenna TX2 if data was collected in 3x4 mode."""
 
     def __call__(
         self, data: Int16[np.ndarray, "D Tx Rx R"]
@@ -62,11 +76,10 @@ class AssertTx2(BaseTransform):
 
 class FFTLinear(BaseTransform):
     """N-dimensional FFT on a linear array.
-    
-    Parameters
-    ----------
-    pad: azimuth padding; output has shape (tx * rx + pad).
-    axes: axes to apply an FFT to; 0=doppler, 1=azimuth, 2=range.
+
+    args:
+        pad: azimuth padding; output has shape (tx * rx + pad).
+        axes: axes to apply an FFT to; 0=doppler, 1=azimuth, 2=range.
     """
 
     def __init__(
@@ -95,10 +108,10 @@ class FFTLinear(BaseTransform):
 class FFTArray(BaseTransform):
     """N-dimensional FFT on a nonlinear array.
 
-    Parameters
-    ----------
-    pad: azimuth padding; output has shape (tx * rx + pad).
-    axes: axes to apply an FFT to; 0=doppler, 1=azimuth, 2=elevation, 3=range.
+    args:
+        pad: azimuth padding; output has shape (tx * rx + pad).
+        axes: axes to apply an FFT to; 0=doppler, 1=azimuth, 2=elevation,
+            3=range.
     """
 
     def __init__(
@@ -139,7 +152,10 @@ class ComplexParts(BaseTransform):
 
 
 class ComplexAmplitude(BaseTransform):
-    """Convert complex numbers to amplitude-only."""
+    """Convert complex numbers to amplitude-only.
+    
+    NOTE: applies a 1e3 scale factor.
+    """
 
     def __call__(
         self, data: Complex64[np.ndarray, "..."]
@@ -176,7 +192,15 @@ class Destagger(BaseTransform):
 
 
 class Map2D(BaseTransform):
-    """2D lidar map."""
+    """2D azimuth-range lidar map.
+    
+    Follows the procedure used by RadarHD [R1]_:
+
+    1. Crop to only forward-facing regions; convert to polar coordinates.
+    2. Discard points more than 30cm away from the radar plane.
+    3. Write points to a 2D polar-coordinate occupancy grid. The range bins
+       used in the map match the range bins measured by the radar.
+    """
 
     def __init__(self, path: str) -> None:
         with open(os.path.join(path, "radar", "radar.json")) as f:

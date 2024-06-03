@@ -1,10 +1,4 @@
-"""RadarHD U-net model.
-
-References
-----------
-[1] RadarHD: High resolution point clouds from mmWave Radar
-    https://akarsh-prabhakara.github.io/research/radarhd/
-"""
+"""RadarHD U-net model."""
 
 import torch
 from torch import Tensor
@@ -12,7 +6,7 @@ from torch import Tensor
 from jaxtyping import Float, Complex
 
 from torch import nn
-from radar import modules
+from deepradar import modules
 
 
 def _unetblock(
@@ -67,7 +61,13 @@ class AzimuthUp(nn.Module):
 
 
 class RadarUNet(nn.Module):
-    """Generic U-net for range-azimuth radar [1]."""
+    """Generic U-net for range-azimuth radar [N1]_.
+
+    Args:
+        d_input: Number of input features (i.e. slow time / doppler length).
+        doppler: Whether to run FFT on the doppler axis, i.e. use explicit
+            doppler information.
+    """
 
     def __init__(self, d_input: int = 64, doppler: bool = False) -> None:
         super().__init__()

@@ -16,18 +16,17 @@ from .dataloader import RoverDataModule
 class BaseModel(L.LightningModule):
     """Composable training objective.
     
-    Parameters
-    ----------
-    objective: objective name (ignored).
-    dataset: dataset specifications.
-    model: model name; should be a `nn.Module` in `models`.
-    model_args: args to pass to the model.
-    optimizer: optimizer to use (from `torch.optim`).
-    default_lr: default learning rate to use.
-    optimizer_args: per-layer/parameter optimizer arguments; each key is a
-        regex, and each value are additional parameters to pass to matching
-        parameters.
-    warmup: learning rate warmup period.
+    Args:
+        objective: objective name (ignored).
+        dataset: dataset specifications.
+        model: model name; should be a `nn.Module` in `models`.
+        model_args: args to pass to the model.
+        optimizer: optimizer to use (from `torch.optim`).
+        default_lr: default learning rate to use.
+        optimizer_args: per-layer/parameter optimizer arguments; each key is a
+            regex, and each value are additional parameters to pass to matching
+            parameters.
+        warmup: learning rate warmup period.
     """
 
     def __init__(
@@ -52,10 +51,12 @@ class BaseModel(L.LightningModule):
     def get_dataset(self, path: str, debug: bool = False) -> RoverDataModule:
         """Get datamodule.
 
-        Parameters
-        ----------
-        path: dataset root directory.
-        debug: whether to run in debug mode.
+        Args:
+            path: dataset root directory.
+            debug: whether to run in debug mode.
+
+        Returns:
+            Corresponding `RoverDataModule`.    
         """
         return RoverDataModule(**self.dataset, path=path, debug=debug)
 
@@ -65,12 +66,11 @@ class BaseModel(L.LightningModule):
     ) -> None:
         """Log a batch of images.
         
-        Parameters
-        ----------
-        path: log path, e.g. `train/examples`
-        img: batch of grayscale images.
-        size: resize images.
-        columns: number of columns when arranging the images.
+        Args:
+            path: log path, e.g. `train/examples`
+            img: batch of grayscale images.
+            size: resize images.
+            columns: number of columns when arranging the images.
         """
         img_resized = transforms.Resize(
             size, interpolation=transforms.InterpolationMode.NEAREST
@@ -114,10 +114,9 @@ class BaseModel(L.LightningModule):
 class RadarHD(BaseModel):
     """Radar -> lidar.
     
-    Parameters
-    ----------
-    bce_weight: BCE loss weight; Dice loss is weighted `1 - bce_weight`.
-    kwargs: see `BaseModel`.
+    Args:
+        bce_weight: BCE loss weight; Dice loss is weighted `1 - bce_weight`.
+        kwargs: see `BaseModel`.
     """
 
     def __init__(self, bce_weight: float = 0.9, **kwargs) -> None:
@@ -153,6 +152,7 @@ class RadarHD(BaseModel):
             size=(256, 512), columns=4)
 
     def training_step(self, batch, batch_idx):  # type: ignore
+        """Standard lightning training step."""
         y_hat = self.model(batch['radar'])
         y_true = batch['lidar'].to(torch.float32)
         loss = self.loss_func(y_hat, y_true)
@@ -164,6 +164,7 @@ class RadarHD(BaseModel):
         return loss
 
     def validation_step(self, batch, batch_idx):  # type: ignore
+        """Standard lightning validation step."""
         y_hat = self.model(batch['radar'])
         y_true = batch['lidar'].to(torch.float32)
         loss = self.loss_func(y_hat, y_true)

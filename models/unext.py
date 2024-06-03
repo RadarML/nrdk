@@ -1,12 +1,4 @@
-"""U-net model for the 2020s.
-
-References
-----------
-[1] RadarHD: High resolution point clouds from mmWave Radar
-    https://akarsh-prabhakara.github.io/research/radarhd/
-[2] ConvNeXt: A ConvNet for the 2020s
-    https://arxiv.org/abs/2201.03545
-"""
+"""U-net model for the 2020s."""
 
 import torch
 from torch import Tensor
@@ -15,7 +7,7 @@ from einops import rearrange
 from jaxtyping import Float, Complex
 
 from torch import nn
-from radar import modules
+from deepradar import modules
 
 
 class UNetDown(nn.Module):
@@ -85,7 +77,7 @@ class AzimuthUp(nn.Module):
 class RadarUNeXT(nn.Module):
     """Radar range-azimuth U-net.
 
-    We adopt some relevant recommendations from [2], including:
+    We adopt some relevant recommendations from [N2]_, including:
     - Using layer norm instead of batch norm.
     - Using the ConvNeXT block (7x7/d + 1x1/4d + 1x1/d) instead of a generic
         3x3/d conv block.
@@ -94,13 +86,12 @@ class RadarUNeXT(nn.Module):
     - Instead of concatenating skip connections, we upsample-project to the
         same space, and add (similar to a residual layer).
 
-    Parameters
-    ----------
-    width: network width multiplier. Each stage has a width of
-        `width * 2**stage`, for stage = 0, 1, 2.
-    d_input: input dimension.
-    depth: number of conv blocks per encode/decode in each stage.
-    doppler: do doppler FFT.
+    Args:
+        width: network width multiplier. Each stage has a width of
+            `width * 2**stage`, for stage = 0, 1, 2.
+        d_input: input dimension.
+        depth: number of conv blocks per encode/decode in each stage.
+        doppler: do doppler FFT.
     """
 
     def __init__(

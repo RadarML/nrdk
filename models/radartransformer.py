@@ -1,15 +1,13 @@
 """First prototype of the "Radar Transformer"."""
 
 import torch
-from torch import Tensor
+from torch import Tensor, nn
 from einops import rearrange
-from radar import modules
-from torch import nn
 
 from beartype.typing import Sequence, Union
 from jaxtyping import Float
 
-from radar import modules
+from deepradar import modules
 
 
 class BasisChange(nn.Module):
@@ -18,9 +16,8 @@ class BasisChange(nn.Module):
     Uses a 'reference vector', e.g. the output for a readout token or the
     token-wise mean of the output.
 
-    Parameters
-    ----------
-    shape: query shape.
+    Args:
+        shape: query shape.
     """
 
     def __init__(

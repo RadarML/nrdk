@@ -6,3 +6,4 @@ lightning
 einops
 pyyaml
 beartype
+torchvision

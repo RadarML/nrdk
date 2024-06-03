@@ -1,14 +1,12 @@
 """RadarML modules.
 
-References
-----------
-[1] RoFormer: Enhanced Transformer with Rotary Position Embedding
+.. [M1] RoFormer: Enhanced Transformer with Rotary Position Embedding
     https://arxiv.org/abs/2104.09864
-[2] ConvNeXt: A ConvNet for the 2020s
+.. [M2] ConvNeXt: A ConvNet for the 2020s
     https://arxiv.org/abs/2201.03545
-[3] On Layer Normalization in the Transformer Architecture
+.. [M3] On Layer Normalization in the Transformer Architecture
     https://arxiv.org/pdf/2002.04745.pdf
-[4] Issue @ pytorch relating to post-norm:
+.. [M4] Issue @ pytorch relating to post-norm:
     https://github.com/pytorch/pytorch/issues/55270
 """
 
@@ -22,11 +20,10 @@ from jaxtyping import Float, Complex
 
 class FFTLinear(nn.Module):
     """GPU version of `transform.FFTLinear`.
-    
-    Parameters
-    ----------
-    pad: azimuth padding; output has shape (tx * rx + pad).
-    axes: axes to apply an FFT to; 0=doppler, 1=azimuth, 2=range.
+
+    Args:
+        pad: azimuth padding; output has shape (tx * rx + pad).
+        axes: axes to apply an FFT to; 0=doppler, 1=azimuth, 2=range.
     """
 
     def __init__(
@@ -39,6 +36,11 @@ class FFTLinear(nn.Module):
     def forward(
         self, data: Complex[Tensor, "N D Tx Rx R"]
     ) -> Complex[Tensor, "N D A R"]:
+        """Apply FFT on GPU (possibly with large padding).
+        
+        Data is provided in batch-slow-tx-rx-fast order, and returned in
+        batch-doppler-azimuth-range order.
+        """
         n, d, tx, rx, r = data.shape
         assert tx == 2, "Only 2-tx mode is supported."
 
@@ -48,7 +50,7 @@ class FFTLinear(nn.Module):
             zeros = torch.zeros(
                 [n, d, self.pad, r], dtype=torch.complex64, device=data.device)
             iq_dar = torch.concatenate([iq_dar, zeros], dim=2)
-        
+
         dar = fft.fftn(iq_dar, dim=[x + 1 for x in self.axes])
         dar_shf = fft.fftshift(
             dar, dim=[x + 1 for x in self.axes if x in (0, 1)])
@@ -56,11 +58,10 @@ class FFTLinear(nn.Module):
 
 
 class Rotary2D(nn.Module):
-    """2D rotary encoding [2].
+    """2D rotary encoding [M2]_.
 
-    Parameters
-    ----------
-    features: number of features in this embedding. 
+    Args:
+        features: number of features in this embedding.
     """
 
     def __init__(self, features: int = 512) -> None:
@@ -70,6 +71,10 @@ class Rotary2D(nn.Module):
     def forward(
         self, x: Float[Tensor, "b x1 x2 f"]
     ) -> Float[Tensor, "b x1 x2 f"]:
+        """Apply 2D rotary encoding.
+        
+        Data should be in batch-spatial-feature order.
+        """
 
         i = torch.arange(x.shape[3] // 4, device=x.device)
         theta = 100000 ** (-i / x.shape[1])
@@ -105,7 +110,11 @@ class Sinusoid(nn.Module):
     def forward(
         self, x: Float[Tensor, "b ... f"]
     ) -> Float[Tensor, "b ... f"]:
+        """Apply sinusoidal embedding.
         
+        Data should be in batch-spatial-feature order.
+        """
+
         embedding_dim = x.shape[-1] // 2 // (len(x.shape) - 2)
         i = torch.arange(embedding_dim, device=x.device)
         theta = 100000 ** (-i / embedding_dim)
@@ -115,7 +124,7 @@ class Sinusoid(nn.Module):
             embedding = torch.concatenate([
                 torch.sin(theta[None, :] * a[:, None]),
                 torch.cos(theta[None, :] * a[:, None])], dim=1)
-            
+
             shape = list(x.shape[1:-1]) + [1]
             shape[i] = 1
 
@@ -132,21 +141,34 @@ class Sinusoid(nn.Module):
 
 
 class Learnable1D(nn.Module):
-    """Learnable 1-dimensional positional embedding."""
+    """Learnable 1-dimensional positional embedding.
+
+    Args:
+        d_model: Model feature dimension.
+        size: Number of positions; must be fixed (i.e. operates on fixed
+            dimension input only).
+    """
 
     def __init__(self, d_model: int = 512, size: int = 1024) -> None:
         super().__init__()
         self.embeddings = nn.Parameter(
             data=torch.normal(0, 0.02, (size, d_model)))
 
-    def forward(
-        self, x: Union[Float[Tensor, "n t c"], Float[Tensor, "n 1 c"]]
-    ) -> Float[Tensor, "n t c"]:
+    def forward(self, x: Float[Tensor, "n #t c"]) -> Float[Tensor, "n t c"]:
+        """Apply positional embedding.
+        
+        Data should be in batch-spatial-feature order.
+        """
         return x + self.embeddings
 
 
 class LearnableND(nn.Module):
-    """Learnable N-dimensional positional embedding."""
+    """Learnable N-dimensional positional embedding.
+
+    Args:
+        d_model: Model feature dimensions.
+        shape: Shape of input positions; must be fixed.
+    """
 
     def __init__(
         self, d_model: int = 512,
@@ -158,6 +180,10 @@ class LearnableND(nn.Module):
             torch.normal(0, 0.02, (d, d_model)) for d in shape])
 
     def forward(self, x: Float[Tensor, "n ... c"]) -> Float[Tensor, "n ... c"]:
+        """Apply embeddings.
+        
+        Data should be in batch-spatial-feature order.
+        """
         for i, e in enumerate(self.embeddings):
             idxs = [None] * (len(self.shape) + 1) + [slice(None)]
             idxs[i + 1] = slice(None)
@@ -168,11 +194,11 @@ class LearnableND(nn.Module):
 class Patch2D(nn.Module):
     """Apply a linear patch embedding along two axes.
 
-    Parameters
-    ----------
-    in_channels: number of input channels.
-    features: number of output features; should be `>= in_channels * size**2`.
-    size: patch size.
+    Args:
+        in_channels: number of input channels.
+        features: number of output features; should be
+            `>= in_channels * size**2`.
+        size: patch size.
     """
 
     def __init__(
@@ -183,10 +209,14 @@ class Patch2D(nn.Module):
         self.size = size
         self.patch = nn.Unfold(kernel_size=size, stride=size)
         self.linear = nn.Linear(channels * size[0] * size[1], features)
-        
+
     def forward(
         self, x: Float[Tensor, "xn xc x1 x2"]
     ) -> Float[Tensor, "xn x1_out x2_out xc_out"]:
+        """Apply 2D patching.
+        
+        Takes batch-feature-spatial inputs, and returns batch-spatial-feature.
+        """
         xn, xc, x1, x2 = x.shape
         x1_out = x1 // self.size[0]
         x2_out = x2 // self.size[1]
@@ -202,18 +232,21 @@ class Patch4D(Patch2D):
     """Split data into patches along two axes, keeping the other two constant.
 
     This is necessary since Pytorch `nn.Unfold` only supports 2D data...
-    
-    Parameters
-    ----------
-    in_channels: number of input channels.
-    features: number of output features; should be `>= in_channels * size**2`.
-    size: patch size.
+
+    Args:
+        in_channels: number of input channels.
+        features: number of output features; should be
+            `>= in_channels * size**2`.
+        size: patch size.
     """
-        
+
     def forward(
         self, x: Float[Tensor, "xn xc x1 x2 x3 x4"]
     ) -> Float[Tensor, "xn x1_out x2_out x3 x4 xc_out"]:
-        """Patch on axes x1, x2, keeping x3, x4 with a patch size of (1, 1)."""
+        """Patch on axes x1, x2, keeping x3, x4 with a patch size of (1, 1).
+        
+        Takes batch-feature-spatial order, returns batch-spatial-feature.
+        """
         xn, xc, x1, x2, x3, x4 = x.shape
         x1_out = x1 // self.size[0]
         x2_out = x2 // self.size[1]
@@ -221,7 +254,7 @@ class Patch4D(Patch2D):
         patched = self.patch(
             rearrange(x, "n c x1 x2 x3 x4 -> (n x3 x4) c x1 x2"))
         embedded = self.linear(
-            rearrange(patched, "(nx3x4) c (x1x2) -> (nx3x4 x1x2) c"))    
+            rearrange(patched, "(nx3x4) c (x1x2) -> (nx3x4 x1x2) c"))
         return rearrange(
             embedded, "(n x3 x4 x1 x2) c -> n x1 x2 x3 x4 c",
             n=xn, x1=x1_out, x2=x2_out, x3=x3, x4=x4)
@@ -230,11 +263,10 @@ class Patch4D(Patch2D):
 class Unpatch2D(nn.Module):
     """Unpatch data.
 
-    Parameters
-    ----------
-    output_size: output 2D shape.
-    features: number of input features; should be `>= size * size`.
-    size: patch size as (width, height, channels).
+    Args:
+        output_size: output 2D shape.
+        features: number of input features; should be `>= size * size`.
+        size: patch size as (width, height, channels).
     """
 
     def __init__(
@@ -248,23 +280,27 @@ class Unpatch2D(nn.Module):
     def forward(
         self, x: Float[Tensor, "n x1x2 c"]
     ) -> Float[Tensor, "n x1_out x2_out c_out"]:
+        """Perform 2D unpatching.
+        
+        Operates in batch-spatial-feature order; spatial axes are flattened on
+        the input, and unflattened in the output.
+        """
         embedding = self.linear(x)
         return self.unpatch(rearrange(embedding, "b (x1x2) c -> b c (x1x2)"))
 
 
 class TransformerLayer(nn.Module):
     """Single transformer (encoder) layer.
-    
-    NOTE: we use only implement "pre-norm" [3, 4].
 
-    Parameters
-    ----------
-    d_model: model feature dimensions.
-    n_head: number of heads.
-    d_feedforward: feedforward block hidden units.
-    dropout: dropout to use during training.
-    activation: activation function to use; must be a `nn.Module` (i.e. not
-        `nn.functional.*`).
+    NOTE: we use only implement "pre-norm" [M3]_, [M4]_.
+
+    Args:
+        d_model: model feature dimensions.
+        n_head: number of heads.
+        d_feedforward: feedforward block hidden units.
+        dropout: dropout to use during training.
+        activation: activation function to use; must be a `nn.Module` (i.e. not
+            `nn.functional.*`).
     """
 
     def __init__(
@@ -291,6 +327,7 @@ class TransformerLayer(nn.Module):
         return self.dropout(self.attn(x, x, x, need_weights=False)[0])
 
     def forward(self, x: Float[Tensor, "n t c"]) -> Float[Tensor, "n t c"]:
+        """Apply transformer; uses batch-spatial-feature order."""
         x = x + self.attention(x)
         x = x + self.feedforward(x)
         return x
@@ -298,15 +335,14 @@ class TransformerLayer(nn.Module):
 
 class TransformerDecoder(nn.Module):
     """Single transformer (decoder) layer.
-    
-    Parameters
-    ----------
-    d_model: model feature dimensions.
-    n_head: number of heads.
-    d_feedforward: feedforward block hidden units.
-    dropout: dropout to use during training.
-    activation: activation function to use; must be a `nn.Module` (i.e. not
-        `nn.functional.*`).
+
+    Args:
+        d_model: model feature dimensions.
+        n_head: number of heads.
+        d_feedforward: feedforward block hidden units.
+        dropout: dropout to use during training.
+        activation: activation function to use; must be a `nn.Module` (i.e. not
+            `nn.functional.*`).
     """
 
     def __init__(
@@ -348,6 +384,7 @@ class TransformerDecoder(nn.Module):
     def forward(
         self, x: Float[Tensor, "n t c"], x_enc: Float[Tensor, "n t2 c"]
     ) -> Float[Tensor, "n t c"]:
+        """Apply transformer; uses batch-spatial-feature order."""
         x = x + self.self_attention(x)
         x = x + self.cross_attention(x, x_enc)
         x = x + self.feedforward(x)
@@ -355,7 +392,15 @@ class TransformerDecoder(nn.Module):
 
 
 class ConvNeXTBlock(nn.Module):
-    """Single ConvNeXT block [1]."""
+    """Single ConvNeXT block [M1]_.
+    
+    Args:
+        d_model: Model feature dimensions.
+        d_bottleneck: Expansion feature dimension in the bottleneck layers;
+            the expansion ratio is given by `d_bottleneck / d_model`.
+        kernel_size: Conv kernel size; `kernel_size=7` is recommended by [M1]_.
+        activation: Activation function to use.
+    """
 
     def __init__(
         self, d_model: int = 64, d_bottleneck: int = 256, kernel_size: int = 7,
@@ -375,6 +420,10 @@ class ConvNeXTBlock(nn.Module):
             d_bottleneck, d_model, kernel_size=(1, 1), stride=1)
 
     def forward(self, x: Float[Tensor, "n c h w"]) -> Float[Tensor, "n c h w"]:
+        """Apply ConvNeXT.
+
+        Operates in NCHW (batch-feature-spatial) order.
+        """
         x0 = x
         x = self.dw(x)
         x = rearrange(
@@ -387,7 +436,12 @@ class ConvNeXTBlock(nn.Module):
 
 
 class ConvDownsample(nn.Module):
-    """Downsampling block [1]."""
+    """Downsampling block [M1]_.
+    
+    Args:
+        d_in: input features.
+        d_out: output features; nominally `d_in * 2`.
+    """
 
     def __init__(self, d_in: int = 64, d_out: int = 128) -> None:
         super().__init__()
@@ -397,7 +451,8 @@ class ConvDownsample(nn.Module):
 
     def forward(
         self, x: Float[Tensor, "n c1 h1 w1"]
-    ) -> Float[Tensor, "n c2 h2 w2"]:        
+    ) -> Float[Tensor, "n c2 h2 w2"]:
+        """Apply 2x spatial downsampling layer."""
         x_norm = rearrange(
             self.norm(rearrange(x, "n c h w -> n h w c")),
             "n h w c -> n c h w")
