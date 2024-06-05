@@ -28,6 +28,9 @@ Example configuration::
                 {"args": {}, "name": "IIQQtoIQ"},
                 {"args": {"pad": 0, "axes": [0, 1, 2, 3]}, "name": "FFTArray"},
                 {"args": {}, "name": "ComplexPhase"}]
+        },
+        "augmentations": {
+            "azimuth_flip": {"type": "Bernoulli", "args": {}}
         }
     }
 """
@@ -44,6 +47,7 @@ from beartype.typing import Union, TypedDict, Callable, Any
 from jaxtyping import Num
 
 from . import transforms
+from . import augmentations
 
 
 #: Any type which can be used as an index
@@ -58,7 +62,9 @@ class TransformSpec(TypedDict):
     """Transform specification."""
 
     name: str
-    """Transform name; should correspond to a `BaseTransform` in `transforms`.
+    """Transform name.
+    
+    Should correspond to a `BaseTransform` in `transforms`.
     """
 
     args: dict[str, Any]
