@@ -9,6 +9,7 @@ Deep Radar: Deep Learning Toolkit for mmWave Radar
    modules.rst
    objectives.rst
    transforms.rst
+   augmentations.rst
 
 Indices and tables
 ==================

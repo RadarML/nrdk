@@ -5,21 +5,21 @@ import numpy as np
 
 class Bernoulli:
     """Enable augmentation with certain probability.
-    
+
     Args:
         p: probability of enabling (`True`).
     """
 
     def __init__(self, p: float = 0.5) -> None:
         self.p = p
-    
+
     def __call__(self) -> bool:
         return np.random.random() < self.p
 
 
 class TruncatedLogNormal:
     """Truncated log-normal distribution.
-    
+
     The underlying normal is always centered around zero.
 
     Args:
@@ -38,7 +38,7 @@ class TruncatedLogNormal:
     def __call__(self) -> float:
         if np.random.random() > self.p:
             return 1.0
-    
+
         return np.std(
             np.clip(np.random.normal(), -self.clip, self.clip) * self.std)
 
@@ -57,9 +57,9 @@ class Uniform:
         self.p = p
         self.lower = lower
         self.upper = upper
-    
+
     def __call__(self) -> float:
         if np.random.random() > self.p:
             return 0.0
-    
+
         return np.random.uniform(self.lower, self.upper)
