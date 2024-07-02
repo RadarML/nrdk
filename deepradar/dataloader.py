@@ -11,9 +11,9 @@ Key configuration options for `cfg`:
 - **path**: all traces should be put in a directory `path`.
 - **train, val**: traces to use in the train set, and val set.
 - **transform**: transform spec. Keys correspond to sensors, while values are
-    a list of transforms to apply (see `TransformSpec`).
+  a list of transforms to apply (see :class:`TransformSpec`).
 - **augment**: data augmentation parameter generators. Key correspond to
-    possible augmentations; see `transforms`.
+  possible augmentations; see :py:mod:`deepradar.transforms`.
 
 Example configuration::
 
@@ -31,9 +31,9 @@ Example configuration::
                 {"args": {"pad": 0, "axes": [0, 1, 2, 3]}, "name": "FFTArray"},
                 {"args": {}, "name": "ComplexPhase"}]
         },
-        "augmentations": {
-            "azimuth_flip": {"type": "Bernoulli", "args": {"p": 0.5}},
-            "range_scale": {"type": "TruncatedLogNormal", "args": {
+        "augment": {
+            "azimuth_flip": {"name": "Bernoulli", "args": {"p": 0.5}},
+            "range_scale": {"name": "TruncatedLogNormal", "args": {
                 "p": 0.5, "std": 0.2, "clip": 2.0}}
         }
     }
@@ -129,7 +129,7 @@ class RoverTrace:
         return len(self.indices)
 
     def __getitem__(self, idx: Index):
-        aug = {k: v() for k, v in self.augmentations.items()}
+        aug = {k: v() for k, v in self.augment.items()}
 
         def apply_transform(k, data):
             for tf in self.transform.get(k, []):

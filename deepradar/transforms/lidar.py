@@ -35,7 +35,9 @@ class Destagger(BaseTransform):
     ) -> UInt[np.ndarray, "El Az"]:
         res = client.destagger(self.metadata, data)
 
-        res *= aug.get("range_scale", 1.0)
+        if "range_scale" in aug:
+            res = (
+                res.astype(np.float32) * aug["range_scale"]).astype(np.uint16)
         if aug.get("azimuth_flip"):
             res = np.flip(res, axis=1)
 
@@ -83,7 +85,7 @@ class Map2D(BaseTransform):
         res = np.zeros((bin.shape[1], self.bins), dtype=bool)
         for i in range(bin.shape[1]):
             res[i][bin[:, i]] = True
-        res[:, 0] = 0
+        res[:, 0] = False
         return res
 
 
@@ -95,7 +97,7 @@ class DecimateMap(BaseTransform):
         self.range = range
 
     def __call__(
-        self, data: Bool[np.ndarray, "Az Nr"]
+        self, data: Bool[np.ndarray, "Az Nr"], aug: dict[str, Any] = {}
     ) -> Bool[np.ndarray, "Az_dec Nr_dec"]:
         na, nr = data.shape
         return np.any(data.reshape(

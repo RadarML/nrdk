@@ -1,5 +1,5 @@
-Data Augmentation Parameters
-============================
+Augmentation Parameters
+=======================
 
 .. automodule:: deepradar.augmentations
    :members:

@@ -1,0 +1,71 @@
+objective: RadarHD
+model: RadarTransformer
+model_args:
+  dim: 512
+  ff_ratio: 4.0
+  heads: 8
+  dropout: 0.1
+  activation: GELU
+  out_shape: [1024, 256]
+optimizer: AdamW
+optimizer_args: {}
+warmup: 100
+default_lr: 0.0001
+bce_weight: 0.9
+dataset:
+  batch_size: 64
+  train:
+  - carnival1
+  - carnival2
+  - cic1
+  - cic2
+  - ghc
+  - hamburg
+  - hammerschlag
+  - porter
+  - scaife
+  - scott
+  - tepper
+  - wean
+  val:
+  - cic4
+  - nsh
+  - smith
+  transform:
+    lidar:
+    - args: {}
+      name: Destagger
+    - args: {}
+      name: Map2D
+    radar:
+    - args: {}
+      name: AssertTx2
+    - args: {}
+      name: IIQQtoIQ
+    - args:
+        pad: 0
+        axes: [0, 1, 2, 3]
+      name: FFTArray
+    - args: {}
+      name: ComplexPhase
+  augment:
+    azimuth_flip:
+      name: Bernoulli
+      args:
+        p: 0.5
+    doppler_flip:
+      name: Bernoulli
+      args:
+        p: 0.5
+    radar_scale:
+      name: TruncatedLogNormal
+      args:
+        p: 1.0
+        std: 0.5
+        clip: 2.0
+    radar_phase:
+      name: Uniform
+      args:
+        p: 1.0
+        lower: -3.14159265
+        upper: 3.14159265

@@ -39,7 +39,7 @@ class TruncatedLogNormal:
         if np.random.random() > self.p:
             return 1.0
 
-        return np.std(
+        return np.exp(
             np.clip(np.random.normal(), -self.clip, self.clip) * self.std)
 
 

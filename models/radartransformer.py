@@ -12,7 +12,7 @@ from deepradar import modules
 
 class BasisChange(nn.Module):
     """Create "change-of-basis" query.
-    
+
     Uses a 'reference vector', e.g. the output for a readout token or the
     token-wise mean of the output.
 
@@ -72,6 +72,13 @@ class RadarTransformer(nn.Module):
         self.activation = nn.Sigmoid()
 
     def forward(self, x):
+        """Apply radar transformer.
+
+        Args:
+            x: input batch, with batch-doppler-azimuth-elevation-range-iq axis
+                order.
+        """
+
         patch = self.patch(rearrange(x, "n d a e r c -> n c d r a e"))
         embedded = self.pos(patch)
 

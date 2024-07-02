@@ -95,6 +95,11 @@ class RadarUNet(nn.Module):
     def forward(
         self, x: Complex[Tensor, "n d 4 2 r"]
     ) -> Float[Tensor, "n 1024 256"]:
+        """Apply UNet.
+
+        Args:
+            x: input batch, with batch-doppler-rx-tx-range axis order.
+        """
 
         x = torch.sqrt(torch.abs(self.fft(x))) / 1e3
 

@@ -59,7 +59,7 @@ class AssertTx2(BaseTransform):
 class BaseFFT(BaseTransform):
     """FFT base class."""
 
-    @classmethod
+    @staticmethod
     def _wrap(
         x: Complex64[np.ndarray, "D A ... R"], width: int
     ) -> Complex64[np.ndarray, "D A ... R"]:
@@ -198,7 +198,7 @@ class FFTArray(BaseFFT):
         daer_shf = fft.fftshift(
             daer, axes=[x for x in self.axes if x in (0, 1, 2)])
 
-        return self.augment(daer_shf, aug=aug)
+        return self._augment(daer_shf, aug=aug)
 
 
 class ComplexParts(BaseTransform):
@@ -212,6 +212,9 @@ class ComplexParts(BaseTransform):
     def __call__(
         self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {}
     ) -> Float32[np.ndarray, "... 2"]:
+        if aug.get("radar_phase"):
+            data *= np.exp(-1j * aug["radar_phase"])
+
         return np.stack(
             [np.real(data), np.imag(data)], axis=-1
         ) / 1e6 * aug.get("radar_scale", 1.0)
