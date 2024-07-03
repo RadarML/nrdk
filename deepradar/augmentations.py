@@ -6,8 +6,10 @@ import numpy as np
 class Bernoulli:
     """Enable augmentation with certain probability.
 
+    Type: `bool` (`True` if enabled).
+
     Args:
-        p: probability of enabling (`True`).
+        p: probability of enabling.
     """
 
     def __init__(self, p: float = 0.5) -> None:
@@ -22,14 +24,16 @@ class TruncatedLogNormal:
 
     The underlying normal is always centered around zero.
 
+    Type: `float`; returns `1.0` if not enabled.
+
     Args:
-        p: probability of enabling this augmentation (`True`)
-        std: standard deviation of the underlying normal distribution
-        clip: clip to this many standard deviations
+        p: probability of enabling this augmentation (`True`).
+        std: standard deviation of the underlying normal distribution.
+        clip: clip to this many standard deviations; don't clip if 0.
     """
 
     def __init__(
-        self, p: float = 0.5, std: float = 0.2, clip: float = 2.0
+        self, p: float = 1.0, std: float = 0.2, clip: float = 2.0
     ) -> None:
         self.p = p
         self.std = std
@@ -39,12 +43,16 @@ class TruncatedLogNormal:
         if np.random.random() > self.p:
             return 1.0
 
-        return np.exp(
-            np.clip(np.random.normal(), -self.clip, self.clip) * self.std)
+        z = np.random.normal()
+        if self.clip > 0:
+            z = np.clip(z, -self.clip, self.clip)
+        return np.exp(z * self.std)
 
 
 class Uniform:
     """Uniform distribution.
+
+    Type: `float`; returns `0.0` if not enabled.
 
     Args:
         p: probability of enabling this augmentation.
@@ -52,7 +60,7 @@ class Uniform:
     """
 
     def __init__(
-        self, p: float = 0.5, lower: float = -np.pi, upper: float = np.pi
+        self, p: float = 1.0, lower: float = -np.pi, upper: float = np.pi
     ) -> None:
         self.p = p
         self.lower = lower

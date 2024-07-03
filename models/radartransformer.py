@@ -4,7 +4,7 @@ import torch
 from torch import Tensor, nn
 from einops import rearrange
 
-from beartype.typing import Sequence, Union
+from beartype.typing import Union, cast
 from jaxtyping import Float
 
 from deepradar import modules
@@ -38,18 +38,54 @@ class BasisChange(nn.Module):
         return query
 
 
+Shape2 = Union[list[int], tuple[int, int]]
+"""List of 2 ints (i.e. loaded from json), or tuple of ints."""
+
+
+def assert_shape2(x: Shape2) -> tuple[int, int]:
+    """Type validation of Shape2 and casting as tuple."""
+    return cast(tuple[int, int], tuple(x))
+
+
 class RadarTransformer(nn.Module):
+    """U-shape Radar Doppler Transformer.
+
+    Only a selected subset of skip connections are formed; the decoder layers
+    are specified by `dec_layers` as follows:
+
+    - Each entry in the list indicates the index of the encoder layer that the
+      decoder layer with this index connects to.
+    - Indexing starts from 0 at the output of the patch projection (e.g. the
+      output of the first encoder layer is index 1)
+
+    Args:
+        enc_layers: number of encoder layers.
+        dec_layers: decoder layers with skip connection indices.
+        dim: hidden dimension.
+        ff_ratio: expansion ratio for feedforward blocks.
+        heads: number of heads for multiheaded attention.
+        dropout: dropout ratio during training.
+        activation: activation function; specify as a name.
+        out_shape: output spatial dimensions.
+        patch_size: input range-doppler patch size.
+        unpatch_size: output patch size.
+    """
 
     def __init__(
-        self, dim: int = 768, ff_ratio: float = 4.0, heads: int = 12,
+        self, enc_layers: int = 5, dec_layers: list[int] = [5, 3, 1],
+        dim: int = 768, ff_ratio: float = 4.0, heads: int = 12,
         dropout: float = 0.1, activation: str = 'GELU',
-        out_shape: Sequence[int] = (1024, 256)
+        out_shape: Shape2 = (1024, 256),
+        patch_size: Shape2 = (16, 16), unpatch_size: Shape2 = (16, 16)
     ) -> None:
         super().__init__()
 
-        self.out_shape = out_shape
+        patch_size = assert_shape2(patch_size)
+        unpatch_size = assert_shape2(unpatch_size)
+        out_shape = assert_shape2(out_shape)
+        self.dec_layers = dec_layers
 
-        self.patch = modules.Patch4D(channels=2, features=dim, size=(16, 16))
+        self.patch = modules.Patch4D(channels=2, features=dim, size=patch_size)
         self.pos = modules.Sinusoid()
 
         self.readout = nn.Parameter(data=torch.normal(0, 0.02, (dim,)))
@@ -57,26 +93,34 @@ class RadarTransformer(nn.Module):
         self.encode = nn.ModuleList([
             modules.TransformerLayer(
                 d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
-                dropout=dropout, activation=activation) for _ in range(3)])
+                dropout=dropout, activation=activation)
+            for _ in range(enc_layers)])
         self.decode = nn.ModuleList([
             modules.TransformerDecoder(
                 d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
-                dropout=dropout, activation=activation) for _ in range(3)])
+                dropout=dropout, activation=activation)
+            for _ in dec_layers])
 
-        self.query = BasisChange(
-            shape=(out_shape[0] // 16, out_shape[1] // 16))
+        self.query = BasisChange(shape=(
+            out_shape[0] // unpatch_size[0], out_shape[1] // unpatch_size[1]))
 
         self.unpatch = modules.Unpatch2D(
             output_size=(out_shape[0], out_shape[1], 1),
-            features=dim, size=(16, 16))
+            features=dim, size=unpatch_size)
         self.activation = nn.Sigmoid()
 
-    def forward(self, x):
+    def forward(
+        self, x: Float[Tensor, "n d a e r c"]
+    ) -> Float[Tensor, "n a r"]:
         """Apply radar transformer.
 
         Args:
             x: input batch, with batch-doppler-azimuth-elevation-range-iq axis
                 order.
+
+        Returns:
+            2-dimensional output, nominally in batch-azimuth-range order
+            (though could also be a batch-azimuth-elevation representation).
         """
 
         patch = self.patch(rearrange(x, "n d a e r c -> n c d r a e"))
@@ -84,17 +128,16 @@ class RadarTransformer(nn.Module):
 
         x0 = rearrange(embedded, "n d r a e c -> n (d r a e) c")
         readout = torch.tile(self.readout[None, None, :], (x0.shape[0], 1, 1))
+        # The output type of `rearrange` isn't inferred correctly.
         x0 = torch.concatenate([x0, readout], axis=1)  # type: ignore
 
-        x1 = self.encode[0](x0)
-        x2 = self.encode[1](x1)
-        x3 = self.encode[2](x2)
+        encoded = [x0]
+        for layer in self.encode:
+            encoded.append(layer(encoded[-1]))
 
-        q = self.query(x3[:, -1, :])
+        out = self.query(encoded[-1][:, -1, :])
+        for i, layer in zip(self.dec_layers, self.decode):
+            out = layer(out, encoded[i])
 
-        y3 = self.decode[2](q, x3)
-        y2 = self.decode[1](y3, x2)
-        y1 = self.decode[0](y2, x1)
-
-        unpatch = self.unpatch(y1)[:, 0]
+        unpatch = self.unpatch(out)[:, 0]
         return self.activation(unpatch)

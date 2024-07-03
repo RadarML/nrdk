@@ -13,7 +13,7 @@ warmup: 100
 default_lr: 0.0001
 bce_weight: 0.9
 dataset:
-  batch_size: 64
+  batch_size: 32
   train:
   - carnival1
   - carnival2
@@ -51,21 +51,19 @@ dataset:
   augment:
     azimuth_flip:
       name: Bernoulli
-      args:
-        p: 0.5
+      args: {"p": 0.5}
     doppler_flip:
       name: Bernoulli
-      args:
-        p: 0.5
+      args: {"p": 0.5}
     radar_scale:
       name: TruncatedLogNormal
-      args:
-        p: 1.0
-        std: 0.5
-        clip: 2.0
+      args: {"std": 1.0, "clip": 0.0}
     radar_phase:
       name: Uniform
-      args:
-        p: 1.0
-        lower: -3.14159265
-        upper: 3.14159265
+      args: {"lower": -3.14159265, "upper": 3.14159265}
+    range_scale:
+      name: Uniform
+      args: {"lower": 1.0, "upper": 2.0}
+    speed_scale:
+      name: TruncatedLogNormal
+      args: {"std": 0.2, "clip": 2.0}

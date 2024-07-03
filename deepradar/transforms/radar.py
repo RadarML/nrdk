@@ -60,52 +60,15 @@ class BaseFFT(BaseTransform):
     """FFT base class."""
 
     @staticmethod
-    def _wrap(
-        x: Complex64[np.ndarray, "D A ... R"], width: int
-    ) -> Complex64[np.ndarray, "D A ... R"]:
-        i_left = x.shape[0] // 2 - width // 2
-        i_right = x.shape[0] // 2 + width // 2
-
-        left = x[:i_left]
-        center = x[i_left:i_right]
-        right = x[i_right:]
-
-        center[:right.shape[0]] += right
-        center[-left.shape[0]:] += left
-
-        return center
-
     def _augment(
-        self, data: Complex64[np.ndarray, "D A ... R"],
-        aug: dict[str, Any] = {}
+        data: Complex64[np.ndarray, "D A ... R"], aug: dict[str, Any] = {}
     ) -> Complex64[np.ndarray, "D A ... R"]:
-        """Apply radar range-doppler data augmentations."""
+        """Apply radar representation-agnostic data augmentations."""
 
         if aug.get("azimuth_flip"):
             data = np.flip(data, axis=1)
         if aug.get("doppler_flip"):
             data = np.flip(data, axis=0)
-        if aug.get("range_scale", 1.0) != 1.0:
-            out_dim = int(aug["range_scale"] * data.shape[-1])
-            resized = resize(data, [*data.shape[:-1], out_dim])
-            # Upsample -> crop
-            if out_dim >= data.shape[-1]:
-                data = resized[..., :data.shape[-1]]
-            # Downsample -> pad with zeros
-            else:
-                pad = np.zeros(*data.shape[:-1], data.shape[-1] - out_dim)
-                data = np.concatenate([resized, pad])
-        if aug.get("speed_scale", 1.0) != 1.0:
-            out_dim = 2 * (int(aug["speed_scale"] * data.shape[0]) // 2)
-            resized = resize(data, [out_dim, *data.shape[1:]])
-            # Downsample -> pad with zeros
-            if out_dim <= data.shape[0]:
-                pad = np.zeros((data.shape[0] - out_dim) // 2, *data.shape[1:])
-                data = np.concatenate((pad, resized, pad), axis=0)
-            # Upsample -> wrap around
-            else:
-                data = BaseFFT._wrap(resized, data.shape[0])
-
         return data
 
 
@@ -116,11 +79,6 @@ class FFTLinear(BaseFFT):
 
     - `azimuth_flip`: flip along azimuth axis.
     - `doppler_flip`: flip along doppler axis.
-    - `range_scale`: apply random range scale. Excess ranges are cropped;
-      missing ranges are zero-filled.
-    - `speed_scale`: apply random speed scale. Excess doppler bins are wrapped
-      (causing ambiguous doppler velocities); missing doppler velocities are
-      zero-filled.
 
     Args:
         pad: azimuth padding; output has shape (tx * rx + pad).
@@ -159,11 +117,6 @@ class FFTArray(BaseFFT):
 
     - `azimuth_flip`: flip along azimuth axis.
     - `doppler_flip`: flip along doppler axis.
-    - `range_scale`: apply random range scale. Excess ranges are cropped;
-      missing ranges are zero-filled.
-    - `speed_scale`: apply random speed scale. Excess doppler bins are wrapped
-      (causing ambiguous doppler velocities); missing doppler velocities are
-      zero-filled.
 
     Args:
         pad: azimuth padding; output has shape (tx * rx + pad).
@@ -201,12 +154,74 @@ class FFTArray(BaseFFT):
         return self._augment(daer_shf, aug=aug)
 
 
-class ComplexParts(BaseTransform):
+class BaseRepresentation(BaseTransform):
+    """Base class for radar representations."""
+
+    @staticmethod
+    def _wrap(
+        x: Float32[np.ndarray, "D A ... R"], width: int
+    ) -> Float32[np.ndarray, "D_crop A ... R"]:
+        i_left = x.shape[0] // 2 - width // 2
+        i_right = x.shape[0] // 2 + width // 2
+
+        left = x[:i_left]
+        center = x[i_left:i_right]
+        right = x[i_right:]
+
+        center[:right.shape[0]] += right
+        center[-left.shape[0]:] += left
+
+        return center
+
+    @classmethod
+    def _augment(
+        cls, data: Float32[np.ndarray, "D A ... R"],
+        aug: dict[str, Any] = {}
+    ) -> Float32[np.ndarray, "D A ... R"]:
+        """Apply radar representation-specific data augmentations."""
+
+        range_out_dim = int(aug.get("range_scale", 1.0) * data.shape[-1])
+        if range_out_dim != data.shape[-1]:
+            resized = resize(data, [*data.shape[:-1], range_out_dim])
+            # Upsample -> crop
+            if range_out_dim >= data.shape[-1]:
+                data = resized[..., :data.shape[-1]]
+            # Downsample -> pad with zeros
+            else:
+                pad = np.zeros(
+                    (*data.shape[:-1], data.shape[-1] - range_out_dim),
+                    dtype=np.float32)
+                data = np.concatenate([resized, pad], axis=-1)
+
+        speed_out_dim = 2 * (
+            int(aug.get("speed_scale", 1.0) * data.shape[0]) // 2)
+        if speed_out_dim != data.shape[0]:
+            resized = resize(data, [speed_out_dim, *data.shape[1:]])
+            # Downsample -> pad with zeros
+            if speed_out_dim <= data.shape[0]:
+                pad = np.zeros(
+                    ((data.shape[0] - speed_out_dim) // 2, *data.shape[1:]),
+                    dtype=np.float32)
+                data = np.concatenate((pad, resized, pad), axis=0)
+            # Upsample -> wrap around
+            else:
+                data = cls._wrap(resized, data.shape[0])
+
+        return data
+
+
+class ComplexParts(BaseRepresentation):
     """Convert complex numbers to (real, imag) along a new axis.
 
     Augmentation parameters:
 
     - `radar_scale`: radar magnitude scale factor.
+    - `radar_phase`: radar phase shift.
+    - `range_scale`: apply random range scale. Excess ranges are cropped;
+      missing ranges are zero-filled.
+    - `speed_scale`: apply random speed scale. Excess doppler bins are wrapped
+      (causing ambiguous doppler velocities); missing doppler velocities are
+      zero-filled.
     """
 
     def __call__(
@@ -215,32 +230,44 @@ class ComplexParts(BaseTransform):
         if aug.get("radar_phase"):
             data *= np.exp(-1j * aug["radar_phase"])
 
-        return np.stack(
-            [np.real(data), np.imag(data)], axis=-1
-        ) / 1e6 * aug.get("radar_scale", 1.0)
+        stretched = [
+            self._augment(np.real(data), aug),
+            self._augment(np.imag(data), aug)]
+        return np.stack(stretched, axis=-1) / 1e6 * aug.get("radar_scale", 1.0)
 
 
-class ComplexAmplitude(BaseTransform):
+class ComplexAmplitude(BaseRepresentation):
     """Convert complex numbers to amplitude-only.
 
     Augmentations:
 
     - `radar_scale`: radar magnitude scale factor.
+    - `range_scale`: apply random range scale. Excess ranges are cropped;
+      missing ranges are zero-filled.
+    - `speed_scale`: apply random speed scale. Excess doppler bins are wrapped
+      (causing ambiguous doppler velocities); missing doppler velocities are
+      zero-filled.
     """
 
     def __call__(
         self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {}
     ) -> Float32[np.ndarray, "..."]:
-        return np.sqrt(np.abs(data)) / 1e3 * aug.get("radar_scale", 1.0)
+        stretched = self._augment(np.sqrt(np.abs(data)), aug)
+        return stretched / 1e3 * aug.get("radar_scale", 1.0)
 
 
-class ComplexPhase(BaseTransform):
+class ComplexPhase(BaseRepresentation):
     """Convert complex numbers to (amplitude, phase) along a new axis.
 
     Augmentations:
 
     - `radar_scale`: radar magnitude scale factor.
     - `radar_phase`: radar phase shift.
+    - `range_scale`: apply random range scale. Excess ranges are cropped;
+      missing ranges are zero-filled.
+    - `speed_scale`: apply random speed scale. Excess doppler bins are wrapped
+      (causing ambiguous doppler velocities); missing doppler velocities are
+      zero-filled.
     """
 
     def __call__(
@@ -249,7 +276,10 @@ class ComplexPhase(BaseTransform):
         def _normalize(x):
             return (x + np.pi) % (2 * np.pi) - np.pi
 
+        stretched_magnitude = self._augment(np.sqrt(np.abs(data)), aug)
+        stretched_phase = self._augment(np.angle(data), aug)
+
         return np.stack([
-            np.sqrt(np.abs(data)) / 1e3 * aug.get("radar_scale", 1.0),
-            _normalize(np.angle(data) + aug.get("phase_shift", 0.0))
+            stretched_magnitude / 1e3 * aug.get("radar_scale", 1.0),
+            _normalize(stretched_phase + aug.get("phase_shift", 0.0))
         ], axis=-1)

@@ -78,13 +78,15 @@ class RadarUNeXT(nn.Module):
     """Radar range-azimuth U-net.
 
     We adopt some relevant recommendations from [N2]_, including:
+
     - Using layer norm instead of batch norm.
     - Using the ConvNeXT block (7x7/d + 1x1/4d + 1x1/d) instead of a generic
-        3x3/d conv block.
+      3x3/d conv block.
 
     We also take inspiration from the same concepts and change the following:
+
     - Instead of concatenating skip connections, we upsample-project to the
-        same space, and add (similar to a residual layer).
+      same space, and add (similar to a residual layer).
 
     Args:
         width: network width multiplier. Each stage has a width of
