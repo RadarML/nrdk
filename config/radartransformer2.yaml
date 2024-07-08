@@ -1,12 +1,16 @@
 objective: RadarHD
 model: RadarTransformer
 model_args:
+  enc_layers: 5
+  dec_layers: [5, 3, 1]
   dim: 512
   ff_ratio: 4.0
   heads: 8
   dropout: 0.1
   activation: GELU
   out_shape: [1024, 256]
+  patch_size: [16, 16]
+  unpatch_size: [16, 16]
 optimizer: AdamW
 optimizer_args: {}
 warmup: 100

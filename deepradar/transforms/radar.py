@@ -213,7 +213,7 @@ class BaseRepresentation(BaseTransform):
 class ComplexParts(BaseRepresentation):
     """Convert complex numbers to (real, imag) along a new axis.
 
-    Augmentation parameters:
+    Augmentations:
 
     - `radar_scale`: radar magnitude scale factor.
     - `radar_phase`: radar phase shift.

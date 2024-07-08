@@ -130,7 +130,6 @@ class RoverTrace:
 
     def __getitem__(self, idx: Index):
         aug = {k: v() for k, v in self.augment.items()}
-        print(aug)
 
         def apply_transform(k, data):
             for tf in self.transform.get(k, []):
@@ -240,5 +239,5 @@ class RoverDataModule(L.LightningDataModule):
             [os.path.join(self.base, t) for t in self.val],
             transform=self.transform, augment={})
         return DataLoader(
-            ds, batch_size=self.batch_size, shuffle=False, drop_last=True,
+            ds, batch_size=self.batch_size, shuffle=True, drop_last=True,
             num_workers=self.nproc)

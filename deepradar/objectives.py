@@ -2,8 +2,8 @@
 
 import re
 import torch
-from torch import nn, Tensor
-from torchvision import transforms, utils
+from torch import Tensor
+from torchvision import utils
 import lightning as L
 
 from beartype.typing import Any
@@ -11,6 +11,8 @@ from jaxtyping import Float, Num
 
 import models
 from .dataloader import RoverDataModule
+from . import metrics
+from .utils import polar_to_bev
 
 
 class BaseModel(L.LightningModule):
@@ -61,22 +63,20 @@ class BaseModel(L.LightningModule):
         return RoverDataModule(**self.dataset, path=path, debug=debug)
 
     def add_image(
-        self, path: str, img: Num[torch.Tensor, "n h w"],
-        size: tuple[int, int] = (256, 1024), columns: int = 8
+        self, path: str, img: Num[torch.Tensor, "batch azimuth range"],
+        height: int = 512, columns: int = 4
     ) -> None:
         """Log a batch of images.
         
         Args:
             path: log path, e.g. `train/examples`
             img: batch of grayscale images.
-            size: resize images.
+            height: image size.
             columns: number of columns when arranging the images.
         """
-        img_resized = transforms.Resize(
-            size, interpolation=transforms.InterpolationMode.NEAREST
-        )(img[:, None, :, :])
+        bev = polar_to_bev(img, height=height)
 
-        grid = utils.make_grid(img_resized, nrow=columns).cpu().numpy()
+        grid = utils.make_grid(bev[:, None, :, :], nrow=columns).cpu().numpy()
         self.logger.experiment.add_image(  # type: ignore
             path, grid, self.global_step, dataformats='CHW')
 
@@ -121,41 +121,22 @@ class RadarHD(BaseModel):
 
     def __init__(self, bce_weight: float = 0.9, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.bce_weight = bce_weight
-
-    def _dice(
-        self, y_hat: Float[Tensor, "n a r"], y_true: Float[Tensor, "n a r"]
-    ) -> Float[Tensor, ""]:
-        denominator = (
-            torch.sum(y_hat * y_hat, dim=(1, 2))
-            + torch.sum(y_true, dim=(1, 2)))
-        numerator = 2 * torch.sum(y_hat * y_true, dim=(1, 2))
-        return torch.mean(1.0 - numerator / denominator)
-
-    def loss_func(
-        self, y_hat: Float[Tensor, "n a r"], y_true: Float[Tensor, "n a r"]
-    ) -> Float[Tensor, ""]:
-        dice = self._dice(y_hat, y_true)
-        bce = nn.functional.binary_cross_entropy(y_hat, y_true)
-        return bce * self.bce_weight + dice * (1 - self.bce_weight)
+        self.loss = metrics.CombinedDiceBCE(bce_weight=bce_weight)
+        self.metrics = {"chamfer_l2": metrics.PolarChamfer()}
 
     def log_radarhd(
         self, path: str, y_true: Float[Tensor, "n h w"],
         y_hat: Float[Tensor, "n h w"]
     ) -> None:
         """Log radarhd example images."""
-        self.add_image(
-            f"{path}/y_hat", torch.swapaxes(y_hat[:8], 1, 2),
-            size=(256, 512), columns=4)
-        self.add_image(
-            f"{path}/y_true", torch.swapaxes(y_true[:8], 1, 2),
-            size=(256, 512), columns=4)
+        self.add_image(f"{path}/y_hat", y_hat[:8], height=512, columns=4)
+        self.add_image(f"{path}/y_true", y_true[:8], height=512, columns=4)
 
     def training_step(self, batch, batch_idx):  # type: ignore
         """Standard lightning training step."""
         y_hat = self.model(batch['radar'])
         y_true = batch['lidar'].to(torch.float32)
-        loss = self.loss_func(y_hat, y_true)
+        loss = self.loss(y_hat, y_true)
 
         self.log("loss/train", loss, prog_bar=True)
         if self.global_step % self.log_interval == 0:
@@ -167,10 +148,12 @@ class RadarHD(BaseModel):
         """Standard lightning validation step."""
         y_hat = self.model(batch['radar'])
         y_true = batch['lidar'].to(torch.float32)
-        loss = self.loss_func(y_hat, y_true)
 
-        self.log("loss/val", loss, prog_bar=True)
         if batch_idx == 0:
             self.log_radarhd("val_example", y_true, y_hat.detach())
 
-        return loss
+        metrics = {
+            "loss/val_{}".format(k): v(y_hat > 0.5, batch['lidar'])
+            for k, v in self.metrics.items()}
+        metrics["loss/val"] = self.loss(y_hat, y_true)
+        self.log_dict(metrics)

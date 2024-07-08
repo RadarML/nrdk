@@ -14,7 +14,7 @@ from .base import BaseTransform
 class Destagger(BaseTransform):
     """Destagger lidar data.
 
-    Augmentation parameters:
+    Augmentations:
 
     - `range_scale`: random scaling applied to ranges to the sensor.
     - `azimuth_flip`: flip along the azimuth axis.

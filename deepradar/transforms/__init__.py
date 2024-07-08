@@ -14,13 +14,11 @@ new  transformations:
     - velocity, acceleration: multiply by -1.
 
 - `range_scale`: apply random range scale.
-    - TODO: fix
     - radar: rescale post-FFT range axis; crop or zero-pad.
     - lidar: multiply raw ranges by scale.
     - velocity, acceleration: multiply by scale.
 
 - `speed_scale`: apply random speed scale.
-    - TODO: fix
     - radar: rescale post-FFT doppler axis; wrap or zero-pad.
     - velocity, acceleration: multiple by scale.
 
