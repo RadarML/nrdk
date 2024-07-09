@@ -24,10 +24,8 @@ dataset:
   - scott
   - tepper
   - wean
-  val:
-  - cic4
-  - nsh
-  - smith
+  val: ["cic4", "nsh", "smith"]
+  val_samples: [500, 1000, 1500, 2000, 2500, 3000]
   transform:
     lidar:
     - args: {}

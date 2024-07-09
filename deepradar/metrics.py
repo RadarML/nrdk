@@ -11,30 +11,67 @@ from jaxtyping import Bool, Float
 
 class CombinedDiceBCE:
     """Weighted combination of Dice and BCE loss.
-    
+
+    Supports equal-area "range weighting," where the relative weight of bins
+    is adjusted on the range axis so that each bin is weighted according to
+    the area which it represents (i.e. multiplying the weight by its range).
+
     Args:
         bce_weight: BCE loss weight; Dice loss is weighted `1 - bce_weight`.
+        range_weighted: perform range equal-area weighting if `True`.
     """
 
-    def __init__(self, bce_weight: float = 0.9) -> None:
+    def __init__(
+        self, bce_weight: float = 0.9, range_weighted: bool = False
+    ) -> None:
         self.bce_weight = bce_weight
-    
+        self.range_weighted = range_weighted
+
     def __call__(
-        self, y_hat: Float[Tensor, "b w h"], y_true: Float[Tensor, "b w h"]
+        self, y_hat: Float[Tensor, "batch azimuth range"],
+        y_true: Float[Tensor, "batch azimuth range"]
     ) -> Float[Tensor, ""]:
         """Get Dice + BCE weighted loss."""
+
+        if self.range_weighted:
+            bins = torch.arange(y_true.shape[2], device=y_hat.device)
+            weight = ((bins + 1) / y_true.shape[2])[None, None, :]
+        else:
+            # Mypy doesn't seem to recognize the type overloading here.
+            weight = 1.0  # type: ignore
+
         denominator = (
-            torch.sum(y_hat * y_hat, dim=(1, 2))
-            + torch.sum(y_true, dim=(1, 2)))
-        numerator = 2 * torch.sum(y_hat * y_true, dim=(1, 2))
+            torch.sum(y_hat * y_hat * weight, dim=(1, 2))
+            + torch.sum(y_true * weight, dim=(1, 2)))
+        numerator = 2 * torch.sum(y_hat * y_true * weight, dim=(1, 2))
         dice = 1.0 - torch.mean(numerator / denominator)
 
-        bce = binary_cross_entropy(y_hat, y_true, reduction='mean')
+        if self.range_weighted:
+            bce_raw = binary_cross_entropy(y_hat, y_true, reduction='none')
+            bce = torch.mean(bce_raw * weight)
+        else:
+            bce = binary_cross_entropy(y_hat, y_true, reduction='mean')
+
         return bce * self.bce_weight + dice * (1 - self.bce_weight)
 
 
-class PolarChamfer:
-    """L2 Chamfer distance for a polar range-azimuth grid."""
+class Chamfer:
+    """L2 Chamfer distance for a polar range-azimuth grid, in range bins.
+
+    Supported modes:
+
+    - `chamfer` (default): chamfer distance (mean)
+    - `hausdorff`: hausdorff distance (max)
+    - `modhausdorff`: modified hausdorff distance (median)
+
+    Args:
+        mode: specified modes.
+        on_empty: value to use if one of the provided maps is completely empty.
+    """
+
+    def __init__(self, on_empty: float = 64.0, mode: str = "chamfer") -> None:
+        self.mode = mode
+        self.on_empty = on_empty
 
     @staticmethod
     def as_points(mask: Bool[Tensor, "azimuth range"]) -> Float[Tensor, "n 2"]:
@@ -65,11 +102,21 @@ class PolarChamfer:
             dist = self.distance(pts_x, pts_y)
 
             if dist.shape[0] == 0 or dist.shape[1] == 0:
-                return torch.zeros(())
+                return torch.full((), self.on_empty)
 
-            d1 = torch.mean(torch.min(dist, dim=0).values)
-            d2 = torch.mean(torch.min(dist, dim=1).values)
-            return (d1 + d2) / 2
+            d1 = torch.min(dist, dim=0).values
+            d2 = torch.min(dist, dim=1).values
+
+            if self.mode == "hausdorff":
+                m1 = torch.max(d1, dim=1).values
+                m2 = torch.max(d2, dim=1).values
+                return torch.mean(torch.maximum(m1, m2))
+            elif self.mode == "modhausdorff":
+                m1 = torch.mean(torch.median(d1))
+                m2 = torch.mean(torch.median(d2))
+                return (m1 + m2) / 2
+            else:
+                return (torch.mean(d1) + torch.mean(d2)) / 2
 
         _iter = (_forward(xs, ys) for xs, ys in zip(y_hat, y_true))
         return cast(Float[Tensor, ""], sum(_iter)) / y_hat.shape[0]

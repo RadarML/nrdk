@@ -7,6 +7,7 @@ Deep Radar: Deep Learning Toolkit for mmWave Radar
 
    augmentations.rst
    dataloader.rst
+   metrics.rst
    models.rst
    modules.rst
    objectives.rst

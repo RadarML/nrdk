@@ -81,12 +81,14 @@ def _main(args):
             args.checkpoint, hparams_file=args.cfg)
 
     # Bypass save_hyperparameters
-    model.log_interval = args.log_example_interval
+    model.configure(log_interval=args.log_example_interval, num_examples=6)
 
     checkpoint = ModelCheckpoint(
         save_top_k=args.num_checkpoints, monitor="loss/val",
         save_last=True, dirpath=None)
-    logger = TensorBoardLogger(args.out, name=args.name, version=args.version)
+    logger = TensorBoardLogger(
+        args.out, name=args.name, version=args.version,
+        default_hp_metric=False)
 
     data = model.get_dataset(args.path)
     trainer = L.Trainer(

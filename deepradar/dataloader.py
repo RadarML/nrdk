@@ -42,12 +42,12 @@ Example configuration::
 import os, json
 import multiprocessing
 import numpy as np
-from functools import partial
+from functools import partial, cached_property
 
 from torch.utils.data import Dataset, DataLoader
 import lightning as L
 
-from beartype.typing import Union, TypedDict, Callable, Any
+from beartype.typing import Union, TypedDict, Callable, Any, Iterable
 from jaxtyping import Num
 
 from . import transforms, augmentations
@@ -128,7 +128,7 @@ class RoverTrace:
     def __len__(self) -> int:
         return len(self.indices)
 
-    def __getitem__(self, idx: Index):
+    def __getitem__(self, idx: Index) -> dict[str, Num[np.ndarray, "..."]]:
         aug = {k: v() for k, v in self.augment.items()}
 
         def apply_transform(k, data):
@@ -166,7 +166,7 @@ class RoverData(Dataset):
     def __len__(self) -> int:
         return sum(len(t) for t in self.traces)
 
-    def __getitem__(self, idx: Index):
+    def __getitem__(self, idx: Index) -> dict[str, Num[np.ndarray, "..."]]:
         if idx < 0 or idx > self.indices[-1]:
             raise ValueError("Index out of bounds.")
         else:
@@ -186,13 +186,15 @@ class RoverDataModule(L.LightningDataModule):
         debug: whether to run in debug mode. When `debug=True`, use 
             `num_workers=0` (run dataloaders in main thread) to allow debuggers
             to work properly; otherwise, uses `num_workers=nproc`.
+        val_samples: indices of (val) data to use as visualization samples.
     """
 
     def __init__(self,
         path: str, train: list[str] = [], val: list[str] = [],
         transform: dict[str, list[Union[Transform, TransformSpec]]] = {},
         augment: dict[str, Union[Augmentation, TransformSpec]] = {},
-        batch_size: int = 64, debug: bool = False
+        batch_size: int = 64, val_samples: Iterable[int] = [0, 1, 2, 3],
+        debug: bool = False
     ) -> None:
         super().__init__()
         self.base = path
@@ -205,6 +207,21 @@ class RoverDataModule(L.LightningDataModule):
 
         self.batch_size = batch_size
         self.nproc = 0 if debug else multiprocessing.cpu_count()
+        self._val_samples = val_samples
+
+    @cached_property
+    def val_samples(self) -> dict[str, Num[np.ndarray, "..."]]:
+        """Get specific validation samples for validation visualizations.
+
+        Returns:
+            Data samples in the same batch format as normal dataloading, with
+            the specified indices.
+        """
+        ds = RoverData(
+            [os.path.join(self.base, t) for t in self.val],
+            transform=self.transform, augment={})
+        samples = [ds[i] for i in self._val_samples]
+        return {k: np.stack([s[k] for s in samples]) for k in samples[0]}
 
     @staticmethod
     def as_transform(spec: Union[Transform, TransformSpec]) -> Transform:
@@ -239,5 +256,5 @@ class RoverDataModule(L.LightningDataModule):
             [os.path.join(self.base, t) for t in self.val],
             transform=self.transform, augment={})
         return DataLoader(
-            ds, batch_size=self.batch_size, shuffle=True, drop_last=True,
+            ds, batch_size=self.batch_size, shuffle=False, drop_last=True,
             num_workers=self.nproc)

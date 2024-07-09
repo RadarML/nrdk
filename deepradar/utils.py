@@ -1,5 +1,6 @@
 """Miscellaneous utilities."""
 
+import numpy as np
 import torch
 from torch import Tensor
 from jaxtyping import Num
@@ -29,7 +30,7 @@ def polar_to_bev(
         Nearest-neighbor-interpolated BEV image, with resolution
         `(height, height * 2)`. The data type is always preserved.
     """
-    
+
     rmax = data.shape[2] - 1
     thetamax = data.shape[1] - 1
 

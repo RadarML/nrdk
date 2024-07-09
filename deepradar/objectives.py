@@ -2,12 +2,10 @@
 
 import re
 import torch
-from torch import Tensor
-from torchvision import utils
 import lightning as L
 
 from beartype.typing import Any
-from jaxtyping import Float, Num
+from jaxtyping import Num
 
 import models
 from .dataloader import RoverDataModule
@@ -17,7 +15,11 @@ from .utils import polar_to_bev
 
 class BaseModel(L.LightningModule):
     """Composable training objective.
-    
+
+    All hyperparameters should be encapsulated by the constructor of the
+    inheriting class. Environment-specific, non-hyperparameters should be
+    passed in via methods.
+
     Args:
         objective: objective name (ignored).
         dataset: dataset specifications.
@@ -35,13 +37,12 @@ class BaseModel(L.LightningModule):
         self, objective: str = "RadarHD", dataset: dict[str, Any] = {},
         model: str = "UNet", model_args: dict[str, Any] = {},
         optimizer: str = "AdamW", default_lr: float = 1e-3,
-        optimizer_args: dict[str, dict] = {}, warmup: int = 0
+        optimizer_args: dict[str, dict] = {}, warmup: int = 0,
     ) -> None:
         super().__init__()
 
         self.model = getattr(models, model)(**model_args)
 
-        self.log_interval = 1
         self.dataset = dataset
         self.optimizer = optimizer
         self.optimizer_args = optimizer_args
@@ -62,23 +63,27 @@ class BaseModel(L.LightningModule):
         """
         return RoverDataModule(**self.dataset, path=path, debug=debug)
 
-    def add_image(
-        self, path: str, img: Num[torch.Tensor, "batch azimuth range"],
-        height: int = 512, columns: int = 4
+    def configure(self, **kwargs) -> None:
+        """Set non-hyperparameter configurations."""
+        pass
+
+    def log_image_comparison(
+        self, path: str, y_true: Num[torch.Tensor, "batch h w"],
+        y_hat: Num[torch.Tensor, "batch h w"], height: int = 512
     ) -> None:
         """Log a batch of images.
-        
+
         Args:
             path: log path, e.g. `train/examples`
-            img: batch of grayscale images.
-            height: image size.
-            columns: number of columns when arranging the images.
+            y_true, y_hat: images to log.
+            height: image height.
         """
-        bev = polar_to_bev(img, height=height)
-
-        grid = utils.make_grid(bev[:, None, :, :], nrow=columns).cpu().numpy()
+        bev_true = torch.cat(list(polar_to_bev(y_true, height=height)), dim=1)
+        bev_hat = torch.cat(list(polar_to_bev(y_hat, height=height)), dim=1)
+        bev_grid = torch.cat([bev_true, bev_hat], dim=0)
         self.logger.experiment.add_image(  # type: ignore
-            path, grid, self.global_step, dataformats='CHW')
+            path, bev_grid[None, :, :].cpu().numpy(),
+            self.global_step, dataformats='CHW')
 
     def configure_optimizers(self):
         """Configure optimizers."""
@@ -121,16 +126,17 @@ class RadarHD(BaseModel):
 
     def __init__(self, bce_weight: float = 0.9, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.loss = metrics.CombinedDiceBCE(bce_weight=bce_weight)
-        self.metrics = {"chamfer_l2": metrics.PolarChamfer()}
+        self.loss = metrics.CombinedDiceBCE(
+            bce_weight=bce_weight, range_weighted=True)
+        self.metrics = {"chamfer_l2": metrics.Chamfer()}
+        self.configure()
 
-    def log_radarhd(
-        self, path: str, y_true: Float[Tensor, "n h w"],
-        y_hat: Float[Tensor, "n h w"]
+    def configure(
+        self, log_interval: int = 1, num_examples: int = 6, **kwargs
     ) -> None:
-        """Log radarhd example images."""
-        self.add_image(f"{path}/y_hat", y_hat[:8], height=512, columns=4)
-        self.add_image(f"{path}/y_true", y_true[:8], height=512, columns=4)
+        """Set non-hyperparameter configurations."""
+        self.log_interval = log_interval
+        self.num_examples = num_examples
 
     def training_step(self, batch, batch_idx):  # type: ignore
         """Standard lightning training step."""
@@ -138,22 +144,27 @@ class RadarHD(BaseModel):
         y_true = batch['lidar'].to(torch.float32)
         loss = self.loss(y_hat, y_true)
 
-        self.log("loss/train", loss, prog_bar=True)
+        self.log("train/loss", loss, prog_bar=True)
         if self.global_step % self.log_interval == 0:
-            self.log_radarhd("train_example", y_true, y_hat)
+            self.log_image_comparison(
+                "train/sample", y_true[:self.num_examples],
+                y_hat[:self.num_examples].detach())
 
         return loss
 
     def validation_step(self, batch, batch_idx):  # type: ignore
         """Standard lightning validation step."""
+        if batch_idx == 0:
+            samples = self.trainer.datamodule.val_samples  # type: ignore
+            radar = torch.Tensor(samples['radar']).to(batch['radar'].device)
+            y_true = torch.Tensor(samples['lidar']).to(batch['lidar'].device)
+            y_hat = self.model(radar)
+            self.log_image_comparison("val/sample", y_true, y_hat)
+
         y_hat = self.model(batch['radar'])
         y_true = batch['lidar'].to(torch.float32)
-
-        if batch_idx == 0:
-            self.log_radarhd("val_example", y_true, y_hat.detach())
-
         metrics = {
-            "loss/val_{}".format(k): v(y_hat > 0.5, batch['lidar'])
+            "val/{}".format(k): v(y_hat > 0.5, batch['lidar'])
             for k, v in self.metrics.items()}
-        metrics["loss/val"] = self.loss(y_hat, y_true)
+        metrics["val/loss"] = self.loss(y_hat, y_true)
         self.log_dict(metrics)
