@@ -1,10 +1,9 @@
-project = 'Deep Radar'
-
-import os
-import sys
+import os, sys
 
 os.chdir("..")
+sys.path.insert(0, os.getenv("ROOT_CONF_DIR"))
 sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(0, os.path.abspath('../radar-docs'))
+
+project = 'Deep Radar'
 
 from conf import *
