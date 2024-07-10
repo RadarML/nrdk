@@ -5,13 +5,10 @@ Deep Radar: Deep Learning Toolkit for mmWave Radar
    :maxdepth: 1
    :caption: Contents:
 
-   augmentations.rst
-   dataloader.rst
-   metrics.rst
+   usage.rst
+   deepradar.rst
    models.rst
-   modules.rst
-   objectives.rst
-   transforms.rst
+
 
 Indices and tables
 ==================

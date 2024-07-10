@@ -6,7 +6,7 @@ from argparse import ArgumentParser
 import lightning as L
 import torch
 
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from deepradar import objectives
@@ -32,7 +32,10 @@ def _parse():
         "`<folder>/checkpoints/<checkpoint>.ckpt`, where `folder` contains a "
         "`hparams.yaml` file.")
     g.add_argument(
-        "-s", "--steps", default=-1, type=int, help="Maximum number of steps.")
+        "--steps", default=-1, type=int, help="Maximum number of steps.")
+    g.add_argument(
+        "--patience", default=5, type=int,
+        help="Stop after this many validation checks with no improvement.")
 
     g = p.add_argument_group("Logging")
     g.add_argument(
@@ -83,17 +86,20 @@ def _main(args):
     # Bypass save_hyperparameters
     model.configure(log_interval=args.log_example_interval, num_examples=6)
 
+    data = model.get_dataset(args.path)
+
     checkpoint = ModelCheckpoint(
         save_top_k=args.num_checkpoints, monitor="loss/val",
         save_last=True, dirpath=None)
+    stopping = EarlyStopping(
+        monitor="chamfer/val", min_delta=0.0,
+        patience=args.patience, mode="min")
     logger = TensorBoardLogger(
         args.out, name=args.name, version=args.version,
         default_hp_metric=False)
-
-    data = model.get_dataset(args.path)
     trainer = L.Trainer(
         logger=logger, log_every_n_steps=args.log_interval,
-        callbacks=[checkpoint], max_epochs=-1, max_steps=args.steps,
+        callbacks=[checkpoint, stopping], max_epochs=-1, max_steps=args.steps,
         val_check_interval=args.val_interval)
     trainer.fit(model=model, datamodule=data)
 

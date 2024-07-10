@@ -1,32 +1,27 @@
 objective: RadarHD
 model: RadarTransformer
 model_args:
+  enc_layers: 5
+  dec_layers: [5, 3, 1]
   dim: 512
   ff_ratio: 4.0
   heads: 8
   dropout: 0.1
   activation: GELU
   out_shape: [1024, 256]
+  patch_size: [16, 16]
+  unpatch_size: [16, 16]
 optimizer: AdamW
 optimizer_args: {}
 warmup: 100
 default_lr: 0.0001
 bce_weight: 0.9
+weighted: True
 dataset:
-  batch_size: 64
-  train:
-  - carnival1
-  - carnival2
-  - cic1
-  - cic2
-  - ghc
-  - hamburg
-  - hammerschlag
-  - porter
-  - scaife
-  - scott
-  - tepper
-  - wean
+  batch_size: 32
+  train: [
+    "carnival1", "carnival2", "cic1", "cic2", "ghc", "hamburg", "hammerschlag",
+    "porter", "scaife", "scott", "tepper", "wean"]
   val: ["cic4", "nsh", "smith"]
   val_samples: [500, 1000, 1500, 2000, 2500, 3000]
   transform:

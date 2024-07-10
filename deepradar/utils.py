@@ -3,12 +3,12 @@
 import numpy as np
 import torch
 from torch import Tensor
-from jaxtyping import Num
+from jaxtyping import Shaped
 
 
 def polar_to_bev(
-    data: Num[Tensor, "batch azimuth range"], height: int = 512
-) -> Num[Tensor, "batch height width"]:
+    data: Shaped[Tensor, "batch azimuth range"], height: int = 512
+) -> Shaped[Tensor, "batch height width"]:
     """Convert polar image to a birds-eye-view cartesian image.
 
     Uses nearest-neighbor interpolation for a specified resolution.

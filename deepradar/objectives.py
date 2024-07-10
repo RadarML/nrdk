@@ -5,7 +5,7 @@ import torch
 import lightning as L
 
 from beartype.typing import Any
-from jaxtyping import Num
+from jaxtyping import Shaped
 
 import models
 from .dataloader import RoverDataModule
@@ -13,12 +13,14 @@ from . import metrics
 from .utils import polar_to_bev
 
 
-class BaseModel(L.LightningModule):
+class BaseModule(L.LightningModule):
     """Composable training objective.
 
     All hyperparameters should be encapsulated by the constructor of the
     inheriting class. Environment-specific, non-hyperparameters should be
     passed in via methods.
+
+    NOTE: the outer-most inheriting class must call `save_parameters()`!
 
     Args:
         objective: objective name (ignored).
@@ -49,8 +51,6 @@ class BaseModel(L.LightningModule):
         self.warmup = warmup
         self.default_lr = default_lr
 
-        self.save_hyperparameters()
-
     def get_dataset(self, path: str, debug: bool = False) -> RoverDataModule:
         """Get datamodule.
 
@@ -68,8 +68,8 @@ class BaseModel(L.LightningModule):
         pass
 
     def log_image_comparison(
-        self, path: str, y_true: Num[torch.Tensor, "batch h w"],
-        y_hat: Num[torch.Tensor, "batch h w"], height: int = 512
+        self, path: str, y_true: Shaped[torch.Tensor, "batch h w"],
+        y_hat: Shaped[torch.Tensor, "batch h w"], height: int = 512
     ) -> None:
         """Log a batch of images.
 
@@ -116,20 +116,25 @@ class BaseModel(L.LightningModule):
             return opt
 
 
-class RadarHD(BaseModel):
-    """Radar -> lidar.
-    
+class RadarHD(BaseModule):
+    """Radar -> lidar as bird's eye view (BEV) occupancy.
+
     Args:
         bce_weight: BCE loss weight; Dice loss is weighted `1 - bce_weight`.
-        kwargs: see `BaseModel`.
+        range_weighted: Whether to apply range weighting; see
+            :class:`.CombinedDiceBCE` for details.
+        kwargs: see :class:`.BaseModule`.
     """
 
-    def __init__(self, bce_weight: float = 0.9, **kwargs) -> None:
+    def __init__(
+        self, bce_weight: float = 0.9, range_weighted: bool = True, **kwargs
+    ) -> None:
         super().__init__(**kwargs)
         self.loss = metrics.CombinedDiceBCE(
-            bce_weight=bce_weight, range_weighted=True)
-        self.metrics = {"chamfer_l2": metrics.Chamfer()}
+            bce_weight=bce_weight, range_weighted=range_weighted)
+        self.metrics = {"chamfer": metrics.Chamfer()}
         self.configure()
+        self.save_hyperparameters()
 
     def configure(
         self, log_interval: int = 1, num_examples: int = 6, **kwargs
@@ -144,10 +149,10 @@ class RadarHD(BaseModel):
         y_true = batch['lidar'].to(torch.float32)
         loss = self.loss(y_hat, y_true)
 
-        self.log("train/loss", loss, prog_bar=True)
+        self.log("loss/train", loss, prog_bar=True)
         if self.global_step % self.log_interval == 0:
             self.log_image_comparison(
-                "train/sample", y_true[:self.num_examples],
+                "sample/train", y_true[:self.num_examples],
                 y_hat[:self.num_examples].detach())
 
         return loss
@@ -156,15 +161,18 @@ class RadarHD(BaseModel):
         """Standard lightning validation step."""
         if batch_idx == 0:
             samples = self.trainer.datamodule.val_samples  # type: ignore
-            radar = torch.Tensor(samples['radar']).to(batch['radar'].device)
-            y_true = torch.Tensor(samples['lidar']).to(batch['lidar'].device)
+            radar = torch.from_numpy(
+                samples['radar']).to(batch['radar'].device)
+            y_true = torch.from_numpy(
+                samples['lidar']).to(batch['lidar'].device)
+
             y_hat = self.model(radar)
-            self.log_image_comparison("val/sample", y_true, y_hat)
+            self.log_image_comparison("sample/val", y_true, y_hat)
 
         y_hat = self.model(batch['radar'])
         y_true = batch['lidar'].to(torch.float32)
         metrics = {
-            "val/{}".format(k): v(y_hat > 0.5, batch['lidar'])
+            "{}/val".format(k): v(y_hat > 0.5, batch['lidar'])
             for k, v in self.metrics.items()}
-        metrics["val/loss"] = self.loss(y_hat, y_true)
+        metrics["loss/val"] = self.loss(y_hat, y_true)
         self.log_dict(metrics)

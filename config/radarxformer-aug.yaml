@@ -1,8 +1,8 @@
 objective: RadarHD
 model: RadarTransformer
 model_args:
-  enc_layers: 2
-  dec_layers: [2, 1]
+  enc_layers: 5
+  dec_layers: [5, 3, 1]
   dim: 512
   ff_ratio: 4.0
   heads: 8
@@ -16,21 +16,12 @@ optimizer_args: {}
 warmup: 100
 default_lr: 0.0001
 bce_weight: 0.9
+weighted: True
 dataset:
   batch_size: 32
-  train:
-  - carnival1
-  - carnival2
-  - cic1
-  - cic2
-  - ghc
-  - hamburg
-  - hammerschlag
-  - porter
-  - scaife
-  - scott
-  - tepper
-  - wean
+  train: [
+    "carnival1", "carnival2", "cic1", "cic2", "ghc", "hamburg", "hammerschlag",
+    "porter", "scaife", "scott", "tepper", "wean"]
   val: ["cic4", "nsh", "smith"]
   val_samples: [500, 1000, 1500, 2000, 2500, 3000]
   transform:

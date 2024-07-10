@@ -10,6 +10,7 @@ Key configuration options for `cfg`:
 - **batch_size**: data batch size.
 - **path**: all traces should be put in a directory `path`.
 - **train, val**: traces to use in the train set, and val set.
+- **val_samples**: fixed indices from the validation set to render visualizations for on each validation round.
 - **transform**: transform spec. Keys correspond to sensors, while values are
   a list of transforms to apply (see :class:`TransformSpec`).
 - **augment**: data augmentation parameter generators. Key correspond to
@@ -21,6 +22,7 @@ Example configuration::
         "batch_size": 64,
         "train": ["cic1", "cic2"],
         "val": ["cic4"],
+        "val_samples": [100, 200, 300, 400],
         "transform": {
             "lidar": [
                 {"args": {}, "name": "Destagger"},
