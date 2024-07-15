@@ -1,8 +1,8 @@
 objective: RadarHD
 model: RadarTransformer
 model_args:
-  enc_layers: 5
-  dec_layers: [5, 3, 1]
+  enc_layers: 3
+  dec_layers: [3, 2, 1]
   dim: 512
   ff_ratio: 4.0
   heads: 8
@@ -21,7 +21,7 @@ dataset:
   pval: 0.2
   traces: !include _traces.yaml
   val_samples: [2000, 4000, 6000, 8000, 10000, 12000]
-  batch_size: 32
+  batch_size: 64
   transform:
     lidar:
     - args: {}
@@ -39,22 +39,3 @@ dataset:
       name: FFTArray
     - args: {}
       name: ComplexPhase
-  augment:
-    azimuth_flip:
-      name: Bernoulli
-      args: {"p": 0.5}
-    doppler_flip:
-      name: Bernoulli
-      args: {"p": 0.5}
-    radar_scale:
-      name: TruncatedLogNormal
-      args: {"std": 1.0, "clip": 0.0}
-    radar_phase:
-      name: Uniform
-      args: {"lower": -3.14159265, "upper": 3.14159265}
-    range_scale:
-      name: Uniform
-      args: {"lower": 1.0, "upper": 2.0}
-    speed_scale:
-      name: TruncatedLogNormal
-      args: {"std": 0.2, "clip": 2.0}

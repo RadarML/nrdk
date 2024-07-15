@@ -9,12 +9,10 @@ default_lr: 0.001
 bce_weight: 0.9
 range_weighted: True
 dataset:
+  pval: 0.2
+  traces: !include _traces.yaml
+  val_samples: [2000, 4000, 6000, 8000, 10000, 12000]
   batch_size: 16
-  train: [
-    "carnival1", "carnival2", "cic1", "cic2", "ghc", "hamburg", "hammerschlag",
-    "porter", "scaife", "scott", "tepper", "wean"]
-  val: ["cic4", "nsh", "smith"]
-  val_samples: [500, 1000, 1500, 2000, 2500, 3000]
   transform:
     lidar:
     - args: {}

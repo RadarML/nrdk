@@ -1,5 +1,6 @@
 """Radar transforms."""
 
+import os, json
 import numpy as np
 from scipy import fft
 from skimage.transform import resize
@@ -8,6 +9,36 @@ from jaxtyping import Complex64, Int16, Float32
 from beartype.typing import Iterable, Any
 
 from .base import BaseTransform
+
+
+class RadarResolution(BaseTransform):
+    """Get radar resolution metadata.
+    
+    Augmentations:
+
+    - `range_scale`: apply scale multiplicatively to `range_resolution`.
+    - `speed_scale`: apply multiplicatively to `doppler_resolution`.
+
+    Args:
+        path: path to dataset directory.
+    """
+
+    def __init__(self, path: str) -> None:
+
+        with open(os.path.join(path, "radar", "radar.json")) as f:
+            cfg = json.load(f)
+        self.range_res = cfg["range_resolution"]
+        self.doppler_res = cfg["doppler_resolution"]
+
+    def __call__(
+        self, other: Float32[np.ndarray, "d"], aug: dict[str, Any] = {}
+    ) -> Float32[np.ndarray, "d2"]:
+
+        meta = np.array([
+            self.range_res * aug.get("range_scale", 1.0),
+            self.doppler_res * aug.get("speed_scale", 1.0)
+        ], dtype=np.float32)
+        return np.concatenate([other, meta])
 
 
 class IIQQtoIQ(BaseTransform):

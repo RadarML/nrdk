@@ -2,12 +2,12 @@ objective: RadarHD
 model: RadarUNet
 model_args:
   d_input: 64
-  doppler: False
+  doppler: True
 optimizer: AdamW
 optimizer_args: {}
 default_lr: 0.001
 bce_weight: 0.9
-range_weighted: True
+range_weighted: False
 dataset:
   pval: 0.2
   traces: !include _traces.yaml

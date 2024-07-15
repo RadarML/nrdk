@@ -176,3 +176,5 @@ class RadarHD(BaseModule):
             for k, v in self.metrics.items()}
         metrics["loss/val"] = self.loss(y_hat, y_true)
         self.log_dict(metrics)
+
+        return metrics

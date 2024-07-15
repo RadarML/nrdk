@@ -1,6 +1,6 @@
 """Train radar model."""
 
-import os, yaml
+import os, yaml, re
 from argparse import ArgumentParser
 
 import lightning as L
@@ -39,7 +39,7 @@ def _parse():
 
     g = p.add_argument_group("Logging")
     g.add_argument(
-        "-n", "--name", default="default",
+        "-n", "--name", default=None,
         help="Method name (for experiment tracking only).")
     g.add_argument(
         "-v", "--version", default=None,
@@ -60,6 +60,21 @@ def _parse():
     return p
 
 
+class Loader(yaml.SafeLoader):
+
+    def __init__(self, stream):
+        self._root = os.path.split(stream.name)[0]  # type: ignore
+        super(Loader, self).__init__(stream)
+
+    def include(self, node):
+        filename = os.path.join(
+            self._root, self.construct_scalar(node))  # type: ignore
+        with open(filename, 'r') as f:
+            return yaml.load(f, Loader)
+
+Loader.add_constructor('!include', Loader.include)
+
+
 def _main(args):
     if args.cfg is None:
         if args.checkpoint is not None:
@@ -71,7 +86,7 @@ def _main(args):
             exit(1)
 
     with open(args.cfg) as f:
-        cfg = yaml.safe_load(f)
+        cfg = yaml.load(f, Loader)
 
         if "objective" not in cfg:
             print("Config file must specify an `objective`.")

@@ -1,6 +1,5 @@
 """Miscellaneous utilities."""
 
-import numpy as np
 import torch
 from torch import Tensor
 from jaxtyping import Shaped
