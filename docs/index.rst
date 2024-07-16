@@ -6,7 +6,7 @@ Deep Radar: Deep Learning Toolkit for mmWave Radar
    :caption: Contents:
 
    usage.rst
-   deepradar.rst
+   deepradar/index.rst
    models.rst
 
 

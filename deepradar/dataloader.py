@@ -10,8 +10,10 @@ Key configuration options for `cfg`:
 - **batch_size**: data batch size.
 - **path**: all traces should be put in a directory `path`.
 - **traces**: traces to use for training/validation.
-- **pval**: the last `pval` (`0 < pval < 1`) of each trace is reserved for validation, with the first `1 - pval` being used for training.
-- **val_samples**: fixed indices from the validation set to render visualizations for on each validation round.
+- **pval**: the last `pval` (`0 < pval < 1`) of each trace is reserved for
+  validation, with the first `1 - pval` being used for training.
+- **val_samples**: fixed indices from the validation set to render
+  visualizations for on each validation round.
 - **transform**: transform spec. Keys correspond to sensors, while values are
   a list of transforms to apply (see :class:`TransformSpec`).
 - **augment**: data augmentation parameter generators. Key correspond to

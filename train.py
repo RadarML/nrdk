@@ -1,6 +1,7 @@
 """Train radar model."""
 
-import os, yaml, re
+import os, json
+import time
 from argparse import ArgumentParser
 
 import lightning as L
@@ -9,7 +10,7 @@ import torch
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from deepradar import objectives
+from deepradar import objectives, config
 
 
 def _parse():
@@ -23,8 +24,9 @@ def _parse():
 
     g = p.add_argument_group("Training")
     g.add_argument(
-        "-c", "--cfg", default="config.yaml",
-        help="Training configuration. Must be specified unless resuming with "
+        "-c", "--cfg", nargs='+', default=None,
+        help="Training configuration; see `deepradar.config` for parsing "
+        "rules. Must be specified unless resuming with "
         "`--checkpoint <checkpoint>`.")
     g.add_argument(
         "-k", "--checkpoint", default=None,
@@ -32,9 +34,9 @@ def _parse():
         "`<folder>/checkpoints/<checkpoint>.ckpt`, where `folder` contains a "
         "`hparams.yaml` file.")
     g.add_argument(
-        "--steps", default=-1, type=int, help="Maximum number of steps.")
+        "--epochs", default=-1, type=int, help="Maximum number of epochs.")
     g.add_argument(
-        "--patience", default=5, type=int,
+        "--patience", default=10, type=int,
         help="Stop after this many validation checks with no improvement.")
 
     g = p.add_argument_group("Logging")
@@ -48,10 +50,10 @@ def _parse():
         "--val_interval", default=0.5, type=float,
         help="Validation interval, as a fraction of each epoch.")
     g.add_argument(
-        "--log_example_interval", default=200, type=int,
+        "--log_example_interval", default=500, type=int,
         help="Interval to log example train images.")
     g.add_argument(
-        "--log_interval", default=200, type=int,
+        "--log_interval", default=100, type=int,
         help="Logging interval for training statistics.")
     g.add_argument(
         "--num_checkpoints", default=-1, type=int,
@@ -60,43 +62,27 @@ def _parse():
     return p
 
 
-class Loader(yaml.SafeLoader):
-
-    def __init__(self, stream):
-        self._root = os.path.split(stream.name)[0]  # type: ignore
-        super(Loader, self).__init__(stream)
-
-    def include(self, node):
-        filename = os.path.join(
-            self._root, self.construct_scalar(node))  # type: ignore
-        with open(filename, 'r') as f:
-            return yaml.load(f, Loader)
-
-Loader.add_constructor('!include', Loader.include)
-
-
 def _main(args):
     if args.cfg is None:
         if args.checkpoint is not None:
             experiment_dir = os.path.dirname(os.path.dirname(args.checkpoint))
-            args.cfg = os.path.join(experiment_dir, "hparams.yaml")
+            args.cfg = [os.path.join(experiment_dir, "hparams.yaml")]
         else:
             print(
                 "Must specify a `config.yaml` file if not resuming training.")
             exit(1)
 
-    with open(args.cfg) as f:
-        cfg = yaml.load(f, Loader)
-
-        if "objective" not in cfg:
-            print("Config file must specify an `objective`.")
-            exit(1)
+    model_cfg = config.load_config(args.cfg)
+    if "objective" not in model_cfg:
+        print("Config file must specify an `objective`.")
+        exit(1)
 
     if args.checkpoint is None:
-        model = getattr(objectives, cfg["objective"])(**cfg)
+        model = getattr(objectives, model_cfg["objective"])(**model_cfg)
     else:
-        model = getattr(objectives, cfg["objective"]).load_from_checkpoint(
-            args.checkpoint, hparams_file=args.cfg)
+        model = getattr(
+            objectives, model_cfg["objective"]
+        ).load_from_checkpoint(args.checkpoint, hparams_file=args.cfg)
 
     # Bypass save_hyperparameters
     model.configure(log_interval=args.log_example_interval, num_examples=6)
@@ -107,16 +93,25 @@ def _main(args):
         save_top_k=args.num_checkpoints, monitor="loss/val",
         save_last=True, dirpath=None)
     stopping = EarlyStopping(
-        monitor="chamfer/val", min_delta=0.0,
+        monitor=model.STOPPING_METRIC, min_delta=0.0,
         patience=args.patience, mode="min")
     logger = TensorBoardLogger(
         args.out, name=args.name, version=args.version,
         default_hp_metric=False)
     trainer = L.Trainer(
         logger=logger, log_every_n_steps=args.log_interval,
-        callbacks=[checkpoint, stopping], max_epochs=-1, max_steps=args.steps,
+        callbacks=[checkpoint, stopping], max_steps=-1, max_epochs=args.epochs,
         val_check_interval=args.val_interval)
+
+    start = time.perf_counter()
     trainer.fit(model=model, datamodule=data)
+    duration = time.perf_counter() - start
+
+    with open(os.path.join(logger.log_dir, "meta.json"), 'w') as f:
+        json.dump({
+            "best": checkpoint.best_model_path,
+            "duration": duration
+        }, f)
 
 
 if __name__ == '__main__':

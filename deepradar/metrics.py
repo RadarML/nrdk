@@ -5,8 +5,41 @@ import torch
 from torch import Tensor
 from torch.nn.functional import max_pool2d, binary_cross_entropy
 
-from beartype.typing import cast
+from beartype.typing import cast, Union
 from jaxtyping import Bool, Float
+
+
+#: Optionally reduced training metric
+MetricValue = Union[Float[Tensor, ""], Float[Tensor, "batch"]]
+
+
+class LPDepth:
+    """Generic lp depth loss, with missing value masking.
+
+    Args:
+        ord: loss order; only l1 (`1`) and l2 (`2`) are supported.
+    """
+
+    def __init__(self, ord: int = 1) -> None:
+        self.ord = ord
+
+    def __call__(
+        self, y_hat: Float[Tensor, "batch azimuth range"],
+        y_true: Float[Tensor, "batch azimuth range"], reduce: bool = True
+    ) -> MetricValue:
+
+        if self.ord == 1:
+            diff = torch.abs(y_hat - y_true)
+        elif self.ord == 2:
+            diff = y_hat * y_hat - y_true * y_true
+        else:
+            raise NotImplementedError("Only L1 and L2 losses are implemented.")
+
+        mask = (y_true != 0)
+        res = torch.sum(diff * mask, dim=(1, 2)) / torch.sum(mask, dim=(1, 2))
+        if reduce:
+            res = torch.mean(res)        
+        return res
 
 
 class CombinedDiceBCE:
@@ -27,10 +60,21 @@ class CombinedDiceBCE:
         self.bce_weight = bce_weight
         self.range_weighted = range_weighted
 
+    @staticmethod
+    def _dice(
+        y_hat: Float[Tensor, "batch azimuth range"],
+        y_true: Float[Tensor, "batch azimuth range"], weight
+    ) -> Float[Tensor, "batch"]:
+        denominator = (
+            torch.sum(y_hat * y_hat * weight, dim=(1, 2))
+            + torch.sum(y_true * weight, dim=(1, 2)))
+        numerator = 2 * torch.sum(y_hat * y_true * weight, dim=(1, 2))
+        return 1.0 - numerator / denominator
+
     def __call__(
         self, y_hat: Float[Tensor, "batch azimuth range"],
-        y_true: Float[Tensor, "batch azimuth range"]
-    ) -> Float[Tensor, ""]:
+        y_true: Float[Tensor, "batch azimuth range"], reduce: bool = True
+    ) -> MetricValue:
         """Get Dice + BCE weighted loss."""
 
         if self.range_weighted:
@@ -40,19 +84,16 @@ class CombinedDiceBCE:
             # Mypy doesn't seem to recognize the type overloading here.
             weight = 1.0  # type: ignore
 
-        denominator = (
-            torch.sum(y_hat * y_hat * weight, dim=(1, 2))
-            + torch.sum(y_true * weight, dim=(1, 2)))
-        numerator = 2 * torch.sum(y_hat * y_true * weight, dim=(1, 2))
-        dice = 1.0 - torch.mean(numerator / denominator)
+        dice = self._dice(y_hat, y_true, weight)
+        bce = torch.mean(
+            weight * binary_cross_entropy(y_hat, y_true, reduction='none'),
+            dim=(1, 2))
 
-        if self.range_weighted:
-            bce_raw = binary_cross_entropy(y_hat, y_true, reduction='none')
-            bce = torch.mean(bce_raw * weight)
-        else:
-            bce = binary_cross_entropy(y_hat, y_true, reduction='mean')
-
-        return bce * self.bce_weight + dice * (1 - self.bce_weight)
+        loss = bce * self.bce_weight + dice * (1 - self.bce_weight)
+        if reduce:
+            loss = torch.mean(loss)
+            
+        return loss
 
 
 class Chamfer:
@@ -92,8 +133,9 @@ class Chamfer:
         ), dim=-1))
 
     def __call__(
-        self, y_hat: Bool[Tensor, "b w h"], y_true: Bool[Tensor, "b w h"]
-    ) -> Float[Tensor, ""]:
+        self, y_hat: Bool[Tensor, "b w h"], y_true: Bool[Tensor, "b w h"],
+        reduce: bool = True
+    ) -> MetricValue:
         """Compute chamfer distance, in range bins."""
 
         def _forward(x, y):
@@ -119,7 +161,11 @@ class Chamfer:
                 return (torch.mean(d1) + torch.mean(d2)) / 2
 
         _iter = (_forward(xs, ys) for xs, ys in zip(y_hat, y_true))
-        return cast(Float[Tensor, ""], sum(_iter)) / y_hat.shape[0]
+
+        if reduce:
+            return cast(Float[Tensor, ""], sum(_iter)) / y_hat.shape[0]
+        else:
+            return torch.Tensor(list(_iter))
 
 
 class L1Chamfer:
@@ -151,9 +197,11 @@ class L1Chamfer:
         return dist
 
     def __call__(
-        self, y_hat: Bool[Tensor, "b w h"], y_true: Bool[Tensor, "b w h"]
+        self, y_hat: Bool[Tensor, "b w h"], y_true: Bool[Tensor, "b w h"],
+        reduce: bool = True
     ) -> Float[Tensor, ""]:
         """Compute grid chamfer distance, in grid units."""
+        assert reduce
         d1 = torch.mean(self.as_distance(y_true) * y_hat)
         d2 = torch.mean(self.as_distance(y_hat) * y_true)
         return (d1 + d2) / 2

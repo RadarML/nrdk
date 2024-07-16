@@ -2,7 +2,10 @@
 
 import re
 import torch
+from torchvision.transforms import Resize, InterpolationMode
 import lightning as L
+import matplotlib
+import numpy as np
 
 from beartype.typing import Any
 from jaxtyping import Shaped
@@ -35,6 +38,8 @@ class BaseModule(L.LightningModule):
         warmup: learning rate warmup period.
     """
 
+    STOPPING_METRIC = "loss/val"
+
     def __init__(
         self, objective: str = "RadarHD", dataset: dict[str, Any] = {},
         model: str = "UNet", model_args: dict[str, Any] = {},
@@ -51,6 +56,8 @@ class BaseModule(L.LightningModule):
         self.warmup = warmup
         self.default_lr = default_lr
 
+        self.configure()
+
     def get_dataset(self, path: str, debug: bool = False) -> RoverDataModule:
         """Get datamodule.
 
@@ -63,27 +70,14 @@ class BaseModule(L.LightningModule):
         """
         return RoverDataModule(**self.dataset, path=path, debug=debug)
 
-    def configure(self, **kwargs) -> None:
-        """Set non-hyperparameter configurations."""
-        pass
-
-    def log_image_comparison(
-        self, path: str, y_true: Shaped[torch.Tensor, "batch h w"],
-        y_hat: Shaped[torch.Tensor, "batch h w"], height: int = 512
+    def configure(
+        self, log_interval: int = 1, num_examples: int = 6,
+        colors: str = 'inferno', **kwargs
     ) -> None:
-        """Log a batch of images.
-
-        Args:
-            path: log path, e.g. `train/examples`
-            y_true, y_hat: images to log.
-            height: image height.
-        """
-        bev_true = torch.cat(list(polar_to_bev(y_true, height=height)), dim=1)
-        bev_hat = torch.cat(list(polar_to_bev(y_hat, height=height)), dim=1)
-        bev_grid = torch.cat([bev_true, bev_hat], dim=0)
-        self.logger.experiment.add_image(  # type: ignore
-            path, bev_grid[None, :, :].cpu().numpy(),
-            self.global_step, dataformats='CHW')
+        """Set non-hyperparameter configurations."""
+        self.log_interval = log_interval
+        self.num_examples = num_examples
+        self.cmap = matplotlib.colormaps[colors]
 
     def configure_optimizers(self):
         """Configure optimizers."""
@@ -126,6 +120,8 @@ class RadarHD(BaseModule):
         kwargs: see :class:`.BaseModule`.
     """
 
+    STOPPING_METRIC = "chamfer/val"
+
     def __init__(
         self, bce_weight: float = 0.9, range_weighted: bool = True, **kwargs
     ) -> None:
@@ -133,15 +129,27 @@ class RadarHD(BaseModule):
         self.loss = metrics.CombinedDiceBCE(
             bce_weight=bce_weight, range_weighted=range_weighted)
         self.metrics = {"chamfer": metrics.Chamfer()}
-        self.configure()
         self.save_hyperparameters()
 
-    def configure(
-        self, log_interval: int = 1, num_examples: int = 6, **kwargs
+    def log_image_comparison(
+        self, path: str, y_true: Shaped[torch.Tensor, "batch h w"],
+        y_hat: Shaped[torch.Tensor, "batch h w"], height: int = 512
     ) -> None:
-        """Set non-hyperparameter configurations."""
-        self.log_interval = log_interval
-        self.num_examples = num_examples
+        """Log a batch of images.
+
+        Args:
+            path: log path, e.g. `train/examples`
+            y_true, y_hat: images to log.
+            height: image height.
+        """
+        bev_true = torch.cat(list(polar_to_bev(y_true, height=height)), dim=1)
+        bev_hat = torch.cat(list(polar_to_bev(y_hat, height=height)), dim=1)
+        bev_grid = torch.cat([bev_true, bev_hat], dim=0)
+        bev_np = bev_grid.cpu().numpy()
+
+        self.logger.experiment.add_image(  # type: ignore
+            path, self.cmap(bev_np)[..., :3],
+            self.global_step, dataformats='HWC')
 
     def training_step(self, batch, batch_idx):  # type: ignore
         """Standard lightning training step."""
@@ -177,4 +185,72 @@ class RadarHD(BaseModule):
         metrics["loss/val"] = self.loss(y_hat, y_true)
         self.log_dict(metrics)
 
-        return metrics
+
+class RadarHD3D(BaseModule):
+    """Radar -> lidar as depth estimation.
+
+    Args:
+        loss_order: Loss type (l1/l2).
+    """
+
+    STOPPING_METRIC = "loss/val"
+
+    def __init__(self, loss_order: int = 1, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.loss = metrics.LPDepth(ord=loss_order)
+        self.save_hyperparameters()
+
+    def log_image_comparison(
+        self, path: str, y_true: Shaped[torch.Tensor, "batch h w"],
+        y_hat: Shaped[torch.Tensor, "batch h w"], height: int = 512
+    ) -> None:
+        """Log a batch of images.
+
+        Args:
+            path: log path, e.g. `train/examples`
+            y_true, y_hat: images to log.
+            height: images are resized to `(height, 2 * height)` for display.
+        """
+        resize = Resize(
+            (height, height * 2), interpolation=InterpolationMode.NEAREST)
+        y_true = resize(y_true)
+        y_hat = resize(y_hat)
+
+        depth_true = torch.cat(list(y_true), dim=1)
+        depth_hat = torch.cat(list(y_hat), dim=1)
+        depth_grid = torch.cat([depth_true, depth_hat], dim=0)
+        depth_np = (depth_grid.cpu().numpy() * 255).astype(np.uint8)
+
+        self.logger.experiment.add_image(  # type: ignore
+            path, self.cmap(depth_np)[..., :3],
+            self.global_step, dataformats='HWC')
+
+    def training_step(self, batch, batch_idx):  # type: ignore
+        """Standard lightning training step."""
+        y_hat = self.model(batch['radar'])
+        y_true = batch['lidar'].to(torch.float32)
+        loss = self.loss(y_hat, y_true)
+
+        self.log("loss/train", loss, prog_bar=True)
+        if self.global_step % self.log_interval == 0:
+            self.log_image_comparison(
+                "sample/train", y_true[:self.num_examples],
+                y_hat[:self.num_examples].detach())
+
+        return loss
+
+    def validation_step(self, batch, batch_idx):  # type: ignore
+        """Standard lightning validation step."""
+        if batch_idx == 0:
+            samples = self.trainer.datamodule.val_samples  # type: ignore
+            radar = torch.from_numpy(
+                samples['radar']).to(batch['radar'].device)
+            y_true = torch.from_numpy(
+                samples['lidar']).to(batch['lidar'].device)
+
+            y_hat = self.model(radar)
+            self.log_image_comparison("sample/val", y_true, y_hat)
+
+        y_hat = self.model(batch['radar'])
+        y_true = batch['lidar'].to(torch.float32)
+        self.log_dict({"loss/val": self.loss(y_hat, y_true)})

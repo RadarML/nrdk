@@ -6,6 +6,7 @@ DeepRadar API
    :caption: Contents:
 
    augmentations.rst
+   config.rst
    dataloader.rst
    metrics.rst
    modules.rst

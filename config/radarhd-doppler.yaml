@@ -1,26 +1,3 @@
-objective: RadarHD
-model: RadarUNet
 model_args:
   d_input: 64
   doppler: True
-optimizer: AdamW
-optimizer_args: {}
-default_lr: 0.001
-bce_weight: 0.9
-range_weighted: True
-dataset:
-  pval: 0.2
-  traces: !include _traces.yaml
-  val_samples: [2000, 4000, 6000, 8000, 10000, 12000]
-  batch_size: 16
-  transform:
-    lidar:
-    - args: {}
-      name: Destagger
-    - args: {}
-      name: Map2D
-    radar:
-    - args: {}
-      name: DiscardTx2
-    - args: {}
-      name: IIQQtoIQ

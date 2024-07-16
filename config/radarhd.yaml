@@ -7,18 +7,12 @@ optimizer: AdamW
 optimizer_args: {}
 default_lr: 0.001
 bce_weight: 0.9
-range_weighted: False
+range_weighted: True
 dataset:
-  pval: 0.2
-  traces: !include _traces.yaml
-  val_samples: [2000, 4000, 6000, 8000, 10000, 12000]
+  <<: !include _traces.yaml
   batch_size: 16
   transform:
-    lidar:
-    - args: {}
-      name: Destagger
-    - args: {}
-      name: Map2D
+    lidar: !include _lidar-map.yaml
     radar:
     - args: {}
       name: DiscardTx2

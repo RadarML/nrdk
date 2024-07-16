@@ -4,7 +4,7 @@ import torch
 from torch import Tensor, nn
 from einops import rearrange
 
-from beartype.typing import Union, cast
+from beartype.typing import Union, cast, Optional
 from jaxtyping import Float
 
 from deepradar import modules
@@ -65,7 +65,10 @@ class RadarTransformer(nn.Module):
         ff_ratio: expansion ratio for feedforward blocks.
         heads: number of heads for multiheaded attention.
         dropout: dropout ratio during training.
-        activation: activation function; specify as a name.
+        activation: activation function; specify as a name (i.e. corresponding
+            to a class in `torch.nn`).
+        output_activation: activation function to apply to the output; specify
+            as a name. If `None`, no activation is applied.
         out_shape: output spatial dimensions.
         patch_size: input range-doppler patch size.
         unpatch_size: output patch size.
@@ -75,6 +78,7 @@ class RadarTransformer(nn.Module):
         self, enc_layers: int = 5, dec_layers: list[int] = [5, 3, 1],
         dim: int = 768, ff_ratio: float = 4.0, heads: int = 12,
         dropout: float = 0.1, activation: str = 'GELU',
+        output_activation: Optional[str] = None,
         out_shape: Shape2 = (1024, 256),
         patch_size: Shape2 = (16, 16), unpatch_size: Shape2 = (16, 16)
     ) -> None:
@@ -107,7 +111,11 @@ class RadarTransformer(nn.Module):
         self.unpatch = modules.Unpatch2D(
             output_size=(out_shape[0], out_shape[1], 1),
             features=dim, size=unpatch_size)
-        self.activation = nn.Sigmoid()
+        
+        if output_activation is not None:
+            self.activation = getattr(nn, output_activation)()
+        else:
+            self.activation = None
 
     def forward(
         self, x: Float[Tensor, "n d a e r c"]
@@ -140,4 +148,8 @@ class RadarTransformer(nn.Module):
             out = layer(out, encoded[i])
 
         unpatch = self.unpatch(out)[:, 0]
-        return self.activation(unpatch)
+
+        if self.activation is not None:
+            return self.activation(unpatch)
+        else:
+            return unpatch

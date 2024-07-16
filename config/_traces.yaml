@@ -1,4 +1,4 @@
-# Common list of traces used in training
+traces:
 - carnival1
 - carnival2
 - cfa
@@ -16,3 +16,5 @@
 - tepper
 - uc
 - wean
+val_samples: [2000, 4000, 6000, 8000, 10000, 12000]
+pval: 0.2

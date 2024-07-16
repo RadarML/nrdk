@@ -57,9 +57,9 @@ class Map2D(BaseTransform):
 
     def __init__(self, path: str) -> None:
         with open(os.path.join(path, "radar", "radar.json")) as f:
-            self.resolution: float = json.load(f)["range_resolution"]
-        with open(os.path.join(path, "radar", "meta.json")) as f:
-            self.bins: int = json.load(f)["iq"]["shape"][-1] // 2
+            meta = json.load(f)
+        self.resolution: float = meta["range_resolution"]
+        self.bins: int = meta["shape"][-1]
 
     def __call__(
         self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {}
@@ -90,7 +90,11 @@ class Map2D(BaseTransform):
 
 
 class DecimateMap(BaseTransform):
-    """Downsample lidar map."""
+    """Downsample lidar map.
+    
+    Args:
+        azimuth, range: azimuth and range decimation factors.
+    """
 
     def __init__(self, path: str, azimuth: int = 1, range: int = 1) -> None:
         self.azimuth = azimuth
@@ -106,13 +110,47 @@ class DecimateMap(BaseTransform):
 
 
 class Depth(BaseTransform):
-    """Cropped depth map, in meters."""
+    """Cropped depth map, in meters.
+
+    Implementation notes:
+    - The depth is automatically cropped to the maximum range of the radar as
+      recorded in `radar/radar.json` by setting all values exceeding the max
+      range to 0 (e.g. not known).
+    - The max depth is normalized to have value
+      1.0.
+    - Elevation and azimuth crop factors are applied symetrically, e.g.
+      `crop_el = 0.25` means removing `0.25` of the elevation bins from the top
+      and bottom, leaving only half of the measured bins.
+    - The Ouster lidar has a 360 degree azimuth FOV. Since the radar can only
+      see forward, `crop_az` should be at least `0.25`.
+
+    Args:
+        path: path to dataset.
+        crop_el, crop_az: crop factor to apply (symmetrically) to each side
+    """
+        
+    def __init__(
+        self, path: str, crop_el: float = 0.0, crop_az: float = 0.25
+    ) -> None:
+        with open(os.path.join(path, "radar", "radar.json")) as f:
+            meta = json.load(f)
+        self.max_range: float = meta["range_resolution"] * meta["shape"][-1]
+        self.crop_el = crop_el
+        self.crop_az = crop_az
 
     def __call__(
         self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {}
     ) -> Float32[np.ndarray, "El2 Az2"]:
         el, az = data.shape
-        crop_el = el // 4
-        crop_az = az // 4
-        x_crop = data[crop_el:-crop_el, crop_az:-crop_az]
-        return x_crop.astype(np.float32) / 1000
+        crop_el = int(el * self.crop_el)
+        crop_az = int(az * self.crop_az)
+
+        if crop_el > 0:
+            data = data[crop_el:-crop_el]
+        if crop_az > 0:
+            data = data[:, crop_az:-crop_az]
+
+        # Note: the Ouster lidar natively uses mm as a unit, while we use m.
+        depth_m = data.astype(np.float32) / 1000
+        depth_m[depth_m > self.max_range] = 0.0
+        return depth_m / self.max_range
