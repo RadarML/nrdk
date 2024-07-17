@@ -128,7 +128,7 @@ class RadarHD(BaseModule):
         super().__init__(**kwargs)
         self.loss = metrics.CombinedDiceBCE(
             bce_weight=bce_weight, range_weighted=range_weighted)
-        self.metrics = {"chamfer": metrics.Chamfer()}
+        self.chamfer = metrics.Chamfer()
         self.save_hyperparameters()
 
     def log_image_comparison(
@@ -157,7 +157,8 @@ class RadarHD(BaseModule):
         y_true = batch['lidar'].to(torch.float32)
         loss = self.loss(y_hat, y_true)
 
-        self.log("loss/train", loss, prog_bar=True)
+        self.log(
+            "loss/train", loss, on_step=True, on_epoch=True, sync_dist=True)
         if self.global_step % self.log_interval == 0:
             self.log_image_comparison(
                 "sample/train", y_true[:self.num_examples],
@@ -179,11 +180,11 @@ class RadarHD(BaseModule):
 
         y_hat = self.model(batch['radar'])
         y_true = batch['lidar'].to(torch.float32)
-        metrics = {
-            "{}/val".format(k): v(y_hat > 0.5, batch['lidar'])
-            for k, v in self.metrics.items()}
-        metrics["loss/val"] = self.loss(y_hat, y_true)
-        self.log_dict(metrics)
+
+        val_loss = self.loss(y_hat, y_true)
+        val_chamfer = self.val_chamfer(y_hat, y_true)
+
+        self.log_dict({"loss/val": val_loss, "loss/chamfer": val_chamfer})
 
 
 class RadarHD3D(BaseModule):
@@ -231,7 +232,8 @@ class RadarHD3D(BaseModule):
         y_true = batch['lidar'].to(torch.float32)
         loss = self.loss(y_hat, y_true)
 
-        self.log("loss/train", loss, prog_bar=True)
+        self.log(
+            "loss/train", loss, on_step=True, on_epoch=True, sync_dist=True)
         if self.global_step % self.log_interval == 0:
             self.log_image_comparison(
                 "sample/train", y_true[:self.num_examples],

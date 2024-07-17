@@ -1,7 +1,7 @@
 # Data / results
 results/
-data/
 data
+data*
 results
 
 # Byte-compiled / optimized / DLL files

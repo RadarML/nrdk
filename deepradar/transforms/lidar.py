@@ -113,6 +113,7 @@ class Depth(BaseTransform):
     """Cropped depth map, in meters.
 
     Implementation notes:
+
     - The depth is automatically cropped to the maximum range of the radar as
       recorded in `radar/radar.json` by setting all values exceeding the max
       range to 0 (e.g. not known).

@@ -56,10 +56,10 @@ Model configurations are specified using a yaml file with the following format:
 
 These values only include model/method specifications, and are recorded as `hparams.yaml` when the model is trained. Note that environment-specific parameters such as stopping conditions, logging intervals, file paths, etc. are not provided via `config.yaml`, and not recorded in `hparams.yaml`.
 
-- `objective`: name of the training objective to use; see :doc:`objectives`. All other entries in `config.yaml` are passed to the selected `Objective`.
+- `objective`: name of the training objective to use; see :doc:`deepradar/objectives`. All other entries in `config.yaml` are passed to the selected `Objective`.
 - `model`, `model_args`: name of the model class to use, and constructor arguments for that class; see :doc:`models`.
 - `optimizer`, `optimizer_args`: optimizer to use, and constructor arguemnts; the `optimizer` should be a member of `torch.optim <https://pytorch.org/docs/stable/optim.html>`_.
-- `dataset`: dataset configuration options (passthrough to :class:`.RoverDataModule`); see :doc:`dataloader` for details.
+- `dataset`: dataset configuration options (passthrough to :class:`.RoverDataModule`); see :doc:`deepradar/dataloader` for details.
 
 
 Training Script
