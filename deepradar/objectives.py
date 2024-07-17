@@ -179,12 +179,11 @@ class RadarHD(BaseModule):
             self.log_image_comparison("sample/val", y_true, y_hat)
 
         y_hat = self.model(batch['radar'])
-        y_true = batch['lidar'].to(torch.float32)
+        val_loss = self.loss(y_hat, batch['lidar'].to(torch.float32))
+        val_chamfer = self.chamfer(y_hat > 0.5, batch['lidar'])
 
-        val_loss = self.loss(y_hat, y_true)
-        val_chamfer = self.val_chamfer(y_hat, y_true)
-
-        self.log_dict({"loss/val": val_loss, "loss/chamfer": val_chamfer})
+        self.log("loss/val", val_loss, sync_dist=True)
+        self.log("chamfer/val", val_chamfer, sync_dist=True)
 
 
 class RadarHD3D(BaseModule):
@@ -255,4 +254,4 @@ class RadarHD3D(BaseModule):
 
         y_hat = self.model(batch['radar'])
         y_true = batch['lidar'].to(torch.float32)
-        self.log_dict({"loss/val": self.loss(y_hat, y_true)})
+        self.log("loss/val", self.loss(y_hat, y_true), sync_dist=True)
