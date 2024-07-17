@@ -9,6 +9,7 @@ import torch
 
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.strategies import DDPStrategy
 
 from deepradar import objectives, config
 
@@ -98,10 +99,11 @@ def _main(args):
     logger = TensorBoardLogger(
         args.out, name=args.name, version=args.version,
         default_hp_metric=False)
+    strategy = DDPStrategy(find_unused_parameters=True)
     trainer = L.Trainer(
         logger=logger, log_every_n_steps=args.log_interval,
         callbacks=[checkpoint, stopping], max_steps=-1, max_epochs=args.epochs,
-        val_check_interval=args.val_interval)
+        val_check_interval=args.val_interval, strategy=strategy)
 
     start = time.perf_counter()
     trainer.fit(model=model, datamodule=data)
