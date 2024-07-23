@@ -37,7 +37,7 @@ def _parse():
     g.add_argument(
         "--epochs", default=-1, type=int, help="Maximum number of epochs.")
     g.add_argument(
-        "--patience", default=10, type=int,
+        "--patience", default=5, type=int,
         help="Stop after this many validation checks with no improvement.")
 
     g = p.add_argument_group("Logging")
@@ -86,12 +86,12 @@ def _main(args):
         ).load_from_checkpoint(args.checkpoint, hparams_file=args.cfg)
 
     # Bypass save_hyperparameters
-    model.configure(log_interval=args.log_example_interval, num_examples=6)
+    model.configure(log_interval=args.log_example_interval, num_examples=16)
 
     data = model.get_dataset(args.path)
 
     checkpoint = ModelCheckpoint(
-        save_top_k=args.num_checkpoints, monitor="loss/val",
+        save_top_k=args.num_checkpoints, monitor=model.STOPPING_METRIC,
         save_last=True, dirpath=None)
     stopping = EarlyStopping(
         monitor=model.STOPPING_METRIC, min_delta=0.0,
@@ -111,12 +111,11 @@ def _main(args):
 
     with open(os.path.join(logger.log_dir, "meta.json"), 'w') as f:
         json.dump({
-            "best": checkpoint.best_model_path,
+            "best": os.path.basename(checkpoint.best_model_path),
             "duration": duration
         }, f)
 
 
 if __name__ == '__main__':
-
     torch.set_float32_matmul_precision('high')
     _main(_parse().parse_args())

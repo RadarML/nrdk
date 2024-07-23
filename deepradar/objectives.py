@@ -7,11 +7,11 @@ import lightning as L
 import matplotlib
 import numpy as np
 
-from beartype.typing import Any
+from beartype.typing import Any, Optional
 from jaxtyping import Shaped
 
 import models
-from .dataloader import RoverDataModule
+from .dataloader import RoverDataModule, RoverData
 from . import metrics
 from .utils import polar_to_bev
 
@@ -39,6 +39,7 @@ class BaseModule(L.LightningModule):
     """
 
     STOPPING_METRIC = "loss/val"
+    DEFAULT_CMAP = "inferno"
 
     def __init__(
         self, objective: str = "RadarHD", dataset: dict[str, Any] = {},
@@ -58,6 +59,50 @@ class BaseModule(L.LightningModule):
 
         self.configure()
 
+    def convert_image(
+        self, img: Shaped[torch.Tensor, "batch h w"]
+    ) -> Shaped[torch.Tensor, "batch h2 w2"]:
+        """Transform image for display.
+
+        Extending classes should implement this method in order to use
+        `log_image_comparison`, which applies this method to each y_true/y_hat
+        in the sample batch, and arranges them into a grid. If not overridden,
+        this method is the identity (i.e. no image transformation for display).
+        """
+        return img
+
+    def log_image_comparison(
+        self, path: str, y_true: Shaped[torch.Tensor, "batch h w"],
+        y_hat: Shaped[torch.Tensor, "batch h w"], cols: int = 8
+    ) -> None:
+        """Log a batch of images.
+
+        Args:
+            path: log path, e.g. `train/examples`
+            y_true, y_hat: images to log.
+            cols: number of rows of y_true/y_hat pairs; the number of samples
+                must be evenly divisible by `cols`.
+        """
+        if y_true.shape[0] % cols != 0:
+            print(y_true.shape, y_hat.shape, cols)
+            raise ValueError(
+                f"Samples {y_true.shape[0]} must be divisible by batch {cols}")
+
+        y_true_cvt = list(self.convert_image(y_true))
+        y_hat_cvt = list(self.convert_image(y_hat))
+
+        rows = []
+        while len(y_true_cvt) > 0:
+            rows.append(torch.cat(y_true_cvt[:cols], dim=1))
+            rows.append(torch.cat(y_hat_cvt[:cols], dim=1))
+            y_true_cvt = y_true_cvt[cols:]
+            y_hat_cvt = y_hat_cvt[cols:]
+        grid = torch.cat(rows, dim=0).cpu().numpy()
+
+        self.logger.experiment.add_image(  # type: ignore
+            path, self.cmap(grid)[..., :3],
+            self.global_step, dataformats='HWC')
+
     def get_dataset(self, path: str, debug: bool = False) -> RoverDataModule:
         """Get datamodule.
 
@@ -66,17 +111,20 @@ class BaseModule(L.LightningModule):
             debug: whether to run in debug mode.
 
         Returns:
-            Corresponding `RoverDataModule`.    
+            Corresponding `RoverDataModule`.
         """
         return RoverDataModule(**self.dataset, path=path, debug=debug)
 
     def configure(
         self, log_interval: int = 1, num_examples: int = 6,
-        colors: str = 'inferno', **kwargs
+        colors: Optional[str] = None, **kwargs
     ) -> None:
         """Set non-hyperparameter configurations."""
         self.log_interval = log_interval
         self.num_examples = num_examples
+
+        if colors is None:
+            colors = self.DEFAULT_CMAP
         self.cmap = matplotlib.colormaps[colors]
 
     def configure_optimizers(self):
@@ -103,11 +151,49 @@ class BaseModule(L.LightningModule):
                     "scheduler": torch.optim.lr_scheduler.LinearLR(
                         opt, start_factor=1e-3, end_factor=1.0,
                         total_iters=self.warmup),
-                    "interval": "step"
-                }
+                    "interval": "step"}
             }
         else:
             return opt
+
+    def evaluation_step(
+        self, batch
+    ) -> dict[str, Shaped[torch.Tensor, "batch"]]:
+        """Evaluation step with mo metric aggregation.
+
+        Args:
+            batch: input batch.
+
+        Returns:
+            Dictionary of metrics for each entry in the batch (object-of-list);
+            these metrics should preserve the input order, and not be
+            aggregated in any way.
+        """
+        raise NotImplementedError()
+
+    def evaluate(
+        self, trace: RoverData, device=0
+    ) -> dict[str, Shaped[np.ndarray, "N"]]:
+        """Evaluate model with no metric aggregation.
+
+        Args:
+            trace: trace to run; nominally a single trace (i.e. a
+                :class:`.RoverData` with `paths` of length 1).
+            device: device to run on. This method does not implement
+                distributed data parallelism; parallelism should be applied at
+                the trace level.
+
+        Returns:
+            Dictionary with metric names as keys and raw metric results as
+            values.
+        """
+        device = torch.device(device)
+        results = []
+        for batch in trace:
+            batch_gpu = {
+                k: torch.Tensor(v).to(device) for k, v in batch.items()}
+            results.append(self.evaluation_step(batch_gpu))
+        return {k: np.concatenate([x[k] for x in results]) for k in results[0]}
 
 
 class RadarHD(BaseModule):
@@ -121,6 +207,7 @@ class RadarHD(BaseModule):
     """
 
     STOPPING_METRIC = "chamfer/val"
+    DEFAULT_CMAP = "inferno"
 
     def __init__(
         self, bce_weight: float = 0.9, range_weighted: bool = True, **kwargs
@@ -131,25 +218,11 @@ class RadarHD(BaseModule):
         self.chamfer = metrics.Chamfer()
         self.save_hyperparameters()
 
-    def log_image_comparison(
-        self, path: str, y_true: Shaped[torch.Tensor, "batch h w"],
-        y_hat: Shaped[torch.Tensor, "batch h w"], height: int = 512
-    ) -> None:
-        """Log a batch of images.
-
-        Args:
-            path: log path, e.g. `train/examples`
-            y_true, y_hat: images to log.
-            height: image height.
-        """
-        bev_true = torch.cat(list(polar_to_bev(y_true, height=height)), dim=1)
-        bev_hat = torch.cat(list(polar_to_bev(y_hat, height=height)), dim=1)
-        bev_grid = torch.cat([bev_true, bev_hat], dim=0)
-        bev_np = bev_grid.cpu().numpy()
-
-        self.logger.experiment.add_image(  # type: ignore
-            path, self.cmap(bev_np)[..., :3],
-            self.global_step, dataformats='HWC')
+    def convert_image(
+        self, img: Shaped[torch.Tensor, "batch h w"]
+    ) -> Shaped[torch.Tensor, "batch h2 w2"]:
+        """Convert image for display."""
+        return polar_to_bev(img, height=512)
 
     def training_step(self, batch, batch_idx):  # type: ignore
         """Standard lightning training step."""
@@ -172,18 +245,29 @@ class RadarHD(BaseModule):
             samples = self.trainer.datamodule.val_samples  # type: ignore
             radar = torch.from_numpy(
                 samples['radar']).to(batch['radar'].device)
-            y_true = torch.from_numpy(
+            sample_true = torch.from_numpy(
                 samples['lidar']).to(batch['lidar'].device)
 
-            y_hat = self.model(radar)
-            self.log_image_comparison("sample/val", y_true, y_hat)
+            sample_hat = self.model(radar)
+            self.log_image_comparison("sample/val", sample_true, sample_hat)
 
         y_hat = self.model(batch['radar'])
         val_loss = self.loss(y_hat, batch['lidar'].to(torch.float32))
         val_chamfer = self.chamfer(y_hat > 0.5, batch['lidar'])
 
         self.log("loss/val", val_loss, sync_dist=True)
-        self.log("chamfer/val", val_chamfer, sync_dist=True)
+        self.log("chamfer/val", val_chamfer.to("cuda"), sync_dist=True)
+
+    def evaluation_step(
+        self, batch
+    ) -> dict[str, Shaped[torch.Tensor, "batch"]]:
+        """Evaluate model with mo metric aggregation."""
+        y_hat = self.model(batch['radar'])
+        val_loss = self.loss(
+            y_hat, batch['lidar'].to(torch.float32), reduce=False)
+        val_chamfer = self.chamfer(
+            y_hat > 0.5, batch['lidar'], reduce=False)
+        return {"loss": val_loss, "chamfer": val_chamfer}
 
 
 class RadarHD3D(BaseModule):
@@ -194,48 +278,30 @@ class RadarHD3D(BaseModule):
     """
 
     STOPPING_METRIC = "loss/val"
+    DEFAULT_CMAP = "viridis"
 
     def __init__(self, loss_order: int = 1, **kwargs) -> None:
         super().__init__(**kwargs)
         self.loss = metrics.LPDepth(ord=loss_order)
         self.save_hyperparameters()
 
-    def log_image_comparison(
-        self, path: str, y_true: Shaped[torch.Tensor, "batch h w"],
-        y_hat: Shaped[torch.Tensor, "batch h w"], height: int = 512
-    ) -> None:
-        """Log a batch of images.
-
-        Args:
-            path: log path, e.g. `train/examples`
-            y_true, y_hat: images to log.
-            height: images are resized to `(height, 2 * height)` for display.
-        """
-        resize = Resize(
-            (height, height * 2), interpolation=InterpolationMode.NEAREST)
-        y_true = resize(y_true)
-        y_hat = resize(y_hat)
-
-        depth_true = torch.cat(list(y_true), dim=1)
-        depth_hat = torch.cat(list(y_hat), dim=1)
-        depth_grid = torch.cat([depth_true, depth_hat], dim=0)
-        depth_np = (depth_grid.cpu().numpy() * 255).astype(np.uint8)
-
-        self.logger.experiment.add_image(  # type: ignore
-            path, self.cmap(depth_np)[..., :3],
-            self.global_step, dataformats='HWC')
+    def convert_image(
+        self, img: Shaped[torch.Tensor, "batch h w"]
+    ) -> Shaped[torch.Tensor, "batch h2 w2"]:
+        """Convert image for display."""
+        return Resize(
+            (512, 512 * 2), interpolation=InterpolationMode.NEAREST)(img)
 
     def training_step(self, batch, batch_idx):  # type: ignore
         """Standard lightning training step."""
         y_hat = self.model(batch['radar'])
-        y_true = batch['lidar'].to(torch.float32)
-        loss = self.loss(y_hat, y_true)
+        loss = self.loss(y_hat, batch['lidar'])
 
         self.log(
             "loss/train", loss, on_step=True, on_epoch=True, sync_dist=True)
         if self.global_step % self.log_interval == 0:
             self.log_image_comparison(
-                "sample/train", y_true[:self.num_examples],
+                "sample/train", batch['lidar'][:self.num_examples],
                 y_hat[:self.num_examples].detach())
 
         return loss
@@ -253,5 +319,12 @@ class RadarHD3D(BaseModule):
             self.log_image_comparison("sample/val", y_true, y_hat)
 
         y_hat = self.model(batch['radar'])
-        y_true = batch['lidar'].to(torch.float32)
-        self.log("loss/val", self.loss(y_hat, y_true), sync_dist=True)
+        self.log("loss/val", self.loss(y_hat, batch['lidar']), sync_dist=True)
+
+    def evaluation_step(
+        self, batch
+    ) -> dict[str, Shaped[torch.Tensor, "batch"]]:
+        """Evaluate model with mo metric aggregation."""
+        y_hat = self.model(batch['radar'])
+        val_loss = self.loss(y_hat, batch['lidar'], reduce=False)
+        return {"loss": val_loss}

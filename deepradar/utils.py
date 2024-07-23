@@ -29,12 +29,11 @@ def polar_to_bev(
         Nearest-neighbor-interpolated BEV image, with resolution
         `(height, height * 2)`. The data type is always preserved.
     """
-
     rmax = data.shape[2] - 1
     thetamax = data.shape[1] - 1
 
     x, y = torch.meshgrid(
-        torch.linspace(-rmax, rmax, height * 2), 
+        torch.linspace(-rmax, rmax, height * 2),
         torch.linspace(0, rmax, height), indexing='xy')
     r = torch.sqrt(x**2 + y**2)
     theta = torch.acos(x / r)

@@ -18,7 +18,7 @@ Example
   a: 5
   b: 10
 
-`b.yaml`:: 
+`b.yaml`::
 
   b: 15
   x: !include `c.yaml`
@@ -44,9 +44,9 @@ from beartype.typing import cast
 
 class Loader(yaml.SafeLoader):
     """Yaml loader with override to handle merge keys with include tags.
-    
+
     This class adds the `!include` tag, which can be used as an ordinary tag,
-    or in a merge tag.   
+    or in a merge tag.
     """
 
     def __init__(self, stream):

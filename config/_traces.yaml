@@ -1,9 +1,35 @@
 traces: [
-  "cic/cic.1.fwd", "cic/cic.1.lat", "cic/cic.2.fwd", "cic/cic.2.lat",
-  "cic/cic.4.fwd", "cic/cic.4.lat",
+  "baker/baker.1.fwd", "baker/baker.1.lat", "baker/baker.2.fwd",
+  "baker/baker.2.lat", "cic/cic.1.fwd", "cic/cic.1.lat", "cic/cic.2.fwd",
+  "cic/cic.2.lat", "cic/cic.4.fwd", "cic/cic.4.lat", "doherty/doherty.1.fwd",
+  "doherty/doherty.1.lat", "doherty/doherty.a.fwd", "doherty/doherty.a.lat",
+  "doherty/doherty.b.fwd", "doherty/doherty.b.lat", "gates/gates.3.fwd",
+  "gates/gates.3.lat", "gates/gates.4.fwd", "gates/gates.4.lat",
+  "gates/gates.5.fwd", "gates/gates.5.lat", "gates/gates.6.fwd",
+  "gates/gates.6.lat", "gates/gates.7.fwd", "gates/gates.7.lat",
   "hamburg/hamburg.1.fwd", "hamburg/hamburg.1.lat", "hamburg/hamburg.2.fwd",
   "hamburg/hamburg.2.lat", "hamburg/hamburg.3.fwd", "hamburg/hamburg.3.lat",
-  "hamburg/hamburg.a.fwd", "hamburg/hamburg.a.lat"
+  "hamburg/hamburg.a.fwd", "hamburg/hamburg.a.lat", "nsh/nsh.1.fwd",
+  "nsh/nsh.1.lat", "nsh/nsh.2.fwd", "nsh/nsh.2.lat", "nsh/nsh.3.fwd",
+  "nsh/nsh.3.lat", "nsh/nsh.4.fwd", "nsh/nsh.4.lat", "porter/porter.1.fwd",
+  "porter/porter.1.lat", "porter/porter.2.fwd", "porter/porter.2.lat",
+  "porter/porter.a.fwd", "porter/porter.a.lat", "roberts/roberts.1.fwd",
+  "roberts/roberts.1.lat", "roberts/roberts.2.fwd", "roberts/roberts.2.lat",
+  "roberts/roberts.3.fwd", "roberts/roberts.3.lat", "roberts/roberts.4.fwd",
+  "roberts/roberts.4.lat", "scaife/scaife.1.fwd", "scaife/scaife.1.lat",
+  "scaife/scaife.3.fwd", "scaife/scaife.3.lat", "scott/scott.3.fwd",
+  "scott/scott.3.lat", "scott/scott.4.fwd", "scott/scott.4.lat",
+  "scott/scott.5.fwd", "scott/scott.5.lat", "scott/scott.6.fwd",
+  "scott/scott.6.lat", "tepper/tepper.1.fwd", "tepper/tepper.1.lat",
+  "tepper/tepper.2.fwd", "tepper/tepper.2.lat", "tepper/tepper.3.fwd",
+  "tepper/tepper.3.lat", "tepper/tepper.4.fwd", "tepper/tepper.4.lat",
+  "tepper/tepper.5.fwd", "tepper/tepper.5.lat", "uc/uc.1.fwd", "uc/uc.1.lat",
+  "uc/uc.2.fwd", "uc/uc.2.lat", "uc/uc.3.fwd", "uc/uc.3.lat", "uc/uc.ll.fwd",
+  "uc/uc.ll.lat", "wean/wean.3.fwd", "wean/wean.3.lat", "wean/wean.4.fwd",
+  "wean/wean.4.lat", "wean/wean.5.fwd", "wean/wean.5.lat", "wean/wean.6.fwd",
+  "wean/wean.6.lat",
 ]
-val_samples: [1000, 2000, 3000, 4000, 5000, 6000]
+val_samples: [
+  3000, 6000, 9000, 12000, 15000, 18000, 21000, 24000,
+  27000, 30000, 33000, 36000, 39000, 42000, 45000, 48000]
 pval: 0.2

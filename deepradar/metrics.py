@@ -38,7 +38,7 @@ class LPDepth:
         mask = (y_true != 0)
         res = torch.sum(diff * mask, dim=(1, 2)) / torch.sum(mask, dim=(1, 2))
         if reduce:
-            res = torch.mean(res)        
+            res = torch.mean(res)
         return res
 
 
@@ -76,7 +76,6 @@ class CombinedDiceBCE:
         y_true: Float[Tensor, "batch azimuth range"], reduce: bool = True
     ) -> MetricValue:
         """Get Dice + BCE weighted loss."""
-
         if self.range_weighted:
             bins = torch.arange(y_true.shape[2], device=y_hat.device)
             weight = ((bins + 1) / y_true.shape[2])[None, None, :]
@@ -92,7 +91,7 @@ class CombinedDiceBCE:
         loss = bce * self.bce_weight + dice * (1 - self.bce_weight)
         if reduce:
             loss = torch.mean(loss)
-            
+
         return loss
 
 
@@ -122,7 +121,7 @@ class Chamfer:
         x = torch.cos(phi) * r
         y = torch.sin(phi) * r
         return torch.stack([x, y]).T
-    
+
     @staticmethod
     def distance(
         x: Float[Tensor, "n1 d"], y: Float[Tensor, "n2 d"]
@@ -170,7 +169,7 @@ class Chamfer:
 
 class L1Chamfer:
     """L1 Chamfer distance for a 2D occupancy grid.
-    
+
     WARNING: this is very slow, and probably needs to be completely rethought.
     In particular, max_pool2d is probably not the shortcut it should be in
     pytorch, probably due to the lack of JIT here.
@@ -179,7 +178,7 @@ class L1Chamfer:
     @staticmethod
     def as_distance(mask: Bool[Tensor, "b w h"]) -> Float[Tensor, "b w h"]:
         """Get grid distance transform.
-        
+
         Each element of the output denotes the L1 distance to the nearest
         occupied point in `mask`, measured in grid cells.
         """

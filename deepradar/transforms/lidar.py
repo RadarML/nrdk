@@ -91,7 +91,7 @@ class Map2D(BaseTransform):
 
 class DecimateMap(BaseTransform):
     """Downsample lidar map.
-    
+
     Args:
         azimuth, range: azimuth and range decimation factors.
     """
@@ -129,7 +129,7 @@ class Depth(BaseTransform):
         path: path to dataset.
         crop_el, crop_az: crop factor to apply (symmetrically) to each side
     """
-        
+
     def __init__(
         self, path: str, crop_el: float = 0.0, crop_az: float = 0.25
     ) -> None:
