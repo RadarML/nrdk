@@ -83,7 +83,7 @@ def _main(args):
     else:
         model = getattr(
             objectives, model_cfg["objective"]
-        ).load_from_checkpoint(args.checkpoint, hparams_file=args.cfg)
+        ).load_from_checkpoint(args.checkpoint, hparams_file=args.cfg[0])
 
     # Bypass save_hyperparameters
     model.configure(log_interval=args.log_example_interval, num_examples=16)

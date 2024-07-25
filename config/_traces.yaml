@@ -1,3 +1,4 @@
+# Data traces for training; reference via !include.
 traces: [
   "baker/baker.1.fwd", "baker/baker.1.lat", "baker/baker.2.fwd",
   "baker/baker.2.lat", "cic/cic.1.fwd", "cic/cic.1.lat", "cic/cic.2.fwd",

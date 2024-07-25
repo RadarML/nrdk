@@ -1,7 +1,9 @@
 """Radar training objectives."""
 
 import re
+from tqdm import tqdm
 import torch
+from torch.utils.data import DataLoader
 from torchvision.transforms import Resize, InterpolationMode
 import lightning as L
 import matplotlib
@@ -11,7 +13,7 @@ from beartype.typing import Any, Optional
 from jaxtyping import Shaped
 
 import models
-from .dataloader import RoverDataModule, RoverData
+from .dataloader import RoverDataModule
 from . import metrics
 from .utils import polar_to_bev
 
@@ -172,16 +174,17 @@ class BaseModule(L.LightningModule):
         raise NotImplementedError()
 
     def evaluate(
-        self, trace: RoverData, device=0
+        self, trace: DataLoader, device=0, desc: Optional[str] = None
     ) -> dict[str, Shaped[np.ndarray, "N"]]:
         """Evaluate model with no metric aggregation.
 
         Args:
-            trace: trace to run; nominally a single trace (i.e. a
-                :class:`.RoverData` with `paths` of length 1).
+            trace: `DataLoader`-wrapped trace to run; nominally a single trace
+                (i.e. a :class:`.RoverData` with `paths` of length 1).
             device: device to run on. This method does not implement
                 distributed data parallelism; parallelism should be applied at
                 the trace level.
+            desc: progress bar description (display only).
 
         Returns:
             Dictionary with metric names as keys and raw metric results as
@@ -189,11 +192,14 @@ class BaseModule(L.LightningModule):
         """
         device = torch.device(device)
         results = []
-        for batch in trace:
-            batch_gpu = {
-                k: torch.Tensor(v).to(device) for k, v in batch.items()}
-            results.append(self.evaluation_step(batch_gpu))
-        return {k: np.concatenate([x[k] for x in results]) for k in results[0]}
+        for batch in tqdm(trace, desc=desc):
+            with torch.no_grad():
+                batch_gpu = {
+                    k: torch.Tensor(v).to(device) for k, v in batch.items()}
+                results.append(self.evaluation_step(batch_gpu))
+        return {
+            k: np.concatenate([x[k].cpu().numpy() for x in results])
+            for k in results[0]}
 
 
 class RadarHD(BaseModule):

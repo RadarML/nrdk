@@ -1,0 +1,7 @@
+# Evaluation traces
+traces: [
+  "cfa/cfa.1.fwd", "cfa/cfa.1.lat", "cfa/cfa.3.fwd", "cfa/cfa.3.lat",
+  "cfa/cfa.a.fwd", "cfa/cfa.a.lat", "morrison/morrison.1.fwd",
+  "morrison/morrison.1.lat", "morrison/morrison.2.fwd",
+  "morrison/morrison.2.lat",
+]

@@ -37,11 +37,11 @@ class UNetUp(nn.Module):
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
-        diffY = x2.size()[2] - x1.size()[2]
-        diffX = x2.size()[3] - x1.size()[3]
+        dy = x2.size()[2] - x1.size()[2]
+        dx = x2.size()[3] - x1.size()[3]
 
-        x1 = nn.functional.pad(x1, [
-            diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2])
+        x1 = nn.functional.pad(
+            x1, [dx // 2, dx - dx // 2, dy // 2, dy - dy // 2])
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
@@ -100,7 +100,6 @@ class RadarUNet(nn.Module):
         Args:
             x: input batch, with batch-doppler-rx-tx-range axis order.
         """
-
         x = torch.sqrt(torch.abs(self.fft(x))) / 1e3
 
         x1 = self.inc(x)

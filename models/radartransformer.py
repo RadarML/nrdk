@@ -111,7 +111,7 @@ class RadarTransformer(nn.Module):
         self.unpatch = modules.Unpatch2D(
             output_size=(out_shape[0], out_shape[1], 1),
             features=dim, size=unpatch_size)
-        
+
         if output_activation is not None:
             self.activation = getattr(nn, output_activation)()
         else:
@@ -130,7 +130,6 @@ class RadarTransformer(nn.Module):
             2-dimensional output, nominally in batch-azimuth-range order
             (though could also be a batch-azimuth-elevation representation).
         """
-
         patch = self.patch(rearrange(x, "n d a e r c -> n c d r a e"))
         embedded = self.pos(patch)
 
