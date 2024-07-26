@@ -1,0 +1,3 @@
+model_args:
+  enc_layers: 9
+  dec_layers: [9, 6, 3]
