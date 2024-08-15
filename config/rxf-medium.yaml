@@ -1,0 +1,5 @@
+model_args:
+  dim: 640
+  heads: 10
+  enc_layers: 9
+  dec_layers: [9, 6, 3]

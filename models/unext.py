@@ -128,8 +128,6 @@ class RadarUNeXT(nn.Module):
 
         self.out = nn.Conv2d(width // 16, 1, kernel_size=(1, 1))
 
-        self.logits = nn.Sigmoid()
-
     def forward(
         self, x: Complex[Tensor, "n d 4 2 r"]
     ) -> Float[Tensor, "n 1024 256"]:
@@ -138,7 +136,6 @@ class RadarUNeXT(nn.Module):
         Args:
             x: input batch, with batch-doppler-rx-tx-range axis order.
         """
-
         x = torch.sqrt(torch.abs(self.fft(x))) / 1e3
         x = self.embed(x)
         x0, x = self.s0_down(x)
@@ -149,4 +146,4 @@ class RadarUNeXT(nn.Module):
         x = self.s1_up(x, x1)
         x = self.s0_up(x, x0)
 
-        return self.logits(self.out(self.asym_up(x))[:, 0])
+        return self.out(self.asym_up(x))[:, 0]

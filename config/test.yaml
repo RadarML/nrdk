@@ -43,7 +43,12 @@ traces: !expand {
     "wean": [
       "wean.3.fwd", "wean.3.lat", "wean.4.fwd", "wean.4.lat", "wean.5.fwd",
       "wean.5.lat", "wean.6.fwd", "wean.6.lat"],
-  }
+  },
+  "outdoor": [
+    "cmu.east", "cmu.north", "cmu.west", "craig.east", "craig.west",
+    "forbes.east", "forbes.west", "museum", "oakland.central", "oakland.north",
+    "oakland.schf", "oakland.wpsbc", "pitt.central", "pitt.west", "schenley"
+  ]
 }
 val_samples: [
   3000, 6000, 9000, 12000, 15000, 18000, 21000, 24000,

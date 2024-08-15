@@ -6,12 +6,12 @@ import numpy as np
 from jaxtyping import UInt, UInt16, Float32, Bool
 from beartype.typing import Any
 
-from ouster import client
+from ouster.sdk import client
 
-from .base import BaseTransform
+from .base import Transform
 
 
-class Destagger(BaseTransform):
+class Destagger(Transform):
     """Destagger lidar data.
 
     Augmentations:
@@ -44,7 +44,7 @@ class Destagger(BaseTransform):
         return res
 
 
-class Map2D(BaseTransform):
+class Map2D(Transform):
     """2D azimuth-range lidar map.
 
     Follows the procedure used by RadarHD [R1]_:
@@ -89,7 +89,7 @@ class Map2D(BaseTransform):
         return res
 
 
-class DecimateMap(BaseTransform):
+class DecimateMap(Transform):
     """Downsample lidar map.
 
     Args:
@@ -109,7 +109,7 @@ class DecimateMap(BaseTransform):
         ), axis=(1, 3))
 
 
-class Depth(BaseTransform):
+class Depth(Transform):
     """Cropped depth map, in meters.
 
     Implementation notes:

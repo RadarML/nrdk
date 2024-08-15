@@ -103,7 +103,8 @@ def _main(args):
     trainer = L.Trainer(
         logger=logger, log_every_n_steps=args.log_interval,
         callbacks=[checkpoint, stopping], max_steps=-1, max_epochs=args.epochs,
-        val_check_interval=args.val_interval, strategy=strategy)
+        val_check_interval=args.val_interval, strategy=strategy,
+        precision="16-mixed")
 
     start = time.perf_counter()
     trainer.fit(model=model, datamodule=data)

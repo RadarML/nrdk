@@ -1,5 +1,0 @@
-model_args:
-  enc_layers: 12
-  dec_layers: [12, 9, 6, 3]
-dataset:
-  batch_size: 16

@@ -4,21 +4,22 @@ import re
 from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
-from torchvision.transforms import Resize, InterpolationMode
 import lightning as L
 import matplotlib
 import numpy as np
 
-from beartype.typing import Any, Optional
-from jaxtyping import Shaped
+from beartype.typing import Any, Optional, Union
+from jaxtyping import Shaped, Float
 
 import models
-from .dataloader import RoverDataModule
-from . import metrics
-from .utils import polar_to_bev
+from deepradar.dataloader import RoverDataModule
 
 
-class BaseModule(L.LightningModule):
+#: Optionally reduced training metric
+MetricValue = Union[Float[torch.Tensor, ""], Float[torch.Tensor, "batch"]]
+
+
+class Module(L.LightningModule):
     """Composable training objective.
 
     All hyperparameters should be encapsulated by the constructor of the
@@ -200,137 +201,3 @@ class BaseModule(L.LightningModule):
         return {
             k: np.concatenate([x[k].cpu().numpy() for x in results])
             for k in results[0]}
-
-
-class RadarHD(BaseModule):
-    """Radar -> lidar as bird's eye view (BEV) occupancy.
-
-    Args:
-        bce_weight: BCE loss weight; Dice loss is weighted `1 - bce_weight`.
-        range_weighted: Whether to apply range weighting; see
-            :class:`.CombinedDiceBCE` for details.
-        kwargs: see :class:`.BaseModule`.
-    """
-
-    STOPPING_METRIC = "chamfer/val"
-    DEFAULT_CMAP = "inferno"
-
-    def __init__(
-        self, bce_weight: float = 0.9, range_weighted: bool = True, **kwargs
-    ) -> None:
-        super().__init__(**kwargs)
-        self.loss = metrics.CombinedDiceBCE(
-            bce_weight=bce_weight, range_weighted=range_weighted)
-        self.chamfer = metrics.Chamfer()
-        self.save_hyperparameters()
-
-    def convert_image(
-        self, img: Shaped[torch.Tensor, "batch h w"]
-    ) -> Shaped[torch.Tensor, "batch h2 w2"]:
-        """Convert image for display."""
-        return polar_to_bev(img, height=512)
-
-    def training_step(self, batch, batch_idx):  # type: ignore
-        """Standard lightning training step."""
-        y_hat = self.model(batch['radar'])
-        y_true = batch['lidar'].to(torch.float32)
-        loss = self.loss(y_hat, y_true)
-
-        self.log(
-            "loss/train", loss, on_step=True, on_epoch=True, sync_dist=True)
-        if self.global_step % self.log_interval == 0:
-            self.log_image_comparison(
-                "sample/train", y_true[:self.num_examples],
-                y_hat[:self.num_examples].detach())
-
-        return loss
-
-    def validation_step(self, batch, batch_idx):  # type: ignore
-        """Standard lightning validation step."""
-        if batch_idx == 0:
-            samples = self.trainer.datamodule.val_samples  # type: ignore
-            radar = torch.from_numpy(
-                samples['radar']).to(batch['radar'].device)
-            sample_true = torch.from_numpy(
-                samples['lidar']).to(batch['lidar'].device)
-
-            sample_hat = self.model(radar)
-            self.log_image_comparison("sample/val", sample_true, sample_hat)
-
-        y_hat = self.model(batch['radar'])
-        val_loss = self.loss(y_hat, batch['lidar'].to(torch.float32))
-        val_chamfer = self.chamfer(y_hat > 0.5, batch['lidar'])
-
-        self.log("loss/val", val_loss, sync_dist=True)
-        self.log("chamfer/val", val_chamfer.to("cuda"), sync_dist=True)
-
-    def evaluation_step(
-        self, batch
-    ) -> dict[str, Shaped[torch.Tensor, "batch"]]:
-        """Evaluate model with mo metric aggregation."""
-        y_hat = self.model(batch['radar'])
-        val_loss = self.loss(
-            y_hat, batch['lidar'].to(torch.float32), reduce=False)
-        val_chamfer = self.chamfer(
-            y_hat > 0.5, batch['lidar'], reduce=False)
-        return {"loss": val_loss, "chamfer": val_chamfer}
-
-
-class RadarHD3D(BaseModule):
-    """Radar -> lidar as depth estimation.
-
-    Args:
-        loss_order: Loss type (l1/l2).
-    """
-
-    STOPPING_METRIC = "loss/val"
-    DEFAULT_CMAP = "viridis"
-
-    def __init__(self, loss_order: int = 1, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.loss = metrics.LPDepth(ord=loss_order)
-        self.save_hyperparameters()
-
-    def convert_image(
-        self, img: Shaped[torch.Tensor, "batch h w"]
-    ) -> Shaped[torch.Tensor, "batch h2 w2"]:
-        """Convert image for display."""
-        return Resize(
-            (512, 512 * 2), interpolation=InterpolationMode.NEAREST)(img)
-
-    def training_step(self, batch, batch_idx):  # type: ignore
-        """Standard lightning training step."""
-        y_hat = self.model(batch['radar'])
-        loss = self.loss(y_hat, batch['lidar'])
-
-        self.log(
-            "loss/train", loss, on_step=True, on_epoch=True, sync_dist=True)
-        if self.global_step % self.log_interval == 0:
-            self.log_image_comparison(
-                "sample/train", batch['lidar'][:self.num_examples],
-                y_hat[:self.num_examples].detach())
-
-        return loss
-
-    def validation_step(self, batch, batch_idx):  # type: ignore
-        """Standard lightning validation step."""
-        if batch_idx == 0:
-            samples = self.trainer.datamodule.val_samples  # type: ignore
-            radar = torch.from_numpy(
-                samples['radar']).to(batch['radar'].device)
-            y_true = torch.from_numpy(
-                samples['lidar']).to(batch['lidar'].device)
-
-            y_hat = self.model(radar)
-            self.log_image_comparison("sample/val", y_true, y_hat)
-
-        y_hat = self.model(batch['radar'])
-        self.log("loss/val", self.loss(y_hat, batch['lidar']), sync_dist=True)
-
-    def evaluation_step(
-        self, batch
-    ) -> dict[str, Shaped[torch.Tensor, "batch"]]:
-        """Evaluate model with mo metric aggregation."""
-        y_hat = self.model(batch['radar'])
-        val_loss = self.loss(y_hat, batch['lidar'], reduce=False)
-        return {"loss": val_loss}

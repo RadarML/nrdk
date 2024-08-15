@@ -1,0 +1,84 @@
+objective: RadarHD
+model: RadarTransformer
+model_args:
+  dim: 512
+  heads: 8
+  enc_layers: 6
+  dec_layers: [6, 4, 2]
+  ff_ratio: 4.0
+  dropout: 0.1
+  activation: GELU
+  out_shape: [1024, 256]
+  patch_size: [16, 16]
+  unpatch_size: [16, 16]
+optimizer: AdamW
+optimizer_args: {}
+warmup: 100
+default_lr: 0.0001
+bce_weight: 0.9
+range_weighted: True
+dataset:
+  <<: !include _traces2.yaml
+  batch_size: 32
+  channels:
+    meta:
+      name: "MetaChannel"
+      indices: lidar
+      args:
+        transform:
+        - name: RadarResolution
+          args: {}
+    lidar:
+      name: "RawChannel"
+      indices: lidar
+      args:
+        sensor: _lidar
+        channel: rng
+        transform:
+        - name: Destagger
+          args: {}        
+        - name: Map2D
+          args: {}
+    radar:
+      name: "RawChannel"
+      indices: radar
+      args:
+        sensor: radar
+        channel: iq
+        transform:
+        - name: AssertTx2
+          args: {}
+        - name: IIQQtoIQ
+          args: {}
+        - name: FFTArray
+          args:
+            pad: 0
+            axes: [0, 1, 2, 3]
+        - name: ComplexPhase
+          args: {}
+    slam:
+      name: "NPChannel"
+      indices: lidar
+      args:
+        path: "_lidar/pose.npz"
+        keys: ["vel", "rot"]
+        transform: []
+  augmentations:
+    azimuth_flip:
+      name: Bernoulli
+      args: {"p": 0.5}
+    doppler_flip:
+      name: Bernoulli
+      args: {"p": 0.5}
+    radar_scale:
+      name: TruncatedLogNormal
+      args: {"std": 1.0, "clip": 0.0}
+    radar_phase:
+      name: Uniform
+      args: {"lower": -3.14159265, "upper": 3.14159265}
+    range_scale:
+      name: Uniform
+      args: {"lower": 1.0, "upper": 2.0}
+    speed_scale:
+      name: TruncatedLogNormal
+      args: {"std": 0.2, "clip": 2.0}

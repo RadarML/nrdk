@@ -33,8 +33,8 @@ def polar_to_bev(
     thetamax = data.shape[1] - 1
 
     x, y = torch.meshgrid(
-        torch.linspace(-rmax, rmax, height * 2),
-        torch.linspace(0, rmax, height), indexing='xy')
+        torch.linspace(-rmax, rmax, height * 2, device=data.device),
+        torch.linspace(0, rmax, height, device=data.device), indexing='xy')
     r = torch.sqrt(x**2 + y**2)
     theta = torch.acos(x / r)
 

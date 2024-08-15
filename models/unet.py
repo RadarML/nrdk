@@ -90,7 +90,6 @@ class RadarUNet(nn.Module):
         self.up8 = AzimuthUp(64, 64)
 
         self.out = nn.Conv2d(64, 1, kernel_size=1)
-        self.logits = nn.Sigmoid()
 
     def forward(
         self, x: Complex[Tensor, "n d 4 2 r"]
@@ -116,4 +115,4 @@ class RadarUNet(nn.Module):
         x = self.up7(x)
         x = self.up8(x)
 
-        return self.logits(self.out(x)[:, 0])
+        return self.out(x)[:, 0]

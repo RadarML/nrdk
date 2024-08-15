@@ -8,12 +8,12 @@ from skimage.transform import resize
 from jaxtyping import Complex64, Int16, Float32
 from beartype.typing import Iterable, Any
 
-from .base import BaseTransform
+from .base import Transform
 
 
-class RadarResolution(BaseTransform):
+class RadarResolution(Transform):
     """Get radar resolution metadata.
-    
+
     Augmentations:
 
     - `range_scale`: apply scale multiplicatively to `range_resolution`.
@@ -31,17 +31,17 @@ class RadarResolution(BaseTransform):
         self.doppler_res = cfg["doppler_resolution"]
 
     def __call__(
-        self, other: Float32[np.ndarray, "d"], aug: dict[str, Any] = {}
+        self, _, aug: dict[str, Any] = {}
     ) -> Float32[np.ndarray, "d2"]:
 
         meta = np.array([
             self.range_res * aug.get("range_scale", 1.0),
             self.doppler_res * aug.get("speed_scale", 1.0)
         ], dtype=np.float32)
-        return np.concatenate([other, meta])
+        return meta
 
 
-class IIQQtoIQ(BaseTransform):
+class IIQQtoIQ(Transform):
     """Convert IIQQ i16 raw data to I/Q complex64 data.
 
     Input shape (MIMO Radar Frames):
@@ -65,7 +65,7 @@ class IIQQtoIQ(BaseTransform):
         return iq
 
 
-class DiscardTx2(BaseTransform):
+class DiscardTx2(Transform):
     """Discard middle antenna TX2 if data was collected in 3x4 mode."""
 
     def __call__(
@@ -77,7 +77,7 @@ class DiscardTx2(BaseTransform):
             return data
 
 
-class AssertTx2(BaseTransform):
+class AssertTx2(Transform):
     """Assert that the radar data is collected in 3x4 mode."""
 
     def __call__(
@@ -87,7 +87,7 @@ class AssertTx2(BaseTransform):
         return data
 
 
-class BaseFFT(BaseTransform):
+class BaseFFT(Transform):
     """FFT base class."""
 
     @staticmethod
@@ -95,7 +95,6 @@ class BaseFFT(BaseTransform):
         data: Complex64[np.ndarray, "D A ... R"], aug: dict[str, Any] = {}
     ) -> Complex64[np.ndarray, "D A ... R"]:
         """Apply radar representation-agnostic data augmentations."""
-
         if aug.get("azimuth_flip"):
             data = np.flip(data, axis=1)
         if aug.get("doppler_flip"):
@@ -185,7 +184,7 @@ class FFTArray(BaseFFT):
         return self._augment(daer_shf, aug=aug)
 
 
-class BaseRepresentation(BaseTransform):
+class Representation(Transform):
     """Base class for radar representations."""
 
     @staticmethod
@@ -210,7 +209,6 @@ class BaseRepresentation(BaseTransform):
         aug: dict[str, Any] = {}
     ) -> Float32[np.ndarray, "D A ... R"]:
         """Apply radar representation-specific data augmentations."""
-
         range_out_dim = int(aug.get("range_scale", 1.0) * data.shape[-1])
         if range_out_dim != data.shape[-1]:
             resized = resize(data, [*data.shape[:-1], range_out_dim])
@@ -241,7 +239,7 @@ class BaseRepresentation(BaseTransform):
         return data
 
 
-class ComplexParts(BaseRepresentation):
+class ComplexParts(Representation):
     """Convert complex numbers to (real, imag) along a new axis.
 
     Augmentations:
@@ -267,7 +265,7 @@ class ComplexParts(BaseRepresentation):
         return np.stack(stretched, axis=-1) / 1e6 * aug.get("radar_scale", 1.0)
 
 
-class ComplexAmplitude(BaseRepresentation):
+class ComplexAmplitude(Representation):
     """Convert complex numbers to amplitude-only.
 
     Augmentations:
@@ -287,7 +285,7 @@ class ComplexAmplitude(BaseRepresentation):
         return stretched / 1e3 * aug.get("radar_scale", 1.0)
 
 
-class ComplexPhase(BaseRepresentation):
+class ComplexPhase(Representation):
     """Convert complex numbers to (amplitude, phase) along a new axis.
 
     Augmentations:

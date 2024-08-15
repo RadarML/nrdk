@@ -1,3 +1,5 @@
 model_args:
-  enc_layers: 9
-  dec_layers: [9, 6, 3]
+  dim: 768
+  heads: 12
+  enc_layers: 12
+  dec_layers: [12, 8, 4]

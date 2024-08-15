@@ -9,7 +9,7 @@ default_lr: 0.001
 bce_weight: 0.9
 range_weighted: True
 dataset:
-  <<: !include _traces.yaml
+  <<: !include _traces2.yaml
   batch_size: 16
   transform:
     lidar: !include _lidar-map.yaml

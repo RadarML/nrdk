@@ -147,8 +147,4 @@ class RadarTransformer(nn.Module):
             out = layer(out, encoded[i])
 
         unpatch = self.unpatch(out)[:, 0]
-
-        if self.activation is not None:
-            return self.activation(unpatch)
-        else:
-            return unpatch
+        return unpatch
