@@ -16,7 +16,6 @@ new transformations:
 - `range_scale`: apply random range scale.
     - radar: rescale post-FFT range axis; crop or zero-pad.
     - lidar: multiply raw ranges by scale.
-    - velocity, acceleration: multiply by scale.
 
 - `speed_scale`: apply random speed scale.
     - radar: rescale post-FFT doppler axis; wrap or zero-pad.
@@ -41,6 +40,7 @@ from .radar import (
     RadarResolution,
     IIQQtoIQ, DiscardTx2, AssertTx2, FFTLinear, FFTArray,
     Representation, ComplexParts, ComplexAmplitude, ComplexPhase)
+from .pose import RelativeVelocity
 
 
 class TransformSpec(TypedDict):
@@ -61,5 +61,6 @@ __all__ = [
     "Destagger", "Map2D", "DecimateMap", "Depth",
     "RadarResolution",
     "IIQQtoIQ", "DiscardTx2", "AssertTx2", "FFTLinear", "FFTArray",
-    "Representation", "ComplexParts", "ComplexAmplitude", "ComplexPhase"
+    "Representation", "ComplexParts", "ComplexAmplitude", "ComplexPhase",
+    "RelativeVelocity"
 ]

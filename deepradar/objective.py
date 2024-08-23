@@ -1,0 +1,185 @@
+"""Training objective."""
+
+from tqdm import tqdm
+import torch
+from torch.utils.data import DataLoader
+import lightning as L
+import numpy as np
+
+from beartype.typing import Optional
+from jaxtyping import Shaped
+
+import models
+
+from deepradar.dataloader import RoverDataModule
+from deepradar.optimizer import create_optimizer
+from deepradar import objectives as mod_objectives
+
+
+class Module(L.LightningModule):
+    """Composable training objective.
+
+    All hyperparameters should be encapsulated by the constructor of the
+    inheriting class. Environment-specific, non-hyperparameters should be
+    passed in via methods.
+
+    NOTE: the outer-most inheriting class must call `save_parameters()`!
+
+    Args:
+        dataset: dataset specifications; see :py:class:`.RoverDataModule`.
+        objectives: list of objective specifications; see
+            :py:mod:`deepradar.objectives`.
+        encoder: encoder specification; see :py:mod:`models`.
+        decoders: list of decoder specifications; see :py:mod:`models`.
+        optimizer: optimizer specifications; see :py:func:`.create_optimizer`.
+    """
+
+    def __init__(
+        self, dataset: dict = {}, objectives: list[dict] = [],
+        encoder: dict = {}, decoders: list[dict] = [],
+        optimizer: dict = {}
+    ) -> None:
+        super().__init__()
+
+        self.dataset = dataset
+        self.objectives: list[mod_objectives.Objective] = [
+            getattr(mod_objectives, spec["name"])(**spec["args"])
+            for spec in objectives]
+        self.encoder = getattr(models, encoder["name"])(**encoder["args"])
+        self.decoders = torch.nn.ModuleList(
+            getattr(models, spec["name"])(**spec["args"])
+            for spec in decoders)
+        self.optimizer = optimizer
+
+        self.configure()
+        self.save_hyperparameters()
+
+    def get_dataset(self, path: str, debug: bool = False) -> RoverDataModule:
+        """Get datamodule.
+
+        Args:
+            path: dataset root directory.
+            debug: whether to run in debug mode.
+
+        Returns:
+            Corresponding `RoverDataModule`.
+        """
+        return RoverDataModule(**self.dataset, path=path, debug=debug)
+
+    def configure(
+        self, log_interval: int = 1, num_examples: int = 6,
+    ) -> None:
+        """Set non-hyperparameter configurations."""
+        self.log_interval = log_interval
+        self.num_examples = num_examples
+
+    def configure_optimizers(self):  # type: ignore
+        """Configure optimizers."""
+        return create_optimizer(self, **self.optimizer)
+
+    def forward(self, batch):
+        """Apply model."""
+        encoded = self.encoder(batch['radar'])
+        y_hat = {}
+        for decoder in self.decoders:
+            y_hat.update(decoder(encoded))
+        return y_hat
+
+    def log_visualizations(self, y_true, y_hat, split: str = 'train') -> None:
+        """Log all image visualizations.
+        
+        Args:
+            y_true, y_hat: input, output values.
+            split: train/val split to put in the output path.
+        """
+        for objective in self.objectives:
+            imgs = objective.visualizations(
+                {k: v[:self.num_examples] for k, v in y_true.items()},
+                {k: v[:self.num_examples] for k, v in y_hat.items()})
+            for k, v in imgs.items():
+                self.logger.experiment.add_image(  # type: ignore
+                    f"{k}/{split}", v, self.global_step, dataformats='HWC')  
+
+    def training_step(self, batch, batch_idx):  # type: ignore
+        """Standard lightning training step."""
+        y_hat = self.forward(batch)
+
+        loss = 0.0
+        for objective in self.objectives:
+            metrics = objective.metrics(batch, y_hat, train=True, reduce=True)
+            loss += metrics.loss
+            for k, v in metrics.metrics.items():
+                self.log(
+                    f"{k}/train", v,
+                    on_step=True, on_epoch=True, sync_dist=True)
+        self.log(
+            "loss/train", loss, on_step=True, on_epoch=True, sync_dist=True)
+
+        y_hat_nograd = {k: v.detach() for k, v in y_hat.items()}
+        if self.global_step % self.log_interval == 0:
+            self.log_visualizations(batch, y_hat_nograd, split="train")
+
+        return loss
+
+    def validation_step(self, batch, batch_idx):  # type: ignore
+        """Standard lightning validation step."""
+        y_hat = self.forward(batch)
+
+        loss = 0.0
+        for objective in self.objectives:
+            metrics = objective.metrics(batch, y_hat, train=False, reduce=True)
+            loss += metrics.loss
+            for k, v in metrics.metrics.items():
+                self.log(f"{k}/val", v, sync_dist=True)
+        self.log("loss/val", loss, sync_dist=True)
+
+        if batch_idx == 0:
+            samples = self.trainer.datamodule.val_samples  # type: ignore
+            samples_torch = {
+                k: torch.from_numpy(v).to(batch['radar'].device)
+                for k, v in samples.items()}
+            y_hat = self.forward(samples_torch)
+            self.log_visualizations(samples_torch, y_hat, split="val")
+
+    def evaluation_step(
+        self, batch
+    ) -> dict[str, Shaped[torch.Tensor, "batch"]]:
+        """Evaluation step with mo metric aggregation.
+
+        Args:
+            batch: input batch.
+
+        Returns:
+            Dictionary of metrics for each entry in the batch (object-of-list);
+            these metrics should preserve the input order, and not be
+            aggregated in any way.
+        """
+        raise NotImplementedError()
+
+    def evaluate(
+        self, trace: DataLoader, device=0, desc: Optional[str] = None
+    ) -> dict[str, Shaped[np.ndarray, "N"]]:
+        """Evaluate model with no metric aggregation.
+
+        Args:
+            trace: `DataLoader`-wrapped trace to run; nominally a single trace
+                (i.e. a :class:`.RoverData` with `paths` of length 1).
+            device: device to run on. This method does not implement
+                distributed data parallelism; parallelism should be applied at
+                the trace level.
+            desc: progress bar description (display only).
+
+        Returns:
+            Dictionary with metric names as keys and raw metric results as
+            values.
+        """
+        device = torch.device(device)
+        results = []
+        for batch in tqdm(trace, desc=desc):
+            with torch.no_grad():
+                batch_gpu = {
+                    k: torch.Tensor(v).to(device) for k, v in batch.items()}
+                results.append(self.evaluation_step(batch_gpu))
+        return {
+            k: np.concatenate([x[k].cpu().numpy() for x in results])
+            for k in results[0]}

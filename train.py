@@ -11,7 +11,7 @@ from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.strategies import DDPStrategy
 
-from deepradar import objectives, config
+from deepradar import config, objective
 
 
 def _parse():
@@ -74,16 +74,11 @@ def _main(args):
             exit(1)
 
     model_cfg = config.load_config(args.cfg)
-    if "objective" not in model_cfg:
-        print("Config file must specify an `objective`.")
-        exit(1)
-
     if args.checkpoint is None:
-        model = getattr(objectives, model_cfg["objective"])(**model_cfg)
+        model = objective.Module(**model_cfg)
     else:
-        model = getattr(
-            objectives, model_cfg["objective"]
-        ).load_from_checkpoint(args.checkpoint, hparams_file=args.cfg[0])
+        model = objective.Module.load_from_checkpoint(
+            args.checkpoint, hparams_file=args.cfg[0])
 
     # Bypass save_hyperparameters
     model.configure(log_interval=args.log_example_interval, num_examples=16)
@@ -91,10 +86,10 @@ def _main(args):
     data = model.get_dataset(args.path)
 
     checkpoint = ModelCheckpoint(
-        save_top_k=args.num_checkpoints, monitor=model.STOPPING_METRIC,
+        save_top_k=args.num_checkpoints, monitor="loss/val",
         save_last=True, dirpath=None)
     stopping = EarlyStopping(
-        monitor=model.STOPPING_METRIC, min_delta=0.0,
+        monitor="loss/val", min_delta=0.0,
         patience=args.patience, mode="min")
     logger = TensorBoardLogger(
         args.out, name=args.name, version=args.version,

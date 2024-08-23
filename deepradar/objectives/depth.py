@@ -38,7 +38,7 @@ class LPDepth:
         return res
 
 
-class RadarHD3D(Module):
+class Depth(Module):
     """Radar -> lidar as depth estimation.
 
     Args:

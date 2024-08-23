@@ -59,19 +59,18 @@ Example configuration::
 import os
 import multiprocessing
 import numpy as np
-from functools import partial, cached_property
+from functools import cached_property
 
 from torch.utils.data import Dataset, DataLoader
 import lightning as L
 
-from beartype.typing import Union, Callable, Any, Iterable, Optional
+from beartype.typing import Callable, Any, Iterable, Optional
 from jaxtyping import Num
 
 from . import channels as mod_channels
 from . import augmentations as mod_augmentations
 
-from .channels import Index, Channel
-
+from .channels import Index
 
 
 #: Augmentation spec generator type

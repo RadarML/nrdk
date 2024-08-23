@@ -1,10 +1,10 @@
-"""First prototype of the "Radar Transformer"."""
+"""Radar Transformer."""
 
 import torch
 from torch import Tensor, nn
 from einops import rearrange
 
-from beartype.typing import Union, cast, Optional
+from beartype.typing import Union, cast
 from jaxtyping import Float
 
 from deepradar import modules
@@ -47,79 +47,55 @@ def assert_shape2(x: Shape2) -> tuple[int, int]:
     return cast(tuple[int, int], tuple(x))
 
 
-class RadarTransformer(nn.Module):
-    """U-shape Radar Doppler Transformer.
+class RadarTransformerEncoder(nn.Module):
+    """Radar Doppler Transformer.
 
-    Only a selected subset of skip connections are formed; the decoder layers
+    Only a selected subset of hidden layers are passed to the decoder, and
     are specified by `dec_layers` as follows:
 
-    - Each entry in the list indicates the index of the encoder layer that the
-      decoder layer with this index connects to.
+    - Each entry in the list indicates the index of the encoder layer output
+      that will be passed to the decoder. The length must match `dec_layers` in
+      the decoder.
     - Indexing starts from 0 at the output of the patch projection (e.g. the
-      output of the first encoder layer is index 1)
+      output of the first encoder layer is index 1).
 
     Args:
         enc_layers: number of encoder layers.
-        dec_layers: decoder layers with skip connection indices.
+        dec_layers: encoded layer indices to pass to the decoder.
         dim: hidden dimension.
         ff_ratio: expansion ratio for feedforward blocks.
         heads: number of heads for multiheaded attention.
         dropout: dropout ratio during training.
         activation: activation function; specify as a name (i.e. corresponding
             to a class in `torch.nn`).
-        output_activation: activation function to apply to the output; specify
-            as a name. If `None`, no activation is applied.
-        out_shape: output spatial dimensions.
-        patch_size: input range-doppler patch size.
-        unpatch_size: output patch size.
+        patch: input range-doppler patch size.
     """
 
     def __init__(
         self, enc_layers: int = 5, dec_layers: list[int] = [5, 3, 1],
         dim: int = 768, ff_ratio: float = 4.0, heads: int = 12,
         dropout: float = 0.1, activation: str = 'GELU',
-        output_activation: Optional[str] = None,
-        out_shape: Shape2 = (1024, 256),
-        patch_size: Shape2 = (16, 16), unpatch_size: Shape2 = (16, 16)
+        patch: Shape2 = (16, 16)
     ) -> None:
         super().__init__()
 
-        patch_size = assert_shape2(patch_size)
-        unpatch_size = assert_shape2(unpatch_size)
-        out_shape = assert_shape2(out_shape)
+        patch = assert_shape2(patch)
         self.dec_layers = dec_layers
 
-        self.patch = modules.Patch4D(channels=2, features=dim, size=patch_size)
+        self.patch = modules.Patch4D(channels=2, features=dim, size=patch)
         self.pos = modules.Sinusoid()
 
         self.readout = nn.Parameter(data=torch.normal(0, 0.02, (dim,)))
 
-        self.encode = nn.ModuleList([
+        self.layers = nn.ModuleList([
             modules.TransformerLayer(
                 d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
                 dropout=dropout, activation=activation)
             for _ in range(enc_layers)])
-        self.decode = nn.ModuleList([
-            modules.TransformerDecoder(
-                d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
-                dropout=dropout, activation=activation)
-            for _ in dec_layers])
-
-        self.query = BasisChange(shape=(
-            out_shape[0] // unpatch_size[0], out_shape[1] // unpatch_size[1]))
-
-        self.unpatch = modules.Unpatch2D(
-            output_size=(out_shape[0], out_shape[1], 1),
-            features=dim, size=unpatch_size)
-
-        if output_activation is not None:
-            self.activation = getattr(nn, output_activation)()
-        else:
-            self.activation = None
 
     def forward(
         self, x: Float[Tensor, "n d a e r c"]
-    ) -> Float[Tensor, "n a r"]:
+    ) -> list[Float[Tensor, "n s c"]]:
         """Apply radar transformer.
 
         Args:
@@ -127,8 +103,7 @@ class RadarTransformer(nn.Module):
                 order.
 
         Returns:
-            2-dimensional output, nominally in batch-azimuth-range order
-            (though could also be a batch-azimuth-elevation representation).
+            Encoding output.
         """
         patch = self.patch(rearrange(x, "n d a e r c -> n c d r a e"))
         embedded = self.pos(patch)
@@ -139,12 +114,68 @@ class RadarTransformer(nn.Module):
         x0 = torch.concatenate([x0, readout], axis=1)  # type: ignore
 
         encoded = [x0]
-        for layer in self.encode:
+        for layer in self.layers:
             encoded.append(layer(encoded[-1]))
 
-        out = self.query(encoded[-1][:, -1, :])
-        for i, layer in zip(self.dec_layers, self.decode):
-            out = layer(out, encoded[i])
+        return [encoded[i] for i in self.dec_layers]
 
-        unpatch = self.unpatch(out)[:, 0]
-        return unpatch
+
+class RadarTransformerDecoder2D(nn.Module):
+    """Radar transformer 2D tensor decoder.
+    
+    Args:
+        key: target key, e.g. `bev`, `depth`.
+        dec_layers: number of decoder layers.
+        dim: hidden dimension; should be the same as the encoder.
+        ff_ratio: expansion ratio for feedforward blocks.
+        heads: number of attention heads.
+        dropout: dropout during training.
+        activation: activation function to use.
+        shape: output shape; should be a 2 element list or tuple.
+        patch: patch size to use for unpatching. Must evenly divide `shape`.
+    """
+
+    def __init__(
+        self, key: str, dec_layers: int = 3, dim: int = 768,
+        ff_ratio: float = 4.0, heads: int = 12, dropout: float = 0.1,
+        activation: str = 'GELU',
+        shape: Shape2 = (1024, 256), patch: Shape2 = (16, 16)
+    ) -> None:
+        super().__init__()
+
+        self.key = key
+        shape = assert_shape2(shape)
+        patch = assert_shape2(patch)
+
+        self.layers = nn.ModuleList([
+            modules.TransformerDecoder(
+                d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
+                dropout=dropout, activation=activation)
+            for _ in range(dec_layers)])
+
+        self.query = BasisChange(
+            shape=(shape[0] // patch[0], shape[1] // patch[1]))
+
+        self.unpatch = modules.Unpatch2D(
+            output_size=(shape[0], shape[1], 1), features=dim, size=patch)
+
+    def forward(
+        self, encoded: list[Float[Tensor, "n s c"]]
+    ) -> dict[str, Float[Tensor, "n a r"]]:
+        """Apply decoder.
+
+        Args:
+            encoded: list of encoded values. Each tensor should be the same
+                size, and use batch-spatial-channel order. The last spatial
+                element of each tensor should correspond to a readout token.
+
+        Returns:
+            2-dimensional output; only a single key (e.g. the specified `key`)
+            is decoded.
+        """
+
+        out = self.query(encoded[-1][:, -1, :])
+        for enc, layer in zip(encoded, self.layers):
+            out = layer(out, enc)
+
+        return {self.key: self.unpatch(out)[:, 0]}

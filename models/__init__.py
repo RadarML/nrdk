@@ -6,8 +6,9 @@
     https://arxiv.org/abs/2201.03545
 """
 
-from .radartransformer import RadarTransformer
-from .unext import RadarUNeXT
-from .unet import RadarUNet
+from .radartransformer import (
+    RadarTransformerEncoder, RadarTransformerDecoder2D)
 
-__all__ = ["RadarTransformer", "RadarUNeXT", "RadarUNet"]
+__all__ = [
+    "RadarTransformerEncoder", "RadarTransformerDecoder2D",
+]

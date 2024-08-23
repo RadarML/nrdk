@@ -1,8 +1,11 @@
 """Miscellaneous utilities."""
 
+import matplotlib
+import numpy as np
 import torch
+
 from torch import Tensor
-from jaxtyping import Shaped
+from jaxtyping import Shaped, Num
 
 
 def polar_to_bev(
@@ -48,3 +51,34 @@ def polar_to_bev(
     bev[:, mask] = 0
 
     return bev
+
+
+def comparison_grid(
+    y_true: Shaped[Tensor, "batch h w"], y_hat: Shaped[Tensor, "batch h w"],
+    cols: int = 8, cmap: str = 'viridis'
+) -> Num[np.ndarray, "h2 w2 3"]:
+    """Create image comparison grid.
+    
+    Args:
+        y_true, y_hat: images to compare; nominally y_true/y_hat, though the
+            exact order does not matter.
+        cols: number of columns. Any excess images (which do not fill a full
+            row) will be discarded.
+        cmap: matplotlib colormap to use, e.g. `viridis`, `inferno`. Note that
+            the alpha channel is discarded.
+    
+    Returns:
+        Colormapped grid of the inputs `y_true` and `y_hat` in alternating rows
+        as a single HWC image.
+    """
+
+    nrows = y_true.shape[0] // cols
+
+    rows = []
+    for _ in range(nrows):
+        rows.append(torch.cat(list(y_true[:cols]), dim=1))
+        rows.append(torch.cat(list(y_hat[:cols]), dim=1))
+        y_true = y_true[cols:]
+        y_hat = y_hat[cols:]
+    grid = torch.cat(rows, dim=0).cpu().numpy()
+    return matplotlib.colormaps[cmap](grid)[..., :3]

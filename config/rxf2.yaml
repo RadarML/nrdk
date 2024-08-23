@@ -1,25 +1,46 @@
-objective: RadarHD
-model: RadarTransformer
-model_args:
-  dim: 512
-  heads: 8
-  enc_layers: 6
-  dec_layers: [6, 4, 2]
-  ff_ratio: 4.0
-  dropout: 0.1
-  activation: GELU
-  out_shape: [1024, 256]
-  patch_size: [16, 16]
-  unpatch_size: [16, 16]
-optimizer: AdamW
-optimizer_args: {}
-warmup: 100
-default_lr: 0.0001
-bce_weight: 0.9
-range_weighted: True
+objectives:
+- name: BEVOccupancy
+  args:
+    weight: 1.0
+    bce_weight: 0.9
+    range_weighted: True
+
+encoder:
+  name: RadarTransformerEncoder
+  args:
+    enc_layers: 6
+    dec_layers: [6, 4, 2]
+    dim: 512
+    ff_ratio: 4.0
+    heads: 8
+    dropout: 0.1
+    activation: GELU
+    patch: [16, 16]
+
+decoders:
+  - name: RadarTransformerDecoder2D
+    args:
+      key: bev
+      dec_layers: 3
+      dim: 512
+      ff_ratio: 4.0
+      heads: 8
+      dropout: 0.1
+      activation: GELU
+      shape: [1024, 256]
+      patch: [16, 16]
+
+optimizer:
+  name: AdamW
+  default_lr: 0.0001
+  warmup: 100
+  subsets: {}
+
 dataset:
+
   <<: !include _traces2.yaml
   batch_size: 32
+
   channels:
     meta:
       name: "MetaChannel"
@@ -28,7 +49,7 @@ dataset:
         transform:
         - name: RadarResolution
           args: {}
-    lidar:
+    bev:
       name: "RawChannel"
       indices: lidar
       args:
@@ -39,6 +60,19 @@ dataset:
           args: {}        
         - name: Map2D
           args: {}
+    depth:
+      name: "RawChannel"
+      indices: lidar
+      args:
+        sensor: _lidar
+        channel: rng
+        transform:
+        - name: Destagger
+          args: {}        
+        - name: Depth
+          args:
+            crop_el: 0.0
+            crop_az: 0.25
     radar:
       name: "RawChannel"
       indices: radar
@@ -56,13 +90,16 @@ dataset:
             axes: [0, 1, 2, 3]
         - name: ComplexPhase
           args: {}
-    slam:
+    vel:
       name: "NPChannel"
       indices: lidar
       args:
         path: "_lidar/pose.npz"
         keys: ["vel", "rot"]
-        transform: []
+        transform:
+        - name: RelativeVelocity
+          args: {}
+
   augmentations:
     azimuth_flip:
       name: Bernoulli
