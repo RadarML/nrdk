@@ -62,7 +62,7 @@ class Channel(ABC):
     @classmethod
     def from_config(
         cls, dataset: str, indices: Num[np.ndarray, "N"],
-        transform: list[transforms.TransformSpec] = [], **kwargs
+        transform: list[dict] = [], **kwargs
     ) -> "Channel":
         """Create channel from config.
 

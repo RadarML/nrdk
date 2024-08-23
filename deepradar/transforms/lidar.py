@@ -6,6 +6,8 @@ import numpy as np
 from jaxtyping import UInt, UInt16, Float32, Bool
 from beartype.typing import Any
 
+# Ouster imports are broken for type checking as of 0.12.0, so we have to
+# ignore type checking any time we use anything...
 from ouster.sdk import client
 
 from .base import Transform
@@ -26,14 +28,14 @@ class Destagger(Transform):
         stdout = os.dup(1)
         os.close(1)
         with open(os.path.join(path, "lidar", "lidar.json")) as f:
-            self.metadata = client.SensorInfo(f.read())
+            self.metadata = client.SensorInfo(f.read())  # type: ignore
         os.dup2(stdout, 1)
         os.close(stdout)
 
     def __call__(
         self, data: UInt[np.ndarray, "El Az"], aug: dict[str, Any] = {}
     ) -> UInt[np.ndarray, "El Az"]:
-        res = client.destagger(self.metadata, data)
+        res = client.destagger(self.metadata, data)  # type: ignore
 
         if "range_scale" in aug:
             res = (

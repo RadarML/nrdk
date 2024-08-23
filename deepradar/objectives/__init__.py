@@ -1,15 +1,12 @@
-# from .base import Module, MetricValue
-# from .occupancy import Occupancy
-# from .depth import Depth
-
-# __all__ = ["Module", "MetricValue", "Depth", "Occupancy"]
+"""Learning objectives."""
 
 
 from .base import MetricValue, Metrics, Objective
 from .occupancy import BEVOccupancy
+from .depth import Depth
 
 __all__ = [
     "MetricValue", "Metrics", "Objective",
-    "BEVOccupancy"
+    "BEVOccupancy", "Depth"
 ]
 

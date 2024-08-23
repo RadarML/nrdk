@@ -166,8 +166,8 @@ class BEVOccupancy(Objective):
 
     def metrics(
         self, y_true: dict[str, Shaped[Tensor, "..."]],
-        y_hat: dict[str, Shaped[Tensor, "..."]], reduce: bool = True,
-        train: bool = True
+        y_hat: dict[str, Shaped[Tensor, "..."]],
+        reduce: bool = True, train: bool = True
     ) -> Metrics:
         """Get training metrics."""
         loss = self.weight * self.loss(
@@ -188,9 +188,8 @@ class BEVOccupancy(Objective):
         y_hat: dict[str, Shaped[Tensor, "..."]]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         """Generate visualizations."""
-
         return {
             "bev": comparison_grid(
                 polar_to_bev(y_true['bev'], height=512),
-                polar_to_bev(y_hat['bev'], height=512),
+                polar_to_bev(sigmoid(y_hat['bev']), height=512),
                 cmap='inferno', cols=8)}

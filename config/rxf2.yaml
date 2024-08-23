@@ -4,12 +4,16 @@ objectives:
     weight: 1.0
     bce_weight: 0.9
     range_weighted: True
+- name: Depth
+  args:
+    weight: 1.0
+    loss_order: 1
 
 encoder:
   name: RadarTransformerEncoder
   args:
-    enc_layers: 6
-    dec_layers: [6, 4, 2]
+    enc_layers: 12
+    dec_layers: [12, 8, 4]
     dim: 512
     ff_ratio: 4.0
     heads: 8
@@ -28,6 +32,17 @@ decoders:
       dropout: 0.1
       activation: GELU
       shape: [1024, 256]
+      patch: [16, 16]
+  - name: RadarTransformerDecoder2D
+    args:
+      key: depth
+      dec_layers: 3
+      dim: 512
+      ff_ratio: 4.0
+      heads: 8
+      dropout: 0.1
+      activation: GELU
+      shape: [128, 1024]
       patch: [16, 16]
 
 optimizer:

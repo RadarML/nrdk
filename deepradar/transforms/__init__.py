@@ -32,8 +32,6 @@ new transformations:
     https://akarsh-prabhakara.github.io/research/radarhd/
 """
 
-from beartype.typing import Any, TypedDict
-
 from .base import Transform, ToFloat16
 from .lidar import Destagger, Map2D, DecimateMap, Depth
 from .radar import (
@@ -43,21 +41,8 @@ from .radar import (
 from .pose import RelativeVelocity
 
 
-class TransformSpec(TypedDict):
-    """Transform specification."""
-
-    name: str
-    """Transform name.
-
-    Should correspond to a :py:class:`Transform in :py:mod:`transforms`.
-    """
-
-    args: dict[str, Any]
-    """Parameters to pass to the specified :py:class:`Transform`."""
-
-
 __all__ = [
-    "TransformSpec", "Transform", "ToFloat16",
+    "Transform", "ToFloat16",
     "Destagger", "Map2D", "DecimateMap", "Depth",
     "RadarResolution",
     "IIQQtoIQ", "DiscardTx2", "AssertTx2", "FFTLinear", "FFTArray",
