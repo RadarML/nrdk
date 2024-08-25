@@ -74,8 +74,10 @@ class AzimuthUp(nn.Module):
         return self.conv(x_shuffle)
 
 
-class RadarUNeXT(nn.Module):
+class UNeXTEncoder(nn.Module):
     """Radar range-azimuth U-net.
+
+    NOTE: must be paired with a :py:class:`.UNeXTBEVDecoder`.
 
     We adopt some relevant recommendations from [N2]_, including:
 
@@ -116,6 +118,40 @@ class RadarUNeXT(nn.Module):
                 activation="ReLU"
             ) for _ in range(depth)])
 
+    def forward(
+        self, x: Complex[Tensor, "n d 4 2 r"]
+    ) -> list[Float[Tensor, "n ..."]]:
+        """Apply UNet.
+
+        Args:
+            x: input batch, with batch-doppler-rx-tx-range axis order.
+        
+        Returns:
+            Encoded output; note that tensors have different sizes since they
+            correspond to different skip connections.
+        """
+        x = torch.sqrt(torch.abs(self.fft(x))) / 1e3
+        x = self.embed(x)
+        x0, x = self.s0_down(x)
+        x1, x = self.s1_down(x)
+        x2, x = self.s2_down(x)
+        x_bridge = self.bridge(x)
+
+        return [x0, x1, x2, x_bridge]
+
+
+class UNeXTBEVDecoder(nn.Module):
+    """Radar range-azimuth U-net decoder.
+    
+    NOTE: must be paired with a :py:class:`.UNeXTEncoder`; can only be used for
+    range-azmiuth `bev`.
+    """
+
+    def __init__(
+        self, width: int = 64, depth: int = 3
+    ) -> None:
+        super().__init__()
+
         self.s0_up = UNetUp(width, depth=depth)
         self.s1_up = UNetUp(width * 2, depth=depth)
         self.s2_up = UNetUp(width * 4, depth=depth)
@@ -129,19 +165,18 @@ class RadarUNeXT(nn.Module):
         self.out = nn.Conv2d(width // 16, 1, kernel_size=(1, 1))
 
     def forward(
-        self, x: Complex[Tensor, "n d 4 2 r"]
+        self, encoded: list[Float[Tensor, "n ..."]]
     ) -> Float[Tensor, "n 1024 256"]:
         """Apply UNet.
 
         Args:
-            x: input batch, with batch-doppler-rx-tx-range axis order.
+            encoded: U-net skip connections.
+        
+        Returns:
+            Range-azimuth output.
         """
-        x = torch.sqrt(torch.abs(self.fft(x))) / 1e3
-        x = self.embed(x)
-        x0, x = self.s0_down(x)
-        x1, x = self.s1_down(x)
-        x2, x = self.s2_down(x)
-        x_bridge = self.bridge(x)
+        x0, x1, x2, x_bridge = encoded
+
         x = self.s2_up(x_bridge, x2)
         x = self.s1_up(x, x1)
         x = self.s0_up(x, x0)

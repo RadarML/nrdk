@@ -60,10 +60,12 @@ class AzimuthUp(nn.Module):
         return self.conv(x1)
 
 
-class RadarUNet(nn.Module):
-    """Generic U-net for range-azimuth radar [N1]_.
+class UNetEncoder(nn.Module):
+    """Generic U-net encoder for range-azimuth radar [N1]_.
 
-    Args:
+    NOTE: must be paired with a :py:class:`.UNetBEVDecoder`.
+
+    Args:    
         d_input: Number of input features (i.e. slow time / doppler length).
         doppler: Whether to run FFT on the doppler axis, i.e. use explicit
             doppler information.
@@ -80,6 +82,40 @@ class RadarUNet(nn.Module):
         self.down2 = _down(128, 256)
         self.down3 = _down(256, 512)
         self.down4 = _down(512, 512)
+
+    def forward(
+        self, x: Complex[Tensor, "n d 4 2 r"]
+    ) -> list[Float[Tensor, "n ..."]]:
+        """Apply UNet.
+
+        Args:
+            x: input batch, with batch-doppler-rx-tx-range axis order.
+        
+        Returns:
+            Encoded output; note that tensors have different sizes since they
+            correspond to different skip connections.
+        """
+        x = torch.sqrt(torch.abs(self.fft(x))) / 1e3
+
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+        x5 = self.down4(x4)
+
+        return [x1, x2, x3, x4, x5]
+
+
+class UNetBEVDecoder(nn.Module):
+    """Generic U-net decoder for range-azimuth radar [N1]_.
+    
+    NOTE: must be paired with a :py:class:`.UNetEncoder`; can only be used for
+    range-azmiuth `bev`.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
         self.up1 = UNetUp(1024, 256)
         self.up2 = UNetUp(512, 128)
         self.up3 = UNetUp(256, 64)
@@ -91,21 +127,20 @@ class RadarUNet(nn.Module):
 
         self.out = nn.Conv2d(64, 1, kernel_size=1)
 
+
     def forward(
-        self, x: Complex[Tensor, "n d 4 2 r"]
+        self, encoded: list[Float[Tensor, "n ..."]]
     ) -> Float[Tensor, "n 1024 256"]:
         """Apply UNet.
 
         Args:
-            x: input batch, with batch-doppler-rx-tx-range axis order.
+            encoded: U-net skip connections.
+        
+        Returns:
+            Range-azimuth output.
         """
-        x = torch.sqrt(torch.abs(self.fft(x))) / 1e3
+        x1, x2, x3, x4, x5 = encoded
 
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
         x = self.up1(x5, x4)
         x = self.up2(x, x3)
         x = self.up3(x, x2)

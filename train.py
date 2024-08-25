@@ -11,7 +11,7 @@ from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.strategies import DDPStrategy
 
-from deepradar import config, objective
+from deepradar import config, DeepRadar
 
 
 def _parse():
@@ -75,9 +75,9 @@ def _main(args):
 
     model_cfg = config.load_config(args.cfg)
     if args.checkpoint is None:
-        model = objective.Module(**model_cfg)
+        model = DeepRadar(**model_cfg)
     else:
-        model = objective.Module.load_from_checkpoint(
+        model = DeepRadar.load_from_checkpoint(
             args.checkpoint, hparams_file=args.cfg[0])
 
     # Bypass save_hyperparameters

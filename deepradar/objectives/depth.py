@@ -29,7 +29,7 @@ class LPDepth:
         if self.ord == 1:
             diff = torch.abs(y_hat - y_true)
         elif self.ord == 2:
-            diff = y_hat * y_hat - y_true * y_true
+            diff = (y_hat - y_true)**2
         else:
             raise NotImplementedError("Only L1 and L2 losses are implemented.")
 

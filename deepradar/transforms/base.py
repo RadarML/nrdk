@@ -18,6 +18,7 @@ class Transform(ABC):
 
     @abstractmethod
     def __call__(self, data: Any, aug: dict[str, Any] = {}) -> Any:
+        """Apply transform."""
         raise NotImplementedError()
 
 

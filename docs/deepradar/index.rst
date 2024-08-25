@@ -6,9 +6,12 @@ DeepRadar API
    :caption: Contents:
 
    augmentations.rst
+   channels.rst
    config.rst
    dataloader.rst
-   metrics.rst
    modules.rst
    objectives.rst
+   optimizer.rst
    transforms.rst
+   training.rst
+   utils.rst

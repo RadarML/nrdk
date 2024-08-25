@@ -21,7 +21,7 @@ class RelativeVelocity(Transform):
         self, data: dict[str, Float[np.ndarray, "..."]],
         aug: dict[str, Any] = {}
     ) -> Float[np.ndarray, "3"]:
-        scale = aug.get("speed_scale", 1.0) 
+        scale = aug.get("speed_scale", 1.0)
         vel = np.matmul(np.linalg.inv(data["rot"]), data["vel"]) / scale
 
         if aug.get("doppler_flip"):

@@ -47,7 +47,7 @@ def assert_shape2(x: Shape2) -> tuple[int, int]:
     return cast(tuple[int, int], tuple(x))
 
 
-class RadarTransformerEncoder(nn.Module):
+class TransformerEncoder(nn.Module):
     """Radar Doppler Transformer.
 
     Only a selected subset of hidden layers are passed to the decoder, and
@@ -120,9 +120,9 @@ class RadarTransformerEncoder(nn.Module):
         return [encoded[i] for i in self.dec_layers]
 
 
-class RadarTransformerDecoder2D(nn.Module):
+class Transformer2DDecoder(nn.Module):
     """Radar transformer 2D tensor decoder.
-    
+
     Args:
         key: target key, e.g. `bev`, `depth`.
         dec_layers: number of decoder layers.
@@ -133,17 +133,20 @@ class RadarTransformerDecoder2D(nn.Module):
         activation: activation function to use.
         shape: output shape; should be a 2 element list or tuple.
         patch: patch size to use for unpatching. Must evenly divide `shape`.
+        out_dim: output channels; if `=1`, the dimension is omitted entirely,
+            i.e. `(h, w)` instead of `(h, w, c)`.
     """
 
     def __init__(
         self, key: str, dec_layers: int = 3, dim: int = 768,
         ff_ratio: float = 4.0, heads: int = 12, dropout: float = 0.1,
         activation: str = 'GELU',
-        shape: Shape2 = (1024, 256), patch: Shape2 = (16, 16)
+        shape: Shape2 = (1024, 256), patch: Shape2 = (16, 16), out_dim: int = 1
     ) -> None:
         super().__init__()
 
         self.key = key
+        self.out_dim = out_dim
         shape = assert_shape2(shape)
         patch = assert_shape2(patch)
 
@@ -157,11 +160,12 @@ class RadarTransformerDecoder2D(nn.Module):
             shape=(shape[0] // patch[0], shape[1] // patch[1]))
 
         self.unpatch = modules.Unpatch2D(
-            output_size=(shape[0], shape[1], 1), features=dim, size=patch)
+            output_size=(shape[0], shape[1], self.out_dim),
+            features=dim, size=patch)
 
     def forward(
         self, encoded: list[Float[Tensor, "n s c"]]
-    ) -> dict[str, Float[Tensor, "n a r"]]:
+    ) -> dict[str, Float[Tensor, "n h w ..."]]:
         """Apply decoder.
 
         Args:
@@ -173,9 +177,12 @@ class RadarTransformerDecoder2D(nn.Module):
             2-dimensional output; only a single key (e.g. the specified `key`)
             is decoded.
         """
-
         out = self.query(encoded[-1][:, -1, :])
         for enc, layer in zip(encoded, self.layers):
             out = layer(out, enc)
 
-        return {self.key: self.unpatch(out)[:, 0]}
+        out = self.unpatch(out)
+        if self.out_dim == 1:
+            out = out[..., 0]
+
+        return {self.key: out}

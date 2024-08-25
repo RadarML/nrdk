@@ -16,14 +16,12 @@ from deepradar.optimizer import create_optimizer
 from deepradar import objectives as mod_objectives
 
 
-class Module(L.LightningModule):
+class DeepRadar(L.LightningModule):
     """Composable training objective.
 
     All hyperparameters should be encapsulated by the constructor of the
     inheriting class. Environment-specific, non-hyperparameters should be
     passed in via methods.
-
-    NOTE: the outer-most inheriting class must call `save_parameters()`!
 
     Args:
         dataset: dataset specifications; see :py:class:`.RoverDataModule`.
@@ -87,7 +85,7 @@ class Module(L.LightningModule):
 
     def log_visualizations(self, y_true, y_hat, split: str = 'train') -> None:
         """Log all image visualizations.
-        
+
         Args:
             y_true, y_hat: input, output values.
             split: train/val split to put in the output path.
@@ -98,7 +96,7 @@ class Module(L.LightningModule):
                 {k: v[:self.num_examples] for k, v in y_hat.items()})
             for k, v in imgs.items():
                 self.logger.experiment.add_image(  # type: ignore
-                    f"{k}/{split}", v, self.global_step, dataformats='HWC')  
+                    f"{k}/{split}", v, self.global_step, dataformats='HWC')
 
     def training_step(self, batch, batch_idx):  # type: ignore
         """Standard lightning training step."""
@@ -150,11 +148,17 @@ class Module(L.LightningModule):
             batch: input batch.
 
         Returns:
-            Dictionary of metrics for each entry in the batch (object-of-list);
-            these metrics should preserve the input order, and not be
-            aggregated in any way.
+            Dictionary of metrics for each entry in the batch (object-of-list)
+            without aggregation, with the input order preserved.
         """
-        raise NotImplementedError()
+        y_hat = self.forward(batch)
+
+        metrics = {}
+        for objective in self.objectives:
+            _metrics = objective.metrics(
+                batch, y_hat, train=False, reduce=False)
+            metrics.update(_metrics.metrics)
+        return metrics
 
     def evaluate(
         self, trace: DataLoader, device=0, desc: Optional[str] = None

@@ -52,10 +52,10 @@ class Objective(ABC):
         y_hat: dict[str, Shaped[Tensor, "..."]]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         """Generate visualizations.
-        
+
         Args:
             y_true, y_hat: see :py:meth:`Objective.metrics`.
-        
+
         Returns:
             A dict, where each key is the name of a visualization, and the
             value is a RGB images in HWC order.

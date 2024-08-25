@@ -9,7 +9,7 @@ def create_optimizer(
     warmup: int = 100, subsets: dict = {}
 ):
     """Create optimizer.
-    
+
     Args:
         module: pytorch module (or subclass, e.g. `LightningModule`) to create
             optimizer for; used for iterating through parameters.
@@ -19,12 +19,12 @@ def create_optimizer(
         subsets: subsets of parameters to use a different learning rate for;
             each key is a regex, and each value is the corresponding learning
             rate.
-    
+
     Returns:
-        See the documentation for `LightningModule.configure_optimizers`:
-        https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#configure-optimizers
+        See the `documentation <https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#configure-optimizers>`_
+        for `LightningModule.configure_optimizers`.
     """
-    _subsets = {s: [] for s in subsets}
+    _subsets: dict[str, list] = {s: [] for s in subsets}
     nomatch = []
     for key, param in module.named_parameters():
         for pattern in subsets:
