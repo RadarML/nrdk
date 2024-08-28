@@ -28,7 +28,7 @@ new transformations:
     - radar: add phase shift to phase component, or multiply `exp(-j * phase)`.
 
 
-.. [R1] RadarHD: High resolution point clouds from mmWave Radar
+.. [T1] RadarHD: High resolution point clouds from mmWave Radar
     https://akarsh-prabhakara.github.io/research/radarhd/
 """
 

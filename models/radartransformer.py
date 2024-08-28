@@ -177,12 +177,54 @@ class Transformer2DDecoder(nn.Module):
             2-dimensional output; only a single key (e.g. the specified `key`)
             is decoded.
         """
-        out = self.query(encoded[-1][:, -1, :])
+        out = self.query(encoded[0][:, -1, :])
         for enc, layer in zip(encoded, self.layers):
             out = layer(out, enc)
 
         out = self.unpatch(out)
         if self.out_dim == 1:
-            out = out[..., 0]
+            out = out[:, 0, :, :]
 
         return {self.key: out}
+
+
+class TransformerFixedDecoder(nn.Module):
+    """Radar transformer MLP decoder without spatial dimensions.
+
+    Args:
+        key: target key, e.g. `bev`, `depth`.
+        layers: MLP architecture.
+        dropout: dropout ratio during training.
+        activation: activation function; specify as a name (i.e. corresponding
+            to a class in `torch.nn`).
+        dim: input features.
+        out_dim: output features.
+    """
+
+    def __init__(
+        self, key: str, layers: list[int] = [512, 512], dropout: float = 0.1,
+        activation: str = 'GELU', dim: int = 768, out_dim: int = 3
+    ) -> None:
+        _layers = []
+        for d1, d2 in zip(([dim] + layers)[:-1], layers):
+            _layers += [
+                nn.Linear(d1, d2, bias=True) + getattr(nn, activation)()
+                + nn.Dropout(dropout)]
+
+        _layers.append(nn.Linear(([dim] + layers)[-1], out_dim))
+        self.mlp = nn.Sequential(*_layers)
+
+    def forward(
+        self, encoded: list[Float[Tensor, "n s c"]]
+    ) -> dict[str, Float[Tensor, "n f"]]:
+        """Apply decoder.
+
+        Args:
+            encoded: list of encoded values. Only the last token of the last
+                tensor (nominally the readout token) is used.
+
+        Returns:
+            A tensor with the specified number of features.
+        """
+        readout = encoded[-1][:, -1]
+        return {self.key: self.mlp(readout)}

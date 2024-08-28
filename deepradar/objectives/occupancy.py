@@ -170,10 +170,9 @@ class BEVOccupancy(Objective):
         reduce: bool = True, train: bool = True
     ) -> Metrics:
         """Get training metrics."""
-        loss = self.weight * self.loss(
-            y_hat['bev'], y_true['bev'], reduce=reduce)
+        loss = self.loss(y_hat['bev'], y_true['bev'], reduce=reduce)
         if train:
-            return Metrics(loss=loss, metrics={"bev_loss": loss})
+            return Metrics(loss=self.weight * loss, metrics={"bev_loss": loss})
         else:
             chamfer = self.chamfer(
                 y_hat['bev'] > 0, y_true['bev'], reduce=reduce)

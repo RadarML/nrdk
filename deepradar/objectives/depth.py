@@ -58,9 +58,8 @@ class Depth(Objective):
         reduce: bool = True, train: bool = True
     ) -> Metrics:
         """Get training metrics."""
-        loss = self.weight * self.loss(
-            y_hat['depth'], y_true['depth'], reduce=reduce)
-        return Metrics(loss=loss, metrics={"depth_loss": loss})
+        loss = self.loss(y_hat['depth'], y_true['depth'], reduce=reduce)
+        return Metrics(loss=self.weight * loss, metrics={"depth_loss": loss})
 
     def visualizations(
         self, y_true: dict[str, Shaped[Tensor, "..."]],

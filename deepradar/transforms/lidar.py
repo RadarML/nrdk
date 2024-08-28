@@ -49,7 +49,7 @@ class Destagger(Transform):
 class Map2D(Transform):
     """2D azimuth-range lidar map.
 
-    Follows the procedure used by RadarHD [R1]_:
+    Follows the procedure used by RadarHD [T1]_:
 
     1. Crop to only forward-facing regions; convert to polar coordinates.
     2. Discard points more than 30cm away from the radar plane.

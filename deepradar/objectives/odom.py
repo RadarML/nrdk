@@ -55,6 +55,5 @@ class Velocity(Objective):
         reduce: bool = True, train: bool = True
     ) -> Metrics:
         """Get training metrics."""
-        loss = self.weight * self.loss(
-            y_hat['vel'], y_true['vel'], reduce=reduce)
-        return Metrics(loss=loss, metrics={"vel_loss": loss})
+        loss = self.loss(y_hat['vel'], y_true['vel'], reduce=reduce)
+        return Metrics(loss=self.weight * loss, metrics={"vel_loss": loss})
