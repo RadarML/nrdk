@@ -1,19 +1,19 @@
 """Training objective."""
 
-from tqdm import tqdm
-import torch
-from torch.utils.data import DataLoader
 import lightning as L
 import numpy as np
-
-from beartype.typing import Optional
-from jaxtyping import Shaped
+import torch
+from beartype.typing import Optional, cast
+from jaxtyping import Float, Shaped
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 import models
-
+from deepradar import objectives as mod_objectives
 from deepradar.dataloader import RoverDataModule
 from deepradar.optimizer import create_optimizer
-from deepradar import objectives as mod_objectives
+
+# from torch.utils.viz._cycles import warn_tensor_cycles
 
 
 class DeepRadar(L.LightningModule):
@@ -51,6 +51,8 @@ class DeepRadar(L.LightningModule):
 
         self.configure()
         self.save_hyperparameters()
+
+        # warn_tensor_cycles()
 
     def get_dataset(self, path: str, debug: bool = False) -> RoverDataModule:
         """Get datamodule.
@@ -108,14 +110,24 @@ class DeepRadar(L.LightningModule):
             loss += metrics.loss
             for k, v in metrics.metrics.items():
                 self.log(
-                    f"{k}/train", v,
-                    on_step=True, on_epoch=True, sync_dist=True)
+                    f"{k}/train", v.item(),
+                    on_step=True, sync_dist=True)
         self.log(
-            "loss/train", loss, on_step=True, on_epoch=True, sync_dist=True)
+            "loss/train", cast(Float[torch.Tensor, ""], loss).item(),
+            on_step=True, sync_dist=True)
 
-        y_hat_nograd = {k: v.detach() for k, v in y_hat.items()}
-        if self.global_step % self.log_interval == 0:
-            self.log_visualizations(batch, y_hat_nograd, split="train")
+        with torch.no_grad():
+            if self.global_step % self.log_interval == 0:
+                self.log_visualizations(batch, y_hat, split="train")
+
+        stats = torch.cuda.memory_stats(device=self.global_rank)
+        for metric in ["allocated", "reserved", "active", "inactive_split"]:
+            for pool in ["all", "large_pool", "small_pool"]:
+                self.log(
+                    f"debug/{metric}.{pool}.{self.global_rank}",
+                    stats[f"{metric}_bytes.{pool}.current"]
+                    / 1024 / 1024 / 1024,
+                    on_step=True)
 
         return loss
 

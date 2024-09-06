@@ -1,0 +1,16 @@
+objectives:
+- name: Segmentation
+  args:
+    weight: 1.0
+
+dataset:
+  channels:
+    segment:
+      name: RawChannel
+      indices: camera
+      args:
+        sensor: _camera
+        channel: segment
+        transform:
+        - name: CameraAugmentations
+          args: {}

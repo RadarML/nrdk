@@ -1,29 +1,34 @@
 """Radar training objectives."""
 
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 
 import numpy as np
-from torch import Tensor
-from jaxtyping import Float, Shaped
 from beartype.typing import NamedTuple, Union
-
+from jaxtyping import Float, Shaped
+from torch import Tensor
 
 #: Optionally reduced training metric
 MetricValue = Union[Float[Tensor, ""], Float[Tensor, "batch"]]
 
 
 class Metrics(NamedTuple):
-    """Training objective values."""
+    """Training objective values.
+
+    Attributes:
+        loss: Primary loss value, with any objective weighting applied.
+        metrics: Metrics to log; the name of each metric should be unique.
+    """
 
     loss: Float[Tensor, ""]
-    """Primary loss value, with any objective weighting applied."""
-
     metrics: dict[str, MetricValue]
-    """Metrics to log; the name of each metric should be unique."""
 
 
 class Objective(ABC):
-    """Composable training objective."""
+    """Composable training objective.
+
+    NOTE: metrics should use `torch.no_grad()` to make sure gradients are not
+    computed for non-loss metrics!
+    """
 
     @abstractmethod
     def metrics(

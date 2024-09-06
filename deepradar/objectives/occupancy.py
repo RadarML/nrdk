@@ -2,14 +2,14 @@
 
 import numpy as np
 import torch
+from beartype.typing import cast
+from jaxtyping import Bool, Float, Shaped
 from torch import Tensor
 from torch.nn.functional import binary_cross_entropy_with_logits, sigmoid
 
-from jaxtyping import Shaped, Float, Bool
-from beartype.typing import cast
+from deepradar.utils import comparison_grid, polar_to_bev
 
-from deepradar.utils import polar_to_bev, comparison_grid
-from .base import MetricValue, Metrics, Objective
+from .base import Metrics, MetricValue, Objective
 
 
 class CombinedDiceBCE:
@@ -150,19 +150,29 @@ class BEVOccupancy(Objective):
     Args:
         weight: total objective weight.
         bce_weight: BCE loss weight; Dice loss is weighted `1 - bce_weight`.
-        range_weighted: Whether to apply range weighting; see
-            :class:`.CombinedDiceBCE` for details.
+        range_weighted: Whether to apply equal-area "range weighting", where
+            the relative weight of bins is adjusted on the range axis so that
+            each bin is weighted according to the area which it represents
+            (i.e. multiplying the weight by its range).
+        cmap: colors to use for visualization.
+
+    Metrics:
+
+    - `bev_chamfer`: chamfer distance (mean point cloud distance), in radar
+      range bins.
+    - `bev_hausdorff`: modified hausdorff distance (median), in range bins.
     """
 
     def __init__(
         self, weight: float = 1.0, bce_weight: float = 0.9,
-        range_weighted: bool = True
+        range_weighted: bool = True, cmap: str = 'inferno'
     ) -> None:
         self.weight = weight
         self.loss = CombinedDiceBCE(
             bce_weight=bce_weight, range_weighted=range_weighted)
-        self.chamfer = Chamfer(mode="chamfer")
-        self.hausdorff = Chamfer(mode="modhausdorff")
+        self.chamfer = Chamfer(mode="chamfer", on_empty=128.0)
+        self.hausdorff = Chamfer(mode="modhausdorff", on_empty=128.0)
+        self.cmap = cmap
 
     def metrics(
         self, y_true: dict[str, Shaped[Tensor, "..."]],
@@ -191,4 +201,4 @@ class BEVOccupancy(Objective):
             "bev": comparison_grid(
                 polar_to_bev(y_true['bev'], height=512),
                 polar_to_bev(sigmoid(y_hat['bev']), height=512),
-                cmap='inferno', cols=8)}
+                cmap=self.cmap, cols=8)}

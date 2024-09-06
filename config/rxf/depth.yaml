@@ -1,0 +1,14 @@
+<<: !include ../objectives/depth.yaml
+
+decoders:
+- name: Transformer2DDecoder
+  args:
+    key: depth
+    dec_layers: 3
+    dim: 512
+    ff_ratio: 4.0
+    heads: 8
+    dropout: 0.1
+    activation: GELU
+    shape: [128, 1024]
+    patch: [16, 16]

@@ -1,3 +1,0 @@
-model_args:
-  d_input: 64
-  doppler: True

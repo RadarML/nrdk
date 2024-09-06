@@ -1,11 +1,9 @@
 """RadarHD U-net model."""
 
 import torch
-from torch import Tensor
+from jaxtyping import Complex, Float
+from torch import Tensor, nn
 
-from jaxtyping import Float, Complex
-
-from torch import nn
 from deepradar import modules
 
 
@@ -65,7 +63,7 @@ class UNetEncoder(nn.Module):
 
     NOTE: must be paired with a :py:class:`.UNetBEVDecoder`.
 
-    Args:    
+    Args:
         d_input: Number of input features (i.e. slow time / doppler length).
         doppler: Whether to run FFT on the doppler axis, i.e. use explicit
             doppler information.
@@ -90,7 +88,7 @@ class UNetEncoder(nn.Module):
 
         Args:
             x: input batch, with batch-doppler-rx-tx-range axis order.
-        
+
         Returns:
             Encoded output; note that tensors have different sizes since they
             correspond to different skip connections.
@@ -108,7 +106,7 @@ class UNetEncoder(nn.Module):
 
 class UNetBEVDecoder(nn.Module):
     """Generic U-net decoder for range-azimuth radar [N1]_.
-    
+
     NOTE: must be paired with a :py:class:`.UNetEncoder`; can only be used for
     range-azmiuth `bev`.
     """
@@ -135,7 +133,7 @@ class UNetBEVDecoder(nn.Module):
 
         Args:
             encoded: U-net skip connections.
-        
+
         Returns:
             Range-azimuth output.
         """

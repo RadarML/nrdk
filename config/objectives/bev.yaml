@@ -1,0 +1,20 @@
+objectives:
+- name: BEVOccupancy
+  args:
+    weight: 1.0
+    bce_weight: 0.9
+    range_weighted: True
+
+dataset:
+  channels:
+    bev:
+      name: RawChannel
+      indices: lidar
+      args:
+        sensor: lidar
+        channel: rng
+        transform:
+        - name: Destagger
+          args: {}        
+        - name: Map2D
+          args: {}

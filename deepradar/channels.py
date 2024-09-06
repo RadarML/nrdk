@@ -1,15 +1,15 @@
 """Different types of data channels."""
 
 import os
-import json
-from functools import partial
 from abc import ABC, abstractmethod
+from functools import partial
+
 import numpy as np
-from beartype.typing import Union, Callable, Any
+from beartype.typing import Any, Callable, Optional, Union
 from jaxtyping import Num, UInt
+from roverd import Dataset
 
 from . import transforms
-
 
 #: Any type which can be used as an index
 Index = Union[np.integer, int]
@@ -95,21 +95,10 @@ class RawChannel(Channel):
         transform: list[Callable[[str], transforms.Transform]] = []
     ) -> None:
         super().__init__(dataset=dataset, indices=indices, transform=transform)
-
-        with open(os.path.join(dataset, sensor, 'meta.json')) as f:
-            cfg = json.load(f)
-
-        assert cfg[channel]['format'] == 'raw'
-        self.dtype = np.dtype(cfg[channel]['type'])
-        self.shape = cfg[channel]['shape']
-        self.stride = np.prod(self.shape) * self.dtype.itemsize
-        self.path = os.path.join(dataset, sensor, channel)
+        self.channel = Dataset(dataset)[sensor][channel]
 
     def _index(self, idx: Index) -> Num[np.ndarray, "..."]:
-        with open(os.path.join(self.path), 'rb') as f:
-            f.seek(self.stride * idx)
-            raw = f.read(self.stride)
-        return np.frombuffer(raw, dtype=self.dtype).reshape(self.shape)
+        return self.channel.read(int(idx), samples=1)[0]
 
 
 class NPChannel(Channel):
@@ -133,7 +122,15 @@ class NPChannel(Channel):
         npz = np.load(os.path.join(dataset, path))
         self.arr = {k: npz[k] for k in keys}
 
+        self.index_map: Optional[UInt[np.ndarray, "N2"]] = None
+        if "mask" in npz:
+            mask = npz["mask"]
+            self.index_map = np.zeros(mask.shape, dtype=np.uint32)
+            self.index_map[mask] = np.arange(np.sum(mask), dtype=np.uint32)
+
     def _index(self, idx: Index) -> Any:
+        if self.index_map is not None:
+            idx = self.index_map[idx]
         return {k: v[idx] for k, v in self.arr.items()}
 
 

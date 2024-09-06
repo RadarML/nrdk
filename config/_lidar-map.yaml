@@ -1,5 +1,0 @@
-# Radar 2D map (RadarHD style) configuration; use via !include.
-- args: {}
-  name: Destagger
-- args: {}
-  name: Map2D

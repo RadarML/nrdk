@@ -32,14 +32,22 @@ new transformations:
     https://akarsh-prabhakara.github.io/research/radarhd/
 """
 
-from .base import Transform, ToFloat16
-from .lidar import Destagger, Map2D, DecimateMap, Depth
-from .radar import (
-    RadarResolution,
-    IIQQtoIQ, DiscardTx2, AssertTx2, FFTLinear, FFTArray,
-    Representation, ComplexParts, ComplexAmplitude, ComplexPhase)
+from .base import ToFloat16, Transform
+from .camera import CameraAugmentations
+from .lidar import DecimateMap, Depth, Destagger, Map2D
 from .pose import RelativeVelocity
-
+from .radar import (
+    AssertTx2,
+    ComplexAmplitude,
+    ComplexParts,
+    ComplexPhase,
+    DiscardTx2,
+    FFTArray,
+    FFTLinear,
+    IIQQtoIQ,
+    RadarResolution,
+    Representation,
+)
 
 __all__ = [
     "Transform", "ToFloat16",
@@ -47,5 +55,6 @@ __all__ = [
     "RadarResolution",
     "IIQQtoIQ", "DiscardTx2", "AssertTx2", "FFTLinear", "FFTArray",
     "Representation", "ComplexParts", "ComplexAmplitude", "ComplexPhase",
-    "RelativeVelocity"
+    "RelativeVelocity",
+    "CameraAugmentations"
 ]

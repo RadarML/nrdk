@@ -56,22 +56,19 @@ Example configuration::
     }
 """
 
-import os
 import multiprocessing
-import numpy as np
+import os
 from functools import cached_property
 
-from torch.utils.data import Dataset, DataLoader
 import lightning as L
+import numpy as np
+from beartype.typing import Any, Callable, Iterable, Optional
+from jaxtyping import Shaped
+from torch.utils.data import DataLoader, Dataset
 
-from beartype.typing import Callable, Any, Iterable, Optional
-from jaxtyping import Num
-
-from . import channels as mod_channels
 from . import augmentations as mod_augmentations
-
+from . import channels as mod_channels
 from .channels import Index
-
 
 #: Augmentation spec generator type
 Augmentation = Callable[[], Any]
@@ -119,7 +116,7 @@ class RoverTrace:
     def __len__(self) -> int:
         return self.indices.shape[0]
 
-    def __getitem__(self, idx: Index) -> dict[str, Num[np.ndarray, "..."]]:
+    def __getitem__(self, idx: Index) -> dict[str, Shaped[np.ndarray, "..."]]:
         aug = {k: v() for k, v in self.augmentations.items()}
         return {k: v.index(idx, aug=aug) for k, v in self.channels.items()}
 
@@ -140,7 +137,7 @@ class RoverData(Dataset):
     def __len__(self) -> int:
         return sum(len(t) for t in self.traces)
 
-    def __getitem__(self, idx: Index) -> dict[str, Num[np.ndarray, "..."]]:
+    def __getitem__(self, idx: Index) -> dict[str, Shaped[np.ndarray, "..."]]:
         if idx < 0 or idx > self.indices[-1]:
             raise ValueError("Index out of bounds.")
         else:
@@ -214,7 +211,7 @@ class RoverDataModule(L.LightningDataModule):
             num_workers=self.nproc)
 
     @cached_property
-    def val_samples(self) -> dict[str, Num[np.ndarray, "..."]]:
+    def val_samples(self) -> dict[str, Shaped[np.ndarray, "..."]]:
         """Get specific validation samples for validation visualizations.
 
         Returns:

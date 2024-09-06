@@ -1,12 +1,10 @@
 """U-net model for the 2020s."""
 
 import torch
-from torch import Tensor
 from einops import rearrange
+from jaxtyping import Complex, Float
+from torch import Tensor, nn
 
-from jaxtyping import Float, Complex
-
-from torch import nn
 from deepradar import modules
 
 
@@ -125,7 +123,7 @@ class UNeXTEncoder(nn.Module):
 
         Args:
             x: input batch, with batch-doppler-rx-tx-range axis order.
-        
+
         Returns:
             Encoded output; note that tensors have different sizes since they
             correspond to different skip connections.
@@ -142,7 +140,7 @@ class UNeXTEncoder(nn.Module):
 
 class UNeXTBEVDecoder(nn.Module):
     """Radar range-azimuth U-net decoder.
-    
+
     NOTE: must be paired with a :py:class:`.UNeXTEncoder`; can only be used for
     range-azmiuth `bev`.
     """
@@ -171,7 +169,7 @@ class UNeXTBEVDecoder(nn.Module):
 
         Args:
             encoded: U-net skip connections.
-        
+
         Returns:
             Range-azimuth output.
         """

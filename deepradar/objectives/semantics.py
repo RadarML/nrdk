@@ -1,42 +1,14 @@
-"""Semantic embeddings and labels."""
+"""Semantic labels."""
 
 import numpy as np
 import torch
+from jaxtyping import Float, Shaped, UInt
 from torch import Tensor
-from torchvision.transforms import Resize, InterpolationMode
-from jaxtyping import Shaped, Float
-from beartype.typing import Optional
+from torchvision.transforms import InterpolationMode, Resize
 
 from deepradar.utils import comparison_grid
+
 from .base import Metrics, Objective
-
-
-class Embeddings(Objective):
-    """Emulation/distillation of pre-computed spatial embeddings.
-
-    Args:
-        weight: objective weight.
-    """
-
-    def __init__(self, weight: float = 1.0) -> None:
-        self.weight = weight
-
-    def metrics(
-        self, y_true: dict[str, Shaped[Tensor, "..."]],
-        y_hat: dict[str, Shaped[Tensor, "..."]],
-        reduce: bool = True, train: bool = True
-    ) -> Metrics:
-        """Get training metrics."""
-        a = y_true["clip"]
-        b = y_hat["clip"]
-
-        norm = (torch.linalg.norm(a, dim=-1) * torch.linalg.norm(b, dim=-1))
-        sim = torch.sum(torch.inner(a, b) / norm, dim=(1, 2))
-
-        if reduce:
-            sim = torch.mean(sim)
-
-        return Metrics(loss=self.weight * sim, metrics={"seg_loss": sim})
 
 
 class Segmentation(Objective):
@@ -44,10 +16,19 @@ class Segmentation(Objective):
 
     Args:
         weight: objective weight.
+        cmap: colors to use for visualizations. Recommended: `tab10`,
+            `tab20`, `jet`. `viridis` and `inferno` are okay. Not recommended:
+            any colormaps with only subtle variations in color.
+
+    Metrics:
+
+    - `seg_acc`: segmentation top-1 accuracy.
+    - `seg_miou`: segmentation Mean Intersection-Over-Union.
     """
 
-    def __init__(self, weight: float = 1.0) -> None:
+    def __init__(self, weight: float = 1.0, cmap: str = 'tab10') -> None:
         self.weight = weight
+        self.cmap = cmap
         self.ce = torch.nn.CrossEntropyLoss(reduction='none')
 
     def metrics(
@@ -56,16 +37,37 @@ class Segmentation(Objective):
         reduce: bool = True, train: bool = True
     ) -> Metrics:
         """Get training metrics."""
-        a = y_true["segment"]
-        b = y_hat["segment"]
+        target: UInt[Tensor, "batch h w"] = y_true["segment"].to(torch.long)
+        input_logits: Float[Tensor, "batch c h w"] = y_hat["segment"]
 
-        loss = torch.mean(self.ce(a, b), dim=(1, 2))
-        acc = torch.mean(
-            (torch.argmax(a, dim=1) == torch.argmax(b, dim=1)), dim=(1, 2))
+        loss = torch.mean(self.ce(input_logits, target), dim=(1, 2))
         if reduce:
             loss = torch.mean(loss)
-            acc = torch.mean(acc)
 
-        return Metrics(
-            loss=self.weight * loss,
-            metrics={"seg_loss": loss, "seg_acc": acc})
+        with torch.no_grad():
+            nc = input_logits.shape[1]
+            input: UInt[Tensor, "batch h w"] = torch.argmax(input_logits, dim=1)
+
+            acc = torch.mean((input == target).to(torch.float32), dim=(1, 2))
+            target_onehot = torch.nn.functional.one_hot(target, num_classes=nc)
+            input_onehot = torch.nn.functional.one_hot(input, num_classes=nc)
+            intersection = torch.sum(target_onehot & input_onehot, dim=(2, 3))
+            union = torch.sum(target_onehot | input_onehot, dim=(2, 3))
+            miou = torch.mean(intersection / union, dim=1)
+
+            metrics = {"seg_acc": acc, "seg_miou": miou}
+            if reduce:
+                metrics = {k: torch.mean(v) for k, v in metrics.items()}
+            metrics["loss"] = loss
+
+        return Metrics(loss=self.weight * loss, metrics=metrics)
+
+    def visualizations(
+        self, y_true: dict[str, Shaped[Tensor, "..."]],
+        y_hat: dict[str, Shaped[Tensor, "..."]]
+    ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
+        """Generate visualizations."""
+        rez = Resize((270, 480), interpolation=InterpolationMode.NEAREST)
+        y_hat_idx = torch.argmax(y_hat["segment"], dim=1)
+        return {"segment": comparison_grid(
+            rez(y_true["segment"]), rez(y_hat_idx), cmap=self.cmap, cols=8)}

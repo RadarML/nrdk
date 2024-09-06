@@ -1,7 +1,0 @@
-traces: [
-  "outdoor/cmu.east",
-]
-val_samples: [
-  100, 200, 300, 400, 500, 600, 700, 800,
-]
-pval: 0.2

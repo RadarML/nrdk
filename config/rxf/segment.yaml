@@ -1,0 +1,15 @@
+<<: !include ../objectives/segment.yaml
+
+decoders:
+- name: Transformer2DDecoder
+  args:
+    key: segment
+    dec_layers: 3
+    dim: 512
+    ff_ratio: 4.0
+    heads: 8
+    dropout: 0.1
+    activation: GELU
+    shape: [160, 160]
+    patch: [8, 8]
+    out_dim: 8

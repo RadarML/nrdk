@@ -1,0 +1,14 @@
+<<: !include ../objectives/bev.yaml
+
+decoders:
+- name: Transformer2DDecoder
+  args:
+    key: bev
+    dec_layers: 3
+    dim: 512
+    ff_ratio: 4.0
+    heads: 8
+    dropout: 0.1
+    activation: GELU
+    shape: [1024, 256]
+    patch: [16, 16]

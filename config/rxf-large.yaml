@@ -1,5 +1,0 @@
-model_args:
-  dim: 768
-  heads: 12
-  enc_layers: 12
-  dec_layers: [12, 8, 4]

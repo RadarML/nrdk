@@ -1,0 +1,17 @@
+objectives:
+- name: Velocity
+  args:
+    weight: 1.0
+    loss_order: 2
+
+dataset:
+  channels:
+    vel:
+      name: "NPChannel"
+      indices: lidar
+      args:
+        path: "_lidar/pose.npz"
+        keys: ["vel", "rot"]
+        transform:
+        - name: RelativeVelocity
+          args: {}

@@ -1,5 +1,6 @@
+# Subset of augmentations
 dataset:
-  augment:
+  augmentations:
     azimuth_flip:
       name: Bernoulli
       args: {"p": 0.5}

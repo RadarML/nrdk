@@ -1,9 +1,9 @@
 """Pose/odometry transforms."""
 
-import os
 import json
-import numpy as np
+import os
 
+import numpy as np
 from beartype.typing import Any
 from jaxtyping import Float
 
@@ -22,7 +22,7 @@ class RelativeVelocity(Transform):
         aug: dict[str, Any] = {}
     ) -> Float[np.ndarray, "3"]:
         scale = aug.get("speed_scale", 1.0)
-        vel = np.matmul(np.linalg.inv(data["rot"]), data["vel"]) / scale
+        vel = np.matmul(np.linalg.inv(data["rot"]), data["vel"]) * scale
 
         if aug.get("doppler_flip"):
             vel *= -1

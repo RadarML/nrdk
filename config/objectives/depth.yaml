@@ -1,0 +1,19 @@
+objectives:
+- name: Depth
+  args:
+    weight: 1.0
+    loss_order: 1
+
+dataset:
+  channels:
+    depth:
+      name: RawChannel
+      indices: lidar
+      args:
+        sensor: lidar
+        channel: rng
+        transform:
+        - name: Destagger
+          args: {}        
+        - name: Depth
+          args: {}

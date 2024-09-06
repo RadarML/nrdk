@@ -38,7 +38,11 @@ Example
   }
 """
 
-import yaml, os, json
+import json
+import os
+import re
+
+import yaml
 from beartype.typing import cast
 
 
@@ -65,6 +69,29 @@ class Loader(yaml.SafeLoader):
             else:
                 return f.read()
 
+    def expand(self, node):
+        if isinstance(node, yaml.ScalarNode):
+            return [self.construct_scalar(node)]
+        elif isinstance(node, yaml.SequenceNode):
+            return self.construct_sequence(node)
+        elif isinstance(node,  yaml.MappingNode):
+            contents = self.construct_mapping(node, deep=True)
+
+            def _walk(obj, prefix: list[str] = []) -> list[str]:
+                if isinstance(obj, list):
+                    return [os.path.join(*prefix, x) for x in obj]
+                elif isinstance(obj, dict):
+                    res = []
+                    for k, v in obj.items():
+                        res += _walk(v, prefix=prefix + [k])
+                    return res
+                else:
+                    return os.path.join(*prefix, obj)  # type: ignore
+
+            return _walk(contents)
+        else:
+            raise ValueError("!expand must be a sequence, mapping, or scalar.")
+
     def construct_mapping(self, node, deep=False):
         _mapping = {}
         for key, value in node.value:
@@ -82,6 +109,7 @@ class Loader(yaml.SafeLoader):
 
 
 Loader.add_constructor('!include', Loader.include)
+Loader.add_constructor('!expand', Loader.expand)
 
 
 def merge_config(x: dict, y: dict) -> None:
@@ -95,16 +123,43 @@ def merge_config(x: dict, y: dict) -> None:
         if k in x:
             if isinstance(v, dict) and isinstance(x[k], dict):
                 merge_config(x[k], v)
+            elif isinstance(v, list) and isinstance(x[k], list):
+                x[k] = x[k] + v
             else:
                 x[k] = v
         else:
             x[k] = v
 
 
+def parse_paths(configs: list[str]) -> list[str]:
+    """Expand shorthand for configuration files."""
+
+    def _add_ext(s: str) -> str:
+        if not s.endswith('.json') and not s.endswith('.yaml'):
+            return s + ".yaml"
+        else:
+            return s
+
+    res = []
+    for c in configs:
+        expandable = re.match(r"^(.*)\[(.*)\]$", c)
+        if expandable:
+            base = expandable.group(1)
+
+            default = os.path.join(base, os.path.basename(base))
+            if os.path.exists(default + ".yaml"):
+                res.append(default)
+            for modifier in expandable.group(2).split(','):
+                res.append(os.path.join(base, modifier))
+        else:
+            res.append(c)
+    return [_add_ext(s) for s in res]
+
+
 def load_config(configs: list[str]) -> dict:
     """Load a list of configuration files."""
     res: dict = {}
-    for path in configs:
+    for path in parse_paths(configs):
         with open(path) as f:
             cfg = yaml.load(f, Loader)
         merge_config(res, cfg)

@@ -1,8 +1,9 @@
 """Base and generic classes."""
 
 from abc import ABC, abstractmethod
-from beartype.typing import Any
+
 import numpy as np
+from beartype.typing import Any
 from jaxtyping import Float, Float16
 
 

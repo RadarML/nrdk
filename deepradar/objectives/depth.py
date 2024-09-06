@@ -2,13 +2,13 @@
 
 import numpy as np
 import torch
+from jaxtyping import Float, Shaped
 from torch import Tensor
-from torchvision.transforms import Resize, InterpolationMode
-
-from jaxtyping import Shaped, Float
+from torchvision.transforms import InterpolationMode, Resize
 
 from deepradar.utils import comparison_grid
-from .base import MetricValue, Metrics, Objective
+
+from .base import Metrics, MetricValue, Objective
 
 
 class LPDepth:
@@ -43,14 +43,21 @@ class LPDepth:
 class Depth(Objective):
     """Radar -> lidar as depth estimation.
 
+    Missing values (`range==0`) are ignored during loss calculation, and
+    treated as "void".
+
     Args:
         weight: objective weight.
         loss_order: Loss type (l1/l2).
+        cmap: colors to use for visualizations.
     """
 
-    def __init__(self, weight: float = 1.0, loss_order: int = 1) -> None:
+    def __init__(
+        self, weight: float = 1.0, loss_order: int = 1, cmap: str = 'viridis'
+    ) -> None:
         self.weight = weight
         self.loss = LPDepth(ord=loss_order)
+        self.cmap = cmap
 
     def metrics(
         self, y_true: dict[str, Shaped[Tensor, "..."]],
@@ -68,4 +75,4 @@ class Depth(Objective):
         """Generate visualizations."""
         rez = Resize((512, 512 * 2), interpolation=InterpolationMode.NEAREST)
         return {"depth": comparison_grid(
-            rez(y_true['depth']), rez(y_hat['depth']), cmap='viridis', cols=8)}
+            rez(y_true['depth']), rez(y_hat['depth']), cmap=self.cmap, cols=8)}

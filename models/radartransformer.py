@@ -1,11 +1,10 @@
 """Radar Transformer."""
 
 import torch
-from torch import Tensor, nn
-from einops import rearrange
-
 from beartype.typing import Union, cast
+from einops import rearrange
 from jaxtyping import Float
+from torch import Tensor, nn
 
 from deepradar import modules
 
@@ -133,7 +132,7 @@ class Transformer2DDecoder(nn.Module):
         activation: activation function to use.
         shape: output shape; should be a 2 element list or tuple.
         patch: patch size to use for unpatching. Must evenly divide `shape`.
-        out_dim: output channels; if `=1`, the dimension is omitted entirely,
+        out_dim: output channels; if `=0`, the dimension is omitted entirely,
             i.e. `(h, w)` instead of `(h, w, c)`.
     """
 
@@ -141,7 +140,7 @@ class Transformer2DDecoder(nn.Module):
         self, key: str, dec_layers: int = 3, dim: int = 768,
         ff_ratio: float = 4.0, heads: int = 12, dropout: float = 0.1,
         activation: str = 'GELU',
-        shape: Shape2 = (1024, 256), patch: Shape2 = (16, 16), out_dim: int = 1
+        shape: Shape2 = (1024, 256), patch: Shape2 = (16, 16), out_dim: int = 0
     ) -> None:
         super().__init__()
 
@@ -160,7 +159,7 @@ class Transformer2DDecoder(nn.Module):
             shape=(shape[0] // patch[0], shape[1] // patch[1]))
 
         self.unpatch = modules.Unpatch2D(
-            output_size=(shape[0], shape[1], self.out_dim),
+            output_size=(shape[0], shape[1], max(1, self.out_dim)),
             features=dim, size=patch)
 
     def forward(
@@ -182,7 +181,7 @@ class Transformer2DDecoder(nn.Module):
             out = layer(out, enc)
 
         out = self.unpatch(out)
-        if self.out_dim == 1:
+        if self.out_dim == 0:
             out = out[:, 0, :, :]
 
         return {self.key: out}
@@ -205,11 +204,15 @@ class TransformerFixedDecoder(nn.Module):
         self, key: str, layers: list[int] = [512, 512], dropout: float = 0.1,
         activation: str = 'GELU', dim: int = 768, out_dim: int = 3
     ) -> None:
+        super().__init__()
+
+        self.key = key
         _layers = []
         for d1, d2 in zip(([dim] + layers)[:-1], layers):
             _layers += [
-                nn.Linear(d1, d2, bias=True) + getattr(nn, activation)()
-                + nn.Dropout(dropout)]
+                nn.Linear(d1, d2, bias=True),
+                getattr(nn, activation)(),
+                nn.Dropout(dropout)]
 
         _layers.append(nn.Linear(([dim] + layers)[-1], out_dim))
         self.mlp = nn.Sequential(*_layers)

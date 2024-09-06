@@ -3,9 +3,8 @@
 import matplotlib
 import numpy as np
 import torch
-
+from jaxtyping import Num, Shaped
 from torch import Tensor
-from jaxtyping import Shaped, Num
 
 
 def polar_to_bev(
@@ -58,7 +57,7 @@ def comparison_grid(
     cols: int = 8, cmap: str = 'viridis'
 ) -> Num[np.ndarray, "h2 w2 3"]:
     """Create image comparison grid.
-    
+
     Args:
         y_true, y_hat: images to compare; nominally y_true/y_hat, though the
             exact order does not matter.
@@ -66,12 +65,11 @@ def comparison_grid(
             row) will be discarded.
         cmap: matplotlib colormap to use, e.g. `viridis`, `inferno`. Note that
             the alpha channel is discarded.
-    
+
     Returns:
         Colormapped grid of the inputs `y_true` and `y_hat` in alternating rows
         as a single HWC image.
     """
-
     nrows = y_true.shape[0] // cols
 
     rows = []

@@ -1,10 +1,11 @@
 """Lidar transforms."""
 
-import os, json
-import numpy as np
+import json
+import os
 
-from jaxtyping import UInt, UInt16, Float32, Bool
+import numpy as np
 from beartype.typing import Any
+from jaxtyping import Bool, Float32, UInt, UInt16
 
 # Ouster imports are broken for type checking as of 0.12.0, so we have to
 # ignore type checking any time we use anything...
