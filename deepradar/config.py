@@ -1,41 +1,107 @@
 """Configuration parsing.
 
-Callers should use `load_config`, which applies the following rules:
+Callers should use `load_config`, which has additional features compared to
+a generic `yaml.Load` to allow for more expressive configuration systems.
 
-- Configuration files (parsed by `load_config`) are provided as a list, which
-  is parsed in order; subsequent files override previous ones.
-- Each configuration file should be a `.yaml`; these configuration files can
-  also use an `!include` tag to include the contents of another `.yaml` or
-  `.json` file.
-- The include tag can also "merge" its contents into the including mapping
-  using `<<: !include file.yaml`.
 
-Example
--------
+Configuration Merging
+---------------------
 
-`a.yaml`::
+Configuration files (parsed by `load_config`) are provided as a list, which
+is parsed in order; subsequent ("right") files override previous ("left") ones.
+Overriding is done by expanding the tree of the left and right configurations.
+Then, at each level:
 
-  a: 5
-  b: 10
+- If the left and right nodes are both mappings, they are recursively merged.
+- If the left and right nodes are both sequences, the right node is appended to
+  the left node.
+- Otherwise, the right node overwrites the left node. This includes cases
+  where both nodes are scalars, but also allows scalars to overwrite mappings
+  and sequences.
 
-`b.yaml`::
+For example::
 
-  b: 15
-  x: !include `c.yaml`
-  <<: !include `c.yaml`
+  left.yaml:
+    a: 5
+    b:
+      x: 10
+    c:
+    - 15
 
-`c.yaml`::
+  right.yaml:
+    a2: 6
+    b:
+      x: 11
+    c:
+    - 16
 
-  c: 20
+  load_config(["left.yaml", "right.yaml"]):
+    {"a": 5, "a2": 6, "b": {"x": 11}, "c": [15, 16]}
 
-`load_config("a.yaml", "b.yaml", "c.yaml")`::
 
-  {
-    "a": 5,
-    "b": 15,
-    "c": 20,
-    "x": {"c": 20}
-  }
+File Shorthand
+--------------
+
+Instead of needing to specify the full path of each configuration file, a
+shorthand can be used, which is automatically expanded by `load_config`.
+
+- `file/path -> file/path.yaml`: if a configuration file is specified without
+  an extension, `.yaml` is automatically appended.
+- `file/path[option1,option2]`: if a path is followed by brackets with some
+  options, `load_config` searches for the options inside that path, and loads
+  them in order. If a default config `file/path/path.yaml` is present, its
+  contents are also loaded first.
+
+For example::
+
+  ["path/a", "path/b[1,2]"]
+  # becomes
+  ["path/a.yaml", "path/b/b.yaml", "path/b/1.yaml", "path/b/2.yaml"]
+
+
+The `!include` tag
+------------------
+
+The `!include` tag loads the contents of a file, specified as a relative path,
+into the file. Note that `!include` can also "merge" its contents into the
+including mapping using `<<: !include file.yaml`.
+
+For example::
+
+  parent.yaml:
+    x: !include child.yaml
+    <<: !include child.yaml
+
+  child.yaml:
+    c: 20
+
+  load_config(["parent.yaml"]):
+    {"c": 20, "x": {"c": 20}}
+
+
+The `!expand` tag
+-----------------
+
+In order to make listing a subset of files in nested tree structure more
+concise and readable, we implement an `!expand` tag that turns a tree-like
+structure into a list.
+
+- For each mapping node, each key is treated as a folder, and each value as its
+  contents.
+- If the value is another mapping, this process is repeated recursively.
+- If the value is a sequence, the items in the sequence are treated as files
+  within that folder.
+
+For example::
+
+  files.yaml:
+    a1:
+      b1: ["c11", "c12", "c13"]
+      b2: c21
+      b3
+
+  load_config(["files.yaml"]):
+    ["a1/b1/c11", "a1/b1/c12", "a1/b1/c13", "a1/b2/c21", "a1/b3"]
 """
 
 import json
