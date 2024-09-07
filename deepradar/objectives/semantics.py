@@ -67,7 +67,7 @@ class Segmentation(Objective):
         y_hat: dict[str, Shaped[Tensor, "..."]]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         """Generate visualizations."""
-        rez = Resize((270, 480), interpolation=InterpolationMode.NEAREST)
+        rez = Resize((180, 320), interpolation=InterpolationMode.NEAREST)
         y_hat_idx = torch.argmax(y_hat["segment"], dim=1)
         return {"segment": comparison_grid(
             rez(y_true["segment"]), rez(y_hat_idx), cmap=self.cmap, cols=8)}

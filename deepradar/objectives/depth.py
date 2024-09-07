@@ -73,6 +73,6 @@ class Depth(Objective):
         y_hat: dict[str, Shaped[Tensor, "..."]]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         """Generate visualizations."""
-        rez = Resize((512, 512 * 2), interpolation=InterpolationMode.NEAREST)
+        rez = Resize((256, 256 * 2), interpolation=InterpolationMode.NEAREST)
         return {"depth": comparison_grid(
             rez(y_true['depth']), rez(y_hat['depth']), cmap=self.cmap, cols=8)}

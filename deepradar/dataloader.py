@@ -194,7 +194,7 @@ class RoverDataModule(L.LightningDataModule):
             augmentations=self._augmentations, bounds=(0.0, 1.0 - self.pval))
         return DataLoader(
             ds, batch_size=self.batch_size, shuffle=True, drop_last=True,
-            num_workers=self.nproc)
+            num_workers=self.nproc, pin_memory=True)
 
     def val_dataloader(self) -> DataLoader:
         """Get val dataloader (lightning API)."""
@@ -203,14 +203,14 @@ class RoverDataModule(L.LightningDataModule):
             bounds=(1.0 - self.pval, 1.0))
         return DataLoader(
             ds, batch_size=self.batch_size, shuffle=False, drop_last=True,
-            num_workers=self.nproc)
+            num_workers=self.nproc, pin_memory=True)
 
     def eval_dataloader(self, path: str, batch_size: int = 16) -> DataLoader:
         """Create evaluation dataloader."""
         ds = RoverData([path], channels=self._channels, augmentations={})
         return DataLoader(
             ds, batch_size=batch_size, shuffle=False, drop_last=False,
-            num_workers=self.nproc)
+            num_workers=self.nproc, pin_memory=True)
 
     @cached_property
     def val_samples(self) -> dict[str, Shaped[np.ndarray, "..."]]:

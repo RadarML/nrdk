@@ -14,5 +14,7 @@ class CameraAugmentations(Transform):
         self, data: Shaped[np.ndarray, "h w ..."], aug: dict[str, Any] = {}
     ) -> Shaped[np.ndarray, "h w ..."]:
         if aug.get("azimuth_flip"):
+            # A copy is required here since torch doesn't allow creating
+            # tensors from data with negative stride.
             data = np.flip(data, axis=1).copy()
         return data

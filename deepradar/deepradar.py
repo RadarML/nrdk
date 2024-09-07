@@ -1,5 +1,7 @@
 """Training objective."""
 
+import threading
+
 import lightning as L
 import numpy as np
 import torch
@@ -96,13 +98,17 @@ class DeepRadar(L.LightningModule):
             y_true, y_hat: input, output values.
             split: train/val split to put in the output path.
         """
-        for objective in self.objectives:
-            imgs = objective.visualizations(
-                {k: v[:self.num_examples] for k, v in y_true.items()},
-                {k: v[:self.num_examples] for k, v in y_hat.items()})
-            for k, v in imgs.items():
-                self.logger.experiment.add_image(  # type: ignore
-                    f"{k}/{split}", v, self.global_step, dataformats='HWC')
+        y_true = {k: v[:self.num_examples].cpu() for k, v in y_true.items()}
+        y_hat = {k: v[:self.num_examples].cpu() for k, v in y_hat.items()}
+
+        def make_log(y_true, y_hat):
+            for objective in self.objectives:
+                imgs = objective.visualizations(y_true, y_hat)
+                for k, v in imgs.items():
+                    self.logger.experiment.add_image(  # type: ignore
+                        f"{k}/{split}", v, self.global_step, dataformats='HWC')
+
+        threading.Thread(target=make_log, args=(y_true, y_hat)).start()
 
     def training_step(self, batch, batch_idx):  # type: ignore
         """Standard lightning training step."""

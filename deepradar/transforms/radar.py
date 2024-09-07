@@ -4,10 +4,11 @@ import json
 import os
 
 import numpy as np
+import torch
 from beartype.typing import Any, Iterable
 from jaxtyping import Complex64, Float32, Int16
 from scipy import fft
-from skimage.transform import resize
+from torchvision import transforms
 
 from .base import Transform
 
@@ -209,33 +210,46 @@ class Representation(Transform):
         cls, data: Float32[np.ndarray, "D A ... R"],
         aug: dict[str, Any] = {}
     ) -> Float32[np.ndarray, "D A ... R"]:
-        """Apply radar representation-specific data augmentations."""
-        range_out_dim = int(aug.get("range_scale", 1.0) * data.shape[-1])
-        if range_out_dim != data.shape[-1]:
-            resized = resize(data, [*data.shape[:-1], range_out_dim])
-            # Upsample -> crop
-            if range_out_dim >= data.shape[-1]:
-                data = resized[..., :data.shape[-1]]
-            # Downsample -> pad with zeros
-            else:
-                pad = np.zeros(
-                    (*data.shape[:-1], data.shape[-1] - range_out_dim),
-                    dtype=np.float32)
-                data = np.concatenate([resized, pad], axis=-1)
+        """Apply radar representation-specific data augmentations.
 
-        speed_out_dim = 2 * (
-            int(aug.get("speed_scale", 1.0) * data.shape[0]) // 2)
-        if speed_out_dim != data.shape[0]:
-            resized = resize(data, [speed_out_dim, *data.shape[1:]])
-            # Downsample -> pad with zeros
-            if speed_out_dim <= data.shape[0]:
-                pad = np.zeros(
-                    ((data.shape[0] - speed_out_dim) // 2, *data.shape[1:]),
-                    dtype=np.float32)
-                data = np.concatenate((pad, resized, pad), axis=0)
-            # Upsample -> wrap around
+        NOTE: we use `torchvision.transforms.Resize`, which requires a
+        round-trip through a (cpu) `Tensor`. From some limited testing, this
+        appears to be the most performant image resizing which supports
+        antialiasing, with `skimage.transform.resize` being particularly slow.
+        """
+        Nd = data.shape[0]
+        Nr = data.shape[-1]
+        range_out_dim = int(aug.get("range_scale", 1.0) * Nr)
+        speed_out_dim = 2 * (int(aug.get("speed_scale", 1.0) * Nd) // 2)
+
+        if range_out_dim != Nr or speed_out_dim != Nd:
+            resized = transforms.Resize(
+                (range_out_dim, speed_out_dim),
+                interpolation=transforms.InterpolationMode.BILINEAR,
+                antialias=True
+            )(torch.Tensor(np.moveaxis(data, 0, -1)))
+            resized = np.moveaxis(resized.numpy(), -1, 0)
+
+            # Upsample -> crop
+            if range_out_dim >= Nr:
+                resized = resized[..., :Nr]
+            # Downsample -> zero pad far ranges (high indices)
             else:
-                data = cls._wrap(resized, data.shape[0])
+                pad = np.zeros(
+                    (*data.shape[:-1], Nr - range_out_dim), dtype=np.float32)
+                resized = np.concatenate([resized, pad], axis=-1)
+
+            # Upsample -> wrap
+            if speed_out_dim > data.shape[0]:
+                resized = cls._wrap(resized, Nd)
+            # Downsample -> zero pad high velocities (low and high indices)
+            else:
+                pad = np.zeros(
+                    ((Nd - speed_out_dim) // 2, *data.shape[1:]),
+                    dtype=np.float32)
+                resized = np.concatenate((pad, resized, pad), axis=0)
+
+            data = resized
 
         return data
 

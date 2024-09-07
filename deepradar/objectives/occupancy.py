@@ -199,6 +199,6 @@ class BEVOccupancy(Objective):
         """Generate visualizations."""
         return {
             "bev": comparison_grid(
-                polar_to_bev(y_true['bev'], height=512),
-                polar_to_bev(sigmoid(y_hat['bev']), height=512),
+                polar_to_bev(y_true['bev'], height=256),
+                polar_to_bev(sigmoid(y_hat['bev']), height=256),
                 cmap=self.cmap, cols=8)}

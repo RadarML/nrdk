@@ -17,10 +17,9 @@ from .base import Transform
 class Destagger(Transform):
     """Destagger lidar data.
 
-    Augmentations:
-
-    - `range_scale`: random scaling applied to ranges to the sensor.
-    - `azimuth_flip`: flip along the azimuth axis.
+    NOTE: while this acts as a "root" transform for lidar data, and could be
+    used to apply data augmentations, we instead apply augmentations later so
+    that they only need to be calculated on post-cropped data.
     """
 
     def __init__(self, path: str) -> None:
@@ -36,15 +35,7 @@ class Destagger(Transform):
     def __call__(
         self, data: UInt[np.ndarray, "El Az"], aug: dict[str, Any] = {}
     ) -> UInt[np.ndarray, "El Az"]:
-        res = client.destagger(self.metadata, data)  # type: ignore
-
-        if "range_scale" in aug:
-            res = (
-                res.astype(np.float32) * aug["range_scale"]).astype(np.uint16)
-        if aug.get("azimuth_flip"):
-            res = np.flip(res, axis=1)
-
-        return res
+        return client.destagger(self.metadata, data)  # type: ignore
 
 
 class Map2D(Transform):
@@ -56,6 +47,11 @@ class Map2D(Transform):
     2. Discard points more than 30cm away from the radar plane.
     3. Write points to a 2D polar-coordinate occupancy grid. The range bins
        used in the map match the range bins measured by the radar.
+
+    Augmentations:
+
+    - `range_scale`: random scaling applied to ranges to the sensor.
+    - `azimuth_flip`: flip along the azimuth axis.
     """
 
     def __init__(self, path: str) -> None:
@@ -81,6 +77,11 @@ class Map2D(Transform):
 
         # Crop to (-30cm, 0cm)
         r[(z > 0.0) | (z < -0.3)] = 0
+
+        if "range_scale" in aug:
+            r = r * aug["range_scale"]
+        if aug.get("azimuth_flip"):
+            r = np.flip(r, axis=1)
 
         # Create map
         bin = (r // (self.resolution)).astype(np.uint16)
@@ -128,6 +129,11 @@ class Depth(Transform):
     - The Ouster lidar has a 360 degree azimuth FOV. Since the radar can only
       see forward, `crop_az` should be at least `0.25`.
 
+    Augmentations:
+
+    - `range_scale`: random scaling applied to ranges to the sensor.
+    - `azimuth_flip`: flip along the azimuth axis.
+
     Args:
         path: path to dataset.
         crop_el, crop_az: crop factor to apply (symmetrically) to each side
@@ -153,6 +159,12 @@ class Depth(Transform):
             data = data[crop_el:-crop_el]
         if crop_az > 0:
             data = data[:, crop_az:-crop_az]
+
+        if "range_scale" in aug:
+            data = (
+                data.astype(np.float32) * aug["range_scale"]).astype(np.uint16)
+        if aug.get("azimuth_flip"):
+            data = np.flip(data, axis=1)
 
         # Note: the Ouster lidar natively uses mm as a unit, while we use m.
         depth_m = data.astype(np.float32) / 1000
