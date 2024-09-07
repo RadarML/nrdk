@@ -21,10 +21,7 @@ optimizer:
   subsets: {}
 
 dataset:
-
-  <<: !include ../_traces.yaml
   batch_size: 32
-
   channels:
     radar:
       name: RawChannel

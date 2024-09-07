@@ -1,17 +1,17 @@
 """Train radar model."""
 
-import os, json
+import json
+import os
 import time
 from argparse import ArgumentParser
 
 import lightning as L
 import torch
-
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.strategies import DDPStrategy
 
-from deepradar import config, DeepRadar
+from deepradar import DeepRadar, config
 
 
 def _parse():
@@ -29,6 +29,8 @@ def _parse():
         help="Training configuration; see `deepradar.config` for parsing "
         "rules. Must be specified unless resuming with "
         "`--checkpoint <checkpoint>`.")
+    g.add_argument(
+        "--cfg_dir", default="config", help="Configuration base directory.")
     g.add_argument(
         "-k", "--checkpoint", default=None,
         help="Checkpoint to load, if specified. Should have the structure "
@@ -72,6 +74,8 @@ def _main(args):
             print(
                 "Must specify a `config.yaml` file if not resuming training.")
             exit(1)
+    else:
+        args.cfg = [os.path.join(args.cfg_dir, c) for c in args.cfg]
 
     model_cfg = config.load_config(args.cfg)
     if args.checkpoint is None:
