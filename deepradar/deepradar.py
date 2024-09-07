@@ -28,7 +28,9 @@ class DeepRadar(L.LightningModule):
         objectives: list of objective specifications; see
             :py:mod:`deepradar.objectives`.
         encoder: encoder specification; see :py:mod:`models`.
-        decoders: list of decoder specifications; see :py:mod:`models`.
+        decoders: list of decoder specifications; see :py:mod:`models`; the
+            `dim` (embedding dimension) specification is fetched from the
+            encoder specification, and should not be included in `decoders`.
         optimizer: optimizer specifications; see :py:func:`.create_optimizer`.
     """
 
@@ -45,7 +47,9 @@ class DeepRadar(L.LightningModule):
             for spec in objectives]
         self.encoder = getattr(models, encoder["name"])(**encoder["args"])
         self.decoders = torch.nn.ModuleList(
-            getattr(models, spec["name"])(**spec["args"])
+            getattr(
+                models, spec["name"]
+            )(**spec["args"], dim=encoder["args"]["dim"])
             for spec in decoders)
         self.optimizer = optimizer
 

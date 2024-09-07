@@ -1,0 +1,6 @@
+encoder:
+  args:
+    enc_layers: 18
+    dec_layers: [18, 12, 6]
+    dim: 768
+    heads: 12

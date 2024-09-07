@@ -3,14 +3,10 @@ objectives: []
 encoder:
   name: TransformerEncoder
   args:
-    enc_layers: 12
-    dec_layers: [12, 8, 4]
-    dim: 512
     ff_ratio: 4.0
-    heads: 8
     dropout: 0.1
     activation: GELU
-    patch: [16, 16]
+    patch: [16, 32]
 
 decoders: []
 

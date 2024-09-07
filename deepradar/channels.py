@@ -98,7 +98,11 @@ class RawChannel(Channel):
         self.channel = Dataset(dataset)[sensor][channel]
 
     def _index(self, idx: Index) -> Num[np.ndarray, "..."]:
-        return self.channel.read(int(idx), samples=1)[0]
+        try:
+            return self.channel.read(int(idx), samples=1)[0]
+        except IndexError as e:
+            print(self.channel, idx)
+            raise(e)
 
 
 class NPChannel(Channel):

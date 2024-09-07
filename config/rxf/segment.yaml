@@ -5,7 +5,6 @@ decoders:
   args:
     key: segment
     dec_layers: 3
-    dim: 512
     ff_ratio: 4.0
     heads: 8
     dropout: 0.1

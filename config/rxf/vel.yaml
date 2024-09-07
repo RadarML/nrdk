@@ -7,4 +7,3 @@ decoders:
     layers: [512, 512]
     dropout: 0.1
     activation: GELU
-    dim: 512

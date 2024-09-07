@@ -155,7 +155,9 @@ class RoverDataModule(L.LightningDataModule):
             split into two parts, with the first `1 - pval` being used for
             training, and the last `pval` being used for validation.
         batch_size: train batch size.
-        val_samples: indices of (val) data to use as visualization samples.
+        val_samples: indices of (val) data to use as visualization samples. If
+            `val_samples: int`, uses evenly spaced samples from the validation
+            set (i.e. `linspace(0, len(val) - 1, val_samples)`).
         channels: channel specifications; see :py:mod:`deepradar.channels`.
         augmentations: data augmentation spec generators; see
             :py:mod:`deepradar.augmentations`.
@@ -166,7 +168,7 @@ class RoverDataModule(L.LightningDataModule):
 
     def __init__(self,
         path: str, traces: list[str] = [], pval: float = 0.2,
-        batch_size: int = 64, val_samples: Iterable[int] = [0, 1, 2, 3],
+        batch_size: int = 64, val_samples: int | Iterable[int] = [0, 1, 2, 3],
         channels: dict[str, dict] = {},
         augmentations: dict[str, dict] = {}, debug: bool = False
     ) -> None:
@@ -221,5 +223,9 @@ class RoverDataModule(L.LightningDataModule):
         ds = RoverData(
             self._paths, channels=self._channels, augmentations={},
             bounds=(1.0 - self.pval, 1.0))
+        if isinstance(self._val_samples, int):
+            self._val_samples = np.linspace(
+                0, len(ds) - 1, self._val_samples, dtype=np.uint32)
+
         samples = [ds[i] for i in self._val_samples]
         return {k: np.stack([s[k] for s in samples]) for k in samples[0]}
