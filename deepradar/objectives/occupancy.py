@@ -112,36 +112,34 @@ class Chamfer:
             x[:, None, :] - y[None, :, :]
         ), dim=-1))
 
+    def _forward(self, x, y):
+        pts_x = self.as_points(x)
+        pts_y = self.as_points(y)
+        dist = self.distance(pts_x, pts_y)
+
+        if dist.shape[0] == 0 or dist.shape[1] == 0:
+            return torch.full((), self.on_empty, device=x.device)
+
+        d1 = torch.min(dist, dim=0).values
+        d2 = torch.min(dist, dim=1).values
+
+        if self.mode == "modhausdorff":
+            return torch.median(torch.concatenate([d1, d2]))
+        elif self.mode == "chamfer":
+            return (torch.mean(d1) + torch.mean(d2)) / 2
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}")
+
     def __call__(
         self, y_hat: Bool[Tensor, "b w h"], y_true: Bool[Tensor, "b w h"],
         reduce: bool = True
     ) -> MetricValue:
         """Compute chamfer distance, in range bins."""
-
-        def _forward(x, y):
-            pts_x = self.as_points(x)
-            pts_y = self.as_points(y)
-            dist = self.distance(pts_x, pts_y)
-
-            if dist.shape[0] == 0 or dist.shape[1] == 0:
-                return torch.full((), self.on_empty)
-
-            d1 = torch.min(dist, dim=0).values
-            d2 = torch.min(dist, dim=1).values
-
-            if self.mode == "modhausdorff":
-                return torch.median(torch.concatenate([d1, d2]))
-            elif self.mode == "chamfer":
-                return (torch.mean(d1) + torch.mean(d2)) / 2
-            else:
-                raise ValueError(f"Invalid mode: {self.mode}")
-
-        _iter = (_forward(xs, ys) for xs, ys in zip(y_hat, y_true))
-
+        _iter = (self._forward(xs, ys) for xs, ys in zip(y_hat, y_true))
         if reduce:
             return cast(Float[Tensor, ""], sum(_iter)) / y_hat.shape[0]
         else:
-            return torch.Tensor(list(_iter))
+            return torch.stack(list(_iter))
 
 
 class BEVOccupancy(Objective):

@@ -58,7 +58,7 @@ class Segmentation(Objective):
             metrics = {"seg_acc": acc, "seg_miou": miou}
             if reduce:
                 metrics = {k: torch.mean(v) for k, v in metrics.items()}
-            metrics["loss"] = loss
+            metrics["seg_loss"] = loss
 
         return Metrics(loss=self.weight * loss, metrics=metrics)
 
