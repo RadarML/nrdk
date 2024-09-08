@@ -5,8 +5,8 @@ import threading
 import lightning as L
 import numpy as np
 import torch
-from beartype.typing import Optional, cast
-from jaxtyping import Float, Shaped
+from beartype.typing import Optional
+from jaxtyping import Shaped
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -91,24 +91,57 @@ class DeepRadar(L.LightningModule):
             y_hat.update(decoder(encoded))
         return y_hat
 
+    def _make_log(self, y_true, y_hat, split) -> None:
+        """Inner thread callable for `log_visualizations`.
+
+        Pseudo-closure to avoid closure-induced memory leaks in pytorch.
+        """
+        for objective in self.objectives:
+            with torch.no_grad():
+                imgs = objective.visualizations(y_true, y_hat)
+            for k, v in imgs.items():
+                self.logger.experiment.add_image(  # type: ignore
+                    f"{k}/{split}", v, self.global_step, dataformats='HWC')
+
     def log_visualizations(self, y_true, y_hat, split: str = 'train') -> None:
         """Log all image visualizations.
+
+        This method transfers data to CPU memory (up to `num_examples`), and
+        spins up a thread to asynchronously generate `.visualizations(...)` for
+        each objective.
+
+        **NOTE**: during multi-gpu training, the caller is responsible for only
+        calling on one worker::
+
+            if self.global_rank == 0:
+                self.log_visualizations(...)
 
         Args:
             y_true, y_hat: input, output values.
             split: train/val split to put in the output path.
         """
-        y_true = {k: v[:self.num_examples].cpu() for k, v in y_true.items()}
-        y_hat = {k: v[:self.num_examples].cpu() for k, v in y_hat.items()}
+        y_true = {
+            k: v[:self.num_examples].cpu().detach()
+            for k, v in y_true.items()}
+        y_hat = {
+            k: v[:self.num_examples].cpu().detach()
+            for k, v in y_hat.items()}
+        threading.Thread(
+            target=self._make_log, args=(y_true, y_hat, split)).start()
 
-        def make_log(y_true, y_hat):
-            for objective in self.objectives:
-                imgs = objective.visualizations(y_true, y_hat)
-                for k, v in imgs.items():
-                    self.logger.experiment.add_image(  # type: ignore
-                        f"{k}/{split}", v, self.global_step, dataformats='HWC')
+    def log_debug_stats(self, unit: float = 1024 * 1024 * 1024) -> None:
+        """Log memory statistics for each GPU.
 
-        threading.Thread(target=make_log, args=(y_true, y_hat)).start()
+        Args:
+            unit: Memory unit; defaults to GiB (`/2**30`)
+        """
+        stats = torch.cuda.memory_stats(device=self.global_rank)
+        for metric in ["allocated", "reserved", "active", "inactive_split"]:
+            for pool in ["all", "large_pool", "small_pool"]:
+                self.log(
+                    f"debug/{metric}.{pool}.{self.global_rank}",
+                    stats[f"{metric}_bytes.{pool}.current"] / unit,
+                    on_step=True)
 
     def training_step(self, batch, batch_idx):  # type: ignore
         """Standard lightning training step."""
@@ -119,25 +152,13 @@ class DeepRadar(L.LightningModule):
             metrics = objective.metrics(batch, y_hat, train=True, reduce=True)
             loss += metrics.loss
             for k, v in metrics.metrics.items():
-                self.log(
-                    f"{k}/train", v.item(),
-                    on_step=True, sync_dist=True)
-        self.log(
-            "loss/train", cast(Float[torch.Tensor, ""], loss).item(),
-            on_step=True, sync_dist=True)
+                self.log(f"{k}/train", v, on_step=True, sync_dist=True)
+        self.log("loss/train", loss, on_step=True, sync_dist=True)
 
-        with torch.no_grad():
+        if self.global_rank == 0:
             if self.global_step % self.log_interval == 0:
                 self.log_visualizations(batch, y_hat, split="train")
-
-        stats = torch.cuda.memory_stats(device=self.global_rank)
-        for metric in ["allocated", "reserved", "active", "inactive_split"]:
-            for pool in ["all", "large_pool", "small_pool"]:
-                self.log(
-                    f"debug/{metric}.{pool}.{self.global_rank}",
-                    stats[f"{metric}_bytes.{pool}.current"]
-                    / 1024 / 1024 / 1024,
-                    on_step=True)
+        self.log_debug_stats()
 
         return loss
 
@@ -153,7 +174,7 @@ class DeepRadar(L.LightningModule):
                 self.log(f"{k}/val", v, sync_dist=True)
         self.log("loss/val", loss, sync_dist=True)
 
-        if batch_idx == 0:
+        if batch_idx == 0 and self.global_rank == 0:
             samples = self.trainer.datamodule.val_samples  # type: ignore
             samples_torch = {
                 k: torch.from_numpy(v).to(batch['radar'].device)
@@ -177,9 +198,8 @@ class DeepRadar(L.LightningModule):
 
         metrics = {}
         for objective in self.objectives:
-            _metrics = objective.metrics(
-                batch, y_hat, train=False, reduce=False)
-            metrics.update(_metrics.metrics)
+            m = objective.metrics(batch, y_hat, train=False, reduce=False)
+            metrics.update(m.metrics)
         return metrics
 
     def evaluate(
