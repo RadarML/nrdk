@@ -1,7 +1,7 @@
 objectives:
 - name: Velocity
   args:
-    weight: 1.0
+    weight: 2.79
     loss_order: 2
 
 dataset:

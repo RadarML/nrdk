@@ -27,7 +27,11 @@ which returns a dict of generated images.
 
 - Note that :py:meth:`.Objective.visualizations` takes a dict of `Tensor` as
   input, and returns a dict of `np.ndarray`. This means the objective is
-  responsible for converting `.detach()`, `.cpu()`, `.numpy()` as appropriate.
+  responsible for converting `.numpy()` as appropriate.
+- The caller will convert `.detach()` and `.cpu()`;
+  :py:meth:`.Objective.visualizations` is called asynchronously (on the first
+  worker only (`global_rank == 0`) in distributed training), and should not use
+  any GPU acceleration.
 """
 
 

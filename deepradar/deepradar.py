@@ -196,10 +196,13 @@ class DeepRadar(L.LightningModule):
         """
         y_hat = self.forward(batch)
 
+        loss = 0.0
         metrics = {}
         for objective in self.objectives:
             m = objective.metrics(batch, y_hat, train=False, reduce=False)
+            loss += m.loss  # type: ignore
             metrics.update(m.metrics)
+        metrics["loss"] = loss  # type: ignore
         return metrics
 
     def evaluate(

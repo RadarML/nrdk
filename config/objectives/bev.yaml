@@ -1,7 +1,7 @@
 objectives:
 - name: BEVOccupancy
   args:
-    weight: 1.0
+    weight: 1.32
     bce_weight: 0.9
     range_weighted: True
 

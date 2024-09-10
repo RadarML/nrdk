@@ -1,7 +1,7 @@
 objectives:
 - name: Segmentation
   args:
-    weight: 1.0
+    weight: 0.208
 
 dataset:
   channels:

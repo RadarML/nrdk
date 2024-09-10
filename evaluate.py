@@ -1,12 +1,13 @@
 """Evaluate radar model."""
 
-import os, json
-import numpy as np
+import json
+import os
 from argparse import ArgumentParser
 
+import numpy as np
 import torch
 
-from deepradar import objectives, config
+from deepradar import DeepRadar, config
 
 
 def _parse():
@@ -17,6 +18,8 @@ def _parse():
     p.add_argument("-m", "--model", help="Path to model.")
     p.add_argument(
         "-t", "--traces", nargs='+', help="Traces to evaluate.", default=[])
+    p.add_argument(
+        "--cfg_dir", default="config", help="Configuration base directory.")
     p.add_argument("--batch", default=16, help="Evaluation batch size.")
 
     return p
@@ -24,7 +27,6 @@ def _parse():
 
 def _main(args):
 
-    cfg = config.load_config([os.path.join(args.model, "hparams.yaml")])
     try:
         with open(os.path.join(args.model, "meta.json")) as f:
             meta = json.load(f)
@@ -32,25 +34,23 @@ def _main(args):
     except FileNotFoundError:
         checkpoint = os.path.join(args.model, "checkpoints", "last.ckpt")
 
-    model = getattr(
-        objectives, cfg["objective"]).load_from_checkpoint(checkpoint)
-    data = model.get_dataset(args.model)
+    model = DeepRadar.load_from_checkpoint(
+        checkpoint, hparams_file=os.path.join(args.model, "hparams.yaml"))
+    datamodule = model.get_dataset(args.model)
 
     if len(args.traces) == 0:
         raise ValueError("Passed empty `-t [--traces]`.")
 
-    if args.traces[0].endswith('.yaml'):
-        spec = config.load_config(args.traces)
-        args.traces = spec["traces"]
-
-    for i, trace in enumerate(args.traces):
+    traces = config.load_config(
+        [os.path.join(args.cfg_dir, t) for t in args.traces])["traces"]
+    for i, trace in enumerate(traces):
         out = os.path.join(args.model, "eval", trace + ".npz")
         os.makedirs(os.path.dirname(out), exist_ok=True)
 
-        dataloader = data.eval_dataloader(
+        dataloader = datamodule.eval_dataloader(
             os.path.join(args.path, trace), batch_size=args.batch)
         res = model.evaluate(
-            dataloader, desc=f"[{i + 1}/{len(args.traces)}] {trace}")
+            dataloader, desc=f"[{i + 1}/{len(traces)}] {trace}")
         np.savez(out, **res)
 
 

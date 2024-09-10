@@ -1,7 +1,7 @@
 objectives:
 - name: Depth
   args:
-    weight: 1.0
+    weight: 2.19
     loss_order: 1
 
 dataset:
