@@ -1,9 +1,15 @@
+# A some point between 2.2.1 and 2.4.0, lightning introduced a bug which
+# completely broke checkpointing to a network drive. You can use a newer
+# version, but the `results/` directory will have to be on a local disk unless
+# they fixed it.
+# I suspect it's this PR: https://github.com/Lightning-AI/pytorch-lightning/pull/20011
+lightning==2.2.1
+
 torch
 torchvision
 jaxtyping
 matplotlib
 tensorboard
-lightning
 einops
 pyyaml
 beartype
