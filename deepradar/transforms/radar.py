@@ -186,6 +186,20 @@ class FFTArray(BaseFFT):
         return self._augment(daer_shf, aug=aug)
 
 
+class DopplerShuffle(Transform):
+    """Shuffle the doppler axis to destroy all doppler information.
+
+    Used only for ablations, obviously don't do this in practice!
+    """
+
+    def __call__(
+        self, data: Complex64[np.ndarray, "D Tx Rx R"],
+        aug: dict[str, Any] = {}
+    ) -> None:
+        rng = np.random.default_rng()
+        return rng.shuffle(data, axis=0)
+
+
 class Representation(Transform):
     """Base class for radar representations."""
 

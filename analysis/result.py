@@ -55,13 +55,17 @@ class ComparativeStats(NamedTuple):
 
         Returns:
             Significance matrix, where +1 indicates that each row value is
-            significantly greater (worse) than the column value, -1 indicates
-            significantly less (better), and 0 indicates no significance.
+            significantly less (better) than the column value, -1 indicates
+            significantly greater (worse), and 0 indicates no significance.
         """
         boundary = self.z_boundary(p=p, corrected=corrected)
         return (
             1.0 * (self.diff.zscore > boundary)
             - 1.0 * (self.diff.zscore < -boundary))
+
+    def percent(self) -> Float[np.ndarray, "*batch Nr Nr"]:
+        """Get percent difference, relative to each row."""
+        return self.diff.mean / self.abs.mean[..., None]
 
 
 class Result:
