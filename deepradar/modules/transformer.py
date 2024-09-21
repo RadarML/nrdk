@@ -1,7 +1,11 @@
 """Transformer blocks."""
 
+import torch
+from beartype.typing import Sequence
 from jaxtyping import Float
 from torch import Tensor, nn
+
+from .position import Sinusoid
 
 
 def transformer_mlp(
@@ -133,3 +137,45 @@ class TransformerDecoder(nn.Module):
         x = x + self.cross_attention(x, x_enc)
         x = x + self.feedforward(x)
         return x
+
+
+class BasisChange(nn.Module):
+    """Create "change-of-basis" query.
+
+    Uses a 'reference vector', e.g. the output for a readout token or the
+    token-wise mean of the output.
+
+    Args:
+        shape: query shape.
+        flatten: whether to flatten spatial axes (e.g. for spatial-agnostic
+            decoders such as generic transformers).
+    """
+
+    def __init__(
+        self, shape: Sequence[int] = [], flatten: bool = True
+    ) -> None:
+        super().__init__()
+
+        self.pos = Sinusoid()
+        self.shape = shape
+        self.flatten = flatten
+
+    def forward(self, x: Float[Tensor, "n c"]) -> Float[Tensor, "n *t2 c"]:
+        """Apply change of basis.
+
+        Args:
+            x: input reference vector. Should only be a single vector per
+                batch entry.
+
+        Returns:
+            Input reference `x`, expanded to the query shape, with a sinusoidal
+            positional embedding added. The tensor is flattened along the
+            spatial axes if desired (`flatten=True`).
+        """
+        idxs = [slice(None)] + [None] * len(self.shape) + [slice(None)]
+        query = self.pos(
+            torch.tile(x[idxs], (1, *self.shape, 1)))
+
+        if self.flatten:
+            query = query.reshape(x.shape[0], -1, x.shape[-1])
+        return query

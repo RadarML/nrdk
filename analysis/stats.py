@@ -80,8 +80,8 @@ class NDStats(NamedTuple):
 
     Attributes:
         n: number of samples.
-        m1: sum of values
-        m2: sum of squares
+        m1: sum of values, e.g. accumulated first moment.
+        m2: sum of squares, e.g. accumulated second moment.
         ess: effective sample size estimate.
     """
 
@@ -117,7 +117,7 @@ class NDStats(NamedTuple):
 
     @property
     def zscore(self) -> Float[np.ndarray, "*shape"]:
-        """Z-score, assuming a zero prior."""
+        """Z-score, assuming a zero null hypothesis."""
         return self.mean / self.stderr
 
     @staticmethod

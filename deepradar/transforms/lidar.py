@@ -48,25 +48,59 @@ class Map2D(Transform):
     3. Write points to a 2D polar-coordinate occupancy grid. The range bins
        used in the map match the range bins measured by the radar.
 
+    Implementation Notes:
+
+        `Map2D` excludes the ground (and ceiling) using a z-level clip
+        specified by `z_min, z_max`, with the z coordinate being relative to
+        the lidar along the vertical axis of the lidar sensor.
+
+        - The radar is at approximately `z=-0.15`, so `z_min, z_max` are not
+          necessarily centered.
+        - `z_min` should be set to less than the distance between the lidar
+          and the ground; `z_max` should be set to less than the distance
+          between the lidar and the lowest ceiling expected to be encountered.
+        - Be cautious of an overly tight `z_max - z_min`: the OS0-128, for
+          example, only has `90 / 128 ~ 0.70` degrees of angular resolution. At
+          range `D`, only `~ (z_max - z_min) / (D sin(0.70 deg))` azimuth bins
+          will fall in this region. For `z_max - z_min = 0.6` and `D = 25m`,
+          this corresponds to only ~2 bins!
+        - Note that the BEV transform here does not account for the orientation
+          of the rig; if the rig is tilted, the BEV plane tilts as well.
+
     Augmentations:
 
-    - `range_scale`: random scaling applied to ranges to the sensor.
-    - `azimuth_flip`: flip along the azimuth axis.
+        - `range_scale`: random scaling applied to ranges to the sensor.
+        - `azimuth_flip`: flip along the azimuth axis.
+
+    Args:
+        z_min, z_max: minimum and maximum z-levels, relative to the lidar,
+            to include in the BEV map, in meters.
+        crop_el, crop_az: crop factor to apply (symmetrically) to each side;
+            these values are excluded from BEV calculation. `crop_az` should
+            always be `0.25`; `crop_el` can be adjusted to crop nearby objects
+            more to avoid spread due to angled objects.
     """
 
-    def __init__(self, path: str) -> None:
+    def __init__(
+        self, path: str, z_min: float = -0.6, z_max: float = 1.0,
+        crop_el: float = 0.25, crop_az: float = 0.25
+    ) -> None:
         with open(os.path.join(path, "radar", "radar.json")) as f:
             meta = json.load(f)
         self.resolution: float = meta["range_resolution"]
         self.bins: int = meta["shape"][-1]
+        self.z_min = z_min
+        self.z_max = z_max
+        self.crop_el = crop_el
+        self.crop_az = crop_az
 
     def __call__(
         self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {}
     ) -> Bool[np.ndarray, "Az2 Nr"]:
         # Crop, convert mm -> m
         el, az = data.shape
-        crop_el = el // 4
-        crop_az = az // 4
+        crop_el = int(self.crop_el * el)
+        crop_az = int(self.crop_az * az)
         x_crop = data[crop_el:-crop_el, crop_az:-crop_az] / 1000
 
         # Project to polar
@@ -75,8 +109,8 @@ class Map2D(Transform):
         z = np.sin(el_angles)[:, None] * x_crop
         r = np.cos(el_angles)[:, None] * x_crop
 
-        # Crop to (-30cm, 0cm)
-        r[(z > 0.0) | (z < -0.3)] = 0
+        # Crop to ex
+        r[(z > self.z_max) | (z < self.z_min)] = 0
 
         if "range_scale" in aug:
             r = r * aug["range_scale"]
@@ -116,27 +150,29 @@ class DecimateMap(Transform):
 class Depth(Transform):
     """Cropped depth map, in meters.
 
+    Pixels with no return (e.g. infinite depth or specular surface) are
+    represented by `0.0`.
+
     Implementation notes:
 
-    - The depth is automatically cropped to the maximum range of the radar as
-      recorded in `radar/radar.json` by setting all values exceeding the max
-      range to 0 (e.g. not known).
-    - The max depth is normalized to have value
-      1.0.
-    - Elevation and azimuth crop factors are applied symetrically, e.g.
-      `crop_el = 0.25` means removing `0.25` of the elevation bins from the top
-      and bottom, leaving only half of the measured bins.
-    - The Ouster lidar has a 360 degree azimuth FOV. Since the radar can only
-      see forward, `crop_az` should be at least `0.25`.
+        - The depth is automatically cropped to the maximum range of the radar
+          as recorded in `radar/radar.json` by setting all values exceeding the
+          max range to 0 (i.e. not known).
+        - The max depth is normalized to have value 1.0.
+        - Elevation and azimuth crop factors are applied symetrically, e.g.
+          `crop_el = 0.25` means removing `0.25` of the elevation bins from the
+          top and bottom, leaving only half of the measured bins.
+        - The Ouster lidar has a 360 degree azimuth FOV. Since the radar can
+          only see forward, `crop_az` should be at least `0.25`.
 
     Augmentations:
 
-    - `range_scale`: random scaling applied to ranges to the sensor.
-    - `azimuth_flip`: flip along the azimuth axis.
+        - `range_scale`: random scaling applied to ranges to the sensor.
+        - `azimuth_flip`: flip along the azimuth axis.
 
     Args:
         path: path to dataset.
-        crop_el, crop_az: crop factor to apply (symmetrically) to each side
+        crop_el, crop_az: crop factor to apply (symmetrically) to each side.
     """
 
     def __init__(

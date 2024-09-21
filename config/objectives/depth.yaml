@@ -16,4 +16,6 @@ dataset:
         - name: Destagger
           args: {}        
         - name: Depth
-          args: {}
+          args:
+            crop_el: 0.0
+            crop_az: 0.25

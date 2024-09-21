@@ -1,49 +1,11 @@
 """Radar Transformer."""
 
-import torch
-from beartype.typing import Union, cast
+from beartype.typing import Sequence, cast
 from einops import rearrange
 from jaxtyping import Float
 from torch import Tensor, nn
 
 from deepradar import modules
-
-
-class BasisChange(nn.Module):
-    """Create "change-of-basis" query.
-
-    Uses a 'reference vector', e.g. the output for a readout token or the
-    token-wise mean of the output.
-
-    Args:
-        shape: query shape.
-    """
-
-    def __init__(
-        self, shape: Union[list[int], tuple[int, ...]] = (16, 16)
-    ) -> None:
-        super().__init__()
-
-        self.pos = modules.Sinusoid()
-        self.shape = shape
-
-    def forward(self, x: Float[Tensor, "n c"]) -> Float[Tensor, "n t2 c"]:
-
-        idxs = [slice(None)] + [None] * len(self.shape) + [slice(None)]
-        query = self.pos(
-            torch.tile(x[idxs], (1, *self.shape, 1))
-        ).reshape(x.shape[0], -1, x.shape[-1])
-
-        return query
-
-
-Shape2 = Union[list[int], tuple[int, int]]
-"""List of 2 ints (i.e. loaded from json), or tuple of ints."""
-
-
-def assert_shape2(x: Shape2) -> tuple[int, int]:
-    """Type validation of Shape2 and casting as tuple."""
-    return cast(tuple[int, int], tuple(x))
 
 
 class TransformerEncoder(nn.Module):
@@ -67,24 +29,23 @@ class TransformerEncoder(nn.Module):
         dropout: dropout ratio during training.
         activation: activation function; specify as a name (i.e. corresponding
             to a class in `torch.nn`).
-        patch: input range-doppler patch size.
+        patch: input (doppler, range) patch size.
     """
 
     def __init__(
         self, enc_layers: int = 5, dec_layers: list[int] = [5, 3, 1],
         dim: int = 768, ff_ratio: float = 4.0, heads: int = 12,
         dropout: float = 0.1, activation: str = 'GELU',
-        patch: Shape2 = (16, 16)
+        patch: Sequence[int] = (16, 1, 1, 16)
     ) -> None:
         super().__init__()
 
-        patch = assert_shape2(patch)
         self.dec_layers = dec_layers
 
-        self.patch = modules.Patch4D(channels=2, features=dim, size=patch)
+        self.patch = modules.PatchMerge(
+            d_in=2, d_out=dim, scale=patch, norm=False)
         self.pos = modules.Sinusoid()
-
-        self.readout = nn.Parameter(data=torch.normal(0, 0.02, (dim,)))
+        self.readout = modules.Readout(d_model=dim)
 
         self.layers = nn.ModuleList([
             modules.TransformerLayer(
@@ -104,15 +65,10 @@ class TransformerEncoder(nn.Module):
         Returns:
             Encoding output.
         """
-        patch = self.patch(rearrange(x, "n d a e r c -> n c d r a e"))
-        embedded = self.pos(patch)
+        embedded = self.pos(self.patch(x))
+        flat = rearrange(embedded, "n d r a e c -> n (d r a e) c")
 
-        x0 = rearrange(embedded, "n d r a e c -> n (d r a e) c")
-        readout = torch.tile(self.readout[None, None, :], (x0.shape[0], 1, 1))
-        # The output type of `rearrange` isn't inferred correctly.
-        x0 = torch.concatenate([x0, readout], axis=1)  # type: ignore
-
-        encoded = [x0]
+        encoded = [self.readout(flat)]
         for layer in self.layers:
             encoded.append(layer(encoded[-1]))
 
@@ -139,15 +95,13 @@ class Transformer2DDecoder(nn.Module):
     def __init__(
         self, key: str, dec_layers: int = 3, dim: int = 768,
         ff_ratio: float = 4.0, heads: int = 12, dropout: float = 0.1,
-        activation: str = 'GELU',
-        shape: Shape2 = (1024, 256), patch: Shape2 = (16, 16), out_dim: int = 0
+        activation: str = 'GELU', shape: Sequence[int] = (1024, 256),
+        patch: Sequence[int] = (16, 16), out_dim: int = 0
     ) -> None:
         super().__init__()
 
         self.key = key
         self.out_dim = out_dim
-        shape = assert_shape2(shape)
-        patch = assert_shape2(patch)
 
         self.layers = nn.ModuleList([
             modules.TransformerDecoder(
@@ -155,12 +109,12 @@ class Transformer2DDecoder(nn.Module):
                 dropout=dropout, activation=activation)
             for _ in range(dec_layers)])
 
-        self.query = BasisChange(
+        self.query = modules.BasisChange(
             shape=(shape[0] // patch[0], shape[1] // patch[1]))
 
         self.unpatch = modules.Unpatch2D(
             output_size=(shape[0], shape[1], max(1, self.out_dim)),
-            features=dim, size=patch)
+            features=dim, size=cast(tuple[int, int], tuple(patch)))
 
     def forward(
         self, encoded: list[Float[Tensor, "n s c"]]

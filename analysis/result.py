@@ -13,7 +13,13 @@ from analysis.stats import NDStats, effective_sample_size
 
 
 class ComparativeStats(NamedTuple):
-    """Statistics comparing a set of methods."""
+    """Statistics comparing a set of methods.
+
+    Attributes:
+        traces: list of traces represented by this data.
+        abs: stats relating to the absolute value of the metric in question.
+        diff: stats relating to the relative value of the metric in question.
+    """
 
     traces: list[str]
     abs: NDStats
@@ -28,7 +34,12 @@ class ComparativeStats(NamedTuple):
             diff=NDStats.stack(*[s.diff for s in stats]))
 
     def sum(self) -> "ComparativeStats":
-        """Get aggregate values."""
+        """Get aggregate values.
+
+        Note that while `abs` and `diff` will become aggregated statistics
+        (and lose their leading vector dimension), `traces` remains the same
+        length, and still lists all source trace names.
+        """
         return ComparativeStats(
             traces=self.traces, abs=self.abs.sum(), diff=self.diff.sum())
 
@@ -98,10 +109,20 @@ class Result:
 
 
 class Results:
-    """Results container."""
+    """Results container.
 
-    def __init__(self, path: str) -> None:
+    Args:
+        path: path to the root results folder. `path` itself can be a symlink,
+            but symlinks inside `path` are not followed.
+        marker_name: filename to search for; each directory inside `path`
+            containing a file with this name is considered a single "result".
+    """
+
+    def __init__(
+        self, path: str = "results", marker_name: str = "hparams.yaml"
+    ) -> None:
         self.path = path
+        self.marker_name = marker_name
         self.results = sorted(self._discover_results(path))
 
     @cache
@@ -115,13 +136,29 @@ class Results:
         """
         manifest = []
         for root, _, files in os.walk(path):
-            if 'hparams.yaml' in files:
+            if self.marker_name in files:
                 manifest.append(os.path.relpath(root, path))
         return manifest
 
     def compare(
         self, results: Optional[list[str]] = None, key: str = "loss"
     ) -> ComparativeStats:
+        """Get comparison statistics between a list of experiments.
+
+        Args:
+            results: list of experiments to compare. Should be file paths,
+                relative to the base path of this container.
+            key: metric name to compare on.
+
+        Returns:
+            Comparison statistics between the specified experiments. Only
+            evaluation traces which are present in all of the specified
+            experiments are used.
+
+        Raises:
+            ValueError: if the specified experiments have no evaluation
+                commonality.
+        """
         if results is None:
             results = self.results
         i, j = np.triu_indices(len(results), 1)

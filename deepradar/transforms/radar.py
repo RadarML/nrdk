@@ -18,8 +18,8 @@ class RadarResolution(Transform):
 
     Augmentations:
 
-    - `range_scale`: apply scale multiplicatively to `range_resolution`.
-    - `speed_scale`: apply multiplicatively to `doppler_resolution`.
+        - `range_scale`: apply scale multiplicatively to `range_resolution`.
+        - `speed_scale`: apply multiplicatively to `doppler_resolution`.
 
     Args:
         path: path to dataset directory.
@@ -54,7 +54,7 @@ class IIQQtoIQ(Transform):
     - R2: Fast Time (IIQQ i16 data); is converted to `complex64` (with half
       the length).
 
-    See `collect.radar_api.dca_types.RadarFrame` for details.
+    See :py:class:`roverc.radar_api.dca_types.RadarFrame` for details.
     """
 
     def __call__(
@@ -109,8 +109,8 @@ class FFTLinear(BaseFFT):
 
     Augmentations:
 
-    - `azimuth_flip`: flip along azimuth axis.
-    - `doppler_flip`: flip along doppler axis.
+        - `azimuth_flip`: flip along azimuth axis.
+        - `doppler_flip`: flip along doppler axis.
 
     Args:
         pad: azimuth padding; output has shape (tx * rx + pad).
@@ -147,8 +147,8 @@ class FFTArray(BaseFFT):
 
     Augmentations:
 
-    - `azimuth_flip`: flip along azimuth axis.
-    - `doppler_flip`: flip along doppler axis.
+        - `azimuth_flip`: flip along azimuth axis.
+        - `doppler_flip`: flip along doppler axis.
 
     Args:
         pad: azimuth padding; output has shape (tx * rx + pad).
@@ -273,13 +273,13 @@ class ComplexParts(Representation):
 
     Augmentations:
 
-    - `radar_scale`: radar magnitude scale factor.
-    - `radar_phase`: radar phase shift.
-    - `range_scale`: apply random range scale. Excess ranges are cropped;
-      missing ranges are zero-filled.
-    - `speed_scale`: apply random speed scale. Excess doppler bins are wrapped
-      (causing ambiguous doppler velocities); missing doppler velocities are
-      zero-filled.
+        - `radar_scale`: radar magnitude scale factor.
+        - `radar_phase`: radar phase shift.
+        - `range_scale`: apply random range scale. Excess ranges are cropped;
+          missing ranges are zero-filled.
+        - `speed_scale`: apply random speed scale. Excess doppler bins are
+          wrapped (causing ambiguous doppler velocities); missing doppler
+          velocities are zero-filled.
     """
 
     def __call__(
@@ -299,12 +299,12 @@ class ComplexAmplitude(Representation):
 
     Augmentations:
 
-    - `radar_scale`: radar magnitude scale factor.
-    - `range_scale`: apply random range scale. Excess ranges are cropped;
-      missing ranges are zero-filled.
-    - `speed_scale`: apply random speed scale. Excess doppler bins are wrapped
-      (causing ambiguous doppler velocities); missing doppler velocities are
-      zero-filled.
+        - `radar_scale`: radar magnitude scale factor.
+        - `range_scale`: apply random range scale. Excess ranges are cropped;
+          missing ranges are zero-filled.
+        - `speed_scale`: apply random speed scale. Excess doppler bins are
+          wrapped (causing ambiguous doppler velocities); missing doppler
+          velocities are zero-filled.
     """
 
     def __call__(
@@ -319,13 +319,13 @@ class ComplexPhase(Representation):
 
     Augmentations:
 
-    - `radar_scale`: radar magnitude scale factor.
-    - `radar_phase`: radar phase shift.
-    - `range_scale`: apply random range scale. Excess ranges are cropped;
-      missing ranges are zero-filled.
-    - `speed_scale`: apply random speed scale. Excess doppler bins are wrapped
-      (causing ambiguous doppler velocities); missing doppler velocities are
-      zero-filled.
+        - `radar_scale`: radar magnitude scale factor.
+        - `radar_phase`: radar phase shift.
+        - `range_scale`: apply random range scale. Excess ranges are cropped;
+          missing ranges are zero-filled.
+        - `speed_scale`: apply random speed scale. Excess doppler bins are
+          wrapped (causing ambiguous doppler velocities); missing doppler
+          velocities are zero-filled.
     """
 
     def __call__(

@@ -36,7 +36,7 @@ def _main(args):
 
     model = DeepRadar.load_from_checkpoint(
         checkpoint, hparams_file=os.path.join(args.model, "hparams.yaml"))
-    datamodule = model.get_dataset(args.model)
+    datamodule = model.get_dataset(args.path)
 
     if len(args.traces) == 0:
         raise ValueError("Passed empty `-t [--traces]`.")
@@ -47,8 +47,7 @@ def _main(args):
         out = os.path.join(args.model, "eval", trace + ".npz")
         os.makedirs(os.path.dirname(out), exist_ok=True)
 
-        dataloader = datamodule.eval_dataloader(
-            os.path.join(args.path, trace), batch_size=args.batch)
+        dataloader = datamodule.eval_dataloader(trace, batch_size=args.batch)
         res = model.evaluate(
             dataloader, desc=f"[{i + 1}/{len(traces)}] {trace}")
         np.savez(out, **res)

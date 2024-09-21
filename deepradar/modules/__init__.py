@@ -18,18 +18,20 @@
     https://arxiv.org/abs/1912.12180
 """
 
-from .conv import ConvDownsample, ConvNeXTBlock
+from .conv import ConvDownsample, ConvNeXTBlock, ConvResidual, ConvSeparable
+from .dpt import Fusion2D, FusionDecoder
 from .patch import FFTLinear, Patch2D, Patch4D, PatchMerge, Unpatch2D
-from .position import Learnable1D, LearnableND, Rotary2D, Sinusoid
+from .position import Learnable1D, LearnableND, Readout, Rotary2D, Sinusoid
 from .swin import AxialTransformerLayer, SwinTransformerLayer, WindowAttention
-from .transformer import TransformerDecoder, TransformerLayer
+from .transformer import BasisChange, TransformerDecoder, TransformerLayer
 from .window import RelativePositionBias, WindowPartition
 
 __all__ = [
-    "ConvDownsample", "ConvNeXTBlock",
+    "ConvDownsample", "ConvNeXTBlock", "ConvResidual", "ConvSeparable",
+    "Fusion2D", "FusionDecoder",
     "FFTLinear", "Patch2D", "Patch4D", "Unpatch2D", "PatchMerge",
-    "Learnable1D", "LearnableND", "Rotary2D", "Sinusoid",
+    "Learnable1D", "LearnableND", "Readout", "Rotary2D", "Sinusoid",
     "AxialTransformerLayer", "SwinTransformerLayer", "WindowAttention",
-    "TransformerDecoder", "TransformerLayer",
+    "BasisChange", "TransformerDecoder", "TransformerLayer",
     "RelativePositionBias", "WindowPartition"
 ]

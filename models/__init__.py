@@ -6,16 +6,18 @@
     https://arxiv.org/abs/2201.03545
 """
 
-from .radartransformer import (
+from .rxf import (
     Transformer2DDecoder,
     TransformerEncoder,
     TransformerFixedDecoder,
 )
+from .swin import SwinDPT2DDecoder, SwinTransformerEncoder
 from .unet import UNetBEVDecoder, UNetEncoder
 from .unext import UNeXTBEVDecoder, UNeXTEncoder
 
 __all__ = [
     "TransformerEncoder", "Transformer2DDecoder", "TransformerFixedDecoder",
+    "SwinDPT2DDecoder", "SwinTransformerEncoder",
     "UNetEncoder", "UNetBEVDecoder",
     "UNeXTEncoder", "UNeXTBEVDecoder"
 ]

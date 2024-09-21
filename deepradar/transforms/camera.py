@@ -8,7 +8,12 @@ from .base import Transform
 
 
 class CameraAugmentations(Transform):
-    """Handle camera-related augmentations."""
+    """Handle camera-related augmentations.
+
+    Augmentations:
+
+        - `azimuth_flip`: flip the camera left/right.
+    """
 
     def __call__(
         self, data: Shaped[np.ndarray, "h w ..."], aug: dict[str, Any] = {}

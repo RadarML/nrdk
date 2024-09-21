@@ -149,8 +149,8 @@ class RoverDataModule(L.LightningDataModule):
     """Rover dataloaders.
 
     Args:
-        path: path to directory containing datasets
-        traces: list of traces to be used in training
+        path: base path (directory containing datasets).
+        traces: list of traces to be used in training.
         pval: proportion of data to use for validation. Each `train` trace is
             split into two parts, with the first `1 - pval` being used for
             training, and the last `pval` being used for validation.
@@ -168,7 +168,7 @@ class RoverDataModule(L.LightningDataModule):
 
     def __init__(self,
         path: str, traces: list[str] = [], pval: float = 0.2,
-        batch_size: int = 64, val_samples: int | Iterable[int] = [0, 1, 2, 3],
+        batch_size: int = 64, val_samples: int | Iterable[int] = 16,
         channels: dict[str, dict] = {},
         augmentations: dict[str, dict] = {}, debug: bool = False
     ) -> None:
@@ -188,7 +188,11 @@ class RoverDataModule(L.LightningDataModule):
         self._val_samples = val_samples
 
     def train_dataloader(self) -> DataLoader:
-        """Get train dataloader (lightning API)."""
+        """Get train dataloader (lightning API).
+
+        Returns:
+            Single training dataloader, with all traces batched and shuffled.
+        """
         ds = RoverData(
             self._paths, channels=self._channels,
             augmentations=self._augmentations, bounds=(0.0, 1.0 - self.pval))
@@ -197,7 +201,11 @@ class RoverDataModule(L.LightningDataModule):
             num_workers=self.nproc, pin_memory=True)
 
     def val_dataloader(self) -> DataLoader:
-        """Get val dataloader (lightning API)."""
+        """Get val dataloader (lightning API).
+
+        Returns:
+            Single validation dataloader, with all traces concatenated.
+        """
         ds = RoverData(
             self._paths, channels=self._channels, augmentations={},
             bounds=(1.0 - self.pval, 1.0))
@@ -206,8 +214,18 @@ class RoverDataModule(L.LightningDataModule):
             num_workers=self.nproc, pin_memory=True)
 
     def eval_dataloader(self, path: str, batch_size: int = 16) -> DataLoader:
-        """Create evaluation dataloader."""
-        ds = RoverData([path], channels=self._channels, augmentations={})
+        """Create evaluation dataloader.
+
+        Args:
+            path: path to evaluation trace, relative to the base path.
+            batch_size: batch size to use.
+
+        Returns:
+            Dataloader for this evaluation trace.
+        """
+        ds = RoverData(
+            [os.path.join(self.base, path)],
+            channels=self._channels, augmentations={})
         return DataLoader(
             ds, batch_size=batch_size, shuffle=False, drop_last=False,
             num_workers=self.nproc, pin_memory=True)

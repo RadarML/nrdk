@@ -17,4 +17,8 @@ dataset:
         - name: Destagger
           args: {}        
         - name: Map2D
-          args: {}
+          args:
+            z_min: -0.3     # new: -0.6
+            z_max: 0.0      # new: 1.0
+            crop_el: 0.25   # new: 0.4
+            crop_az: 0.25

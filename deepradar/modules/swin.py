@@ -25,22 +25,28 @@ class WindowAttention(nn.Module):
         window: window size; must have the same length as `size`.
         shift: shift size; if `None`, uses a shift of `0` in all axes.
             Otherwise, must have the same length as `size`.
+        mask: whether to apply a mask to each axis. If `None`, applies masking
+            in all axes with nonzero `shift`.
     """
 
     def __init__(
         self, d_model: int = 512, n_head: int = 8, dropout: float = 0.0,
         size: Sequence[int] = [], window: Sequence[int] = [],
-        shift: Optional[Sequence[int]] = None
+        shift: Optional[Sequence[int]] = None,
+        mask: Optional[Sequence[bool]] = None
     ) -> None:
         super().__init__()
 
         if shift is None:
-            shift = [0 for _ in size]
+            shift = [0] * len(size)
+        if mask is None:
+            mask = [True] * len(size)
 
-        if len(size) != len(window) or len(size) != len(shift):
+        _sizes = [size, window, shift, mask]
+        if not all(len(s) == len(_sizes[0]) for s in _sizes):
             raise ValueError(
-                f"Embedding size {size}, window size {window}, and shift size "
-                f"{shift} must have the same number of dimensions.")
+                f"Embedding size {size}, window size {window}, shift size "
+                f"{shift}, and mask {mask} must have the same length.")
         if d_model % n_head != 0:
             raise ValueError(
                 f"d_model={d_model} must be divisible by n_head={n_head}.")
@@ -49,11 +55,15 @@ class WindowAttention(nn.Module):
         self.n_head = n_head
         self.scale = (d_model // n_head) ** -0.5
         self.shift = shift
+
         self.window = WindowPartition(size=size, window=window)
         self.bias = RelativePositionBias(window=window, n_head=n_head)
         self.qkv = nn.Linear(d_model, d_model * 3, bias=True)
         self.dropout = nn.Dropout(dropout)
         self.softmax = nn.Softmax(dim=-1)
+
+        self.register_buffer("attn_mask", self.window.attention_mask(
+            [s if m else 0 for s, m in zip(shift, mask)]))
 
     def forward(self, x: Float[Tensor, "n *t c"]) -> Float[Tensor, "n *t c"]:
         """Compute windowed self-attention.
@@ -78,8 +88,7 @@ class WindowAttention(nn.Module):
         attn_raw: Float[Tensor, "n_nw nh ws ws"] = einsum(
             q, k, "n_nw ws1 nh c, n_nw ws2 nh c -> n_nw nh ws1 ws2")
         bias: Float[Tensor, "nh ws ws"] = self.bias()
-        mask: Float[Tensor, "nw ws ws"] = (
-            -100. * self.window.attention_mask(self.shift))
+        mask: Float[Tensor, "nw ws ws"] = -100. * self.attn_mask
 
         attn: Float[Tensor, "n nw nh ws ws"] = self.softmax(
             attn_raw.reshape(n, n_nw // n, self.n_head, ws, ws)
@@ -96,7 +105,7 @@ class WindowAttention(nn.Module):
 
 
 class SwinTransformerLayer(nn.Module):
-    """Single N-dimensional swin transformer (encoder) layer.
+    """Single N-dimensional swin transformer (encoder) layer [M5]_.
 
     NOTE: as with conventional transformers, we only implement "pre-norm"
     [M3]_, [M4]_.
@@ -114,17 +123,22 @@ class SwinTransformerLayer(nn.Module):
         window: window size; must have the same length as `size`.
         shift: shift size; if `None`, uses a shift of `0` in all axes.
             Otherwise, must have the same length as `size`.
+        mask: whether to apply a mask to each axis. If `None`, applies masking
+            in all axes with nonzero `shift`.
     """
 
     def __init__(
         self, d_model: int = 512, n_head: int = 8, d_feedforward: int = 2048,
         dropout: float = 0.0, activation: str = "GELU",
         size: Sequence[int] = [], window: Sequence[int] = [],
-        shift: Optional[Sequence[int]] = None
+        shift: Optional[Sequence[int]] = None,
+        mask: Optional[Sequence[bool]] = None
     ) -> None:
+        super().__init__()
+
         self.attn = WindowAttention(
             d_model=d_model, n_head=n_head, dropout=dropout, size=size,
-            window=window, shift=shift)
+            window=window, shift=shift, mask=mask)
         self.dropout = nn.Dropout(dropout)
         self.norm = nn.LayerNorm(d_model, eps=1e-5, bias=True)
         self.feedforward = transformer_mlp(
@@ -145,19 +159,32 @@ class AxialTransformerLayer(nn.Module):
     window shapes (nominally alternating axes). Note that these operations can
     be combined using `compose` (i.e. `attn_1 o ... o attn_k(x)`) or `add`
     (i.e. `attn_1(x) + attn_2(x) + ... + attn_k(x)`).
+
+    Args:
+        d_model: model embedding dimension.
+        n_head: number of heads. Note that `d_model` must be divisible by
+            `n_head`.
+        d_feedforward: feedforward block hidden units.
+        dropout: dropout to use during training.
+        activation: activation function to use; must be a `nn.Module` (i.e. not
+            `nn.functional.*`).
+        size: input embedding size; note that spatial dimensions should not
+            be flattened.
+        windows: window sizes for alternating axial attention patches.
     """
 
     def __init__(
         self, d_model: int = 512, n_head: int = 8, d_feedforward: int = 2048,
         dropout: float = 0.0, activation: str = "GELU",
         size: Sequence[int] = [], windows: Sequence[Sequence[int]] = [],
-        shift: Optional[Sequence[int]] = None,
         mode: Literal["add", "compose"] = "compose"
     ) -> None:
+        super().__init__()
+
         self.attn = [
             WindowAttention(
                 d_model=d_model, n_head=n_head, dropout=dropout, size=size,
-                window=w, shift=shift
+                window=w
             ) for w in windows]
         self.dropout = nn.Dropout(dropout)
         self.norm = nn.LayerNorm(d_model, eps=1e-5, bias=True)

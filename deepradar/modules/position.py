@@ -150,3 +150,20 @@ class LearnableND(nn.Module):
             idxs[i + 1] = slice(None)
             x = x + e[idxs]
         return x
+
+
+class Readout(nn.Module):
+    """Add readout token (contatenating along the spatial axis).
+
+    Args:
+        d_model: model feature dimensions.
+    """
+
+    def __init__(self, d_model: int = 512) -> None:
+        super().__init__()
+        self.readout = nn.Parameter(data=torch.normal(0, 0.02, (d_model,)))
+
+    def forward(self, x: Float[Tensor, "n s c"]) -> Float[Tensor, "n s2 c"]:
+        """Concatenate readout token."""
+        readout = torch.tile(self.readout[None, None, :], (x.shape[0], 1, 1))
+        return torch.concatenate((x, readout), dim=1)

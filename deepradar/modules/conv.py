@@ -5,6 +5,57 @@ from jaxtyping import Float
 from torch import Tensor, nn
 
 
+class ConvResidual(nn.Module):
+    """Simple residual convolution block.
+
+    Args:
+        dim: model feature dimensions.
+        kernel_size: convolution size.
+        activation: activation function to use; must be a `nn.Module`.
+    """
+
+    def __init__(
+        self, dim: int, kernel_size: tuple[int, int] = (3, 3),
+        activation: str = "GELU"
+    ) -> None:
+        super().__init__()
+
+        self.conv = nn.Conv2d(
+            dim, dim, kernel_size=kernel_size, stride=1, padding="same")
+        self.activation = getattr(nn, activation)()
+
+    def forward(self, x: Float[Tensor, "n c h w"]) -> Float[Tensor, "n c h w"]:
+        """Apply layer."""
+        return x + self.activation(self.conv(x))
+
+
+class ConvSeparable(nn.Module):
+    """Residual convolution block with depthwise-separable convolution.
+
+    Args:
+        dim: model feature dimensions.
+        kernel_size: convolution size.
+        activation: activation function to use; must be a `nn.Module`.
+    """
+
+    def __init__(
+        self, dim: int, kernel_size: tuple[int, int] = (3, 3),
+        activation: str = "GELU"
+    ) -> None:
+        super().__init__()
+
+        self.conv_dw = nn.Conv2d(
+            dim, dim, kernel_size=kernel_size, stride=1,
+            padding="same", groups=dim)
+        self.conv_cw = nn.Conv2d(dim, dim, kernel_size=(1, 1), stride=1)
+        self.activation = getattr(nn, activation)()
+
+    def forward(self, x: Float[Tensor, "n c h w"]) -> Float[Tensor, "n c h w"]:
+        """Apply layer."""
+        conved = self.conv_cw(self.conv_dw(x))
+        return x + self.activation(conved)
+
+
 class ConvNeXTBlock(nn.Module):
     """Single ConvNeXT block [M1]_.
 

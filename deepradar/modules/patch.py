@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from beartype.typing import Iterable, Sequence
+from beartype.typing import Iterable, Sequence, cast
 from einops import rearrange
 from jaxtyping import Complex, Float
 from torch import Tensor, fft, nn
@@ -47,21 +47,66 @@ class FFTLinear(nn.Module):
         return dar_shf
 
 
+
+class PatchMerge(nn.Module):
+    """Merge patches with normalization and nominally reduced projection.
+
+    Args:
+        d_in: embedding dimension.
+        d_out: output dimension; nominally less than `d_model * prod(scale)`.
+        scale: downsampling factor to apply in each axis.
+        norm: whether to perform layer normalization.
+    """
+
+    def __init__(
+        self, d_in: int, d_out: int, scale: Sequence[int] = [],
+        norm: bool = True
+    ) -> None:
+        super().__init__()
+
+        self.scale = scale
+        d_merge = d_in * int(np.prod(scale))
+        self.reduction = nn.Linear(d_merge, d_out, bias=False)
+        self.norm = nn.LayerNorm(d_merge) if norm else None
+
+    def _merge(self, x: Float[Tensor, "n *t c"]) -> Float[Tensor, "n *t2 c2"]:
+        """Perform patch merging."""
+        n, *t, c = x.shape
+        dims = sum(([d // s, s] for d, s in zip(t, self.scale)), start=[n])
+        order = (
+            [0] + [2 * i + 1 for i in range(len(self.scale))]
+            + [2 * i + 2 for i in range(len(self.scale))] + [-1])
+        t2 = [d // s for d, s in zip(t, self.scale)]
+        return x.reshape(dims + [c]).permute(order).reshape(n, *t2, -1)
+
+    def forward(self, x: Float[Tensor, "n *t c"]) -> Float[Tensor, "n *t2 c2"]:
+        """Merge and project."""
+        merged = self._merge(x)
+        if self.norm is not None:
+            merged = self.norm(merged)
+        return self.reduction(merged)
+
+
 class Patch2D(nn.Module):
     """Apply a linear patch embedding along two axes.
 
     Args:
         in_channels: number of input channels.
-        features: number of output features; should be
-            `>= in_channels * size**2`.
+        features: number of output features; nominally
+            `>= in_channels * prod(size)`.
         size: patch size.
     """
 
     def __init__(
         self, channels: int = 1, features: int = 512,
-        size: tuple[int, int] = (4, 4)
+        size: Sequence[int] = (4, 4)
     ) -> None:
         super().__init__()
+
+        if len(size) != 2:
+            raise ValueError("Must specify a 2D patch size.")
+        size = cast(tuple[int, int], tuple(size))
+
         self.size = size
         self.patch = nn.Unfold(kernel_size=size, stride=size)
         self.linear = nn.Linear(channels * size[0] * size[1], features)
@@ -127,9 +172,14 @@ class Unpatch2D(nn.Module):
 
     def __init__(
         self, output_size: tuple[int, int, int] = (1024, 256, 1),
-        features: int = 512, size: tuple[int, int] = (16, 16)
+        features: int = 512, size: Sequence[int] = (16, 16)
     ) -> None:
         super().__init__()
+
+        if len(size) != 2:
+            raise ValueError("Must specify a 2D patch size.")
+        size = cast(tuple[int, int], tuple(size))
+
         self.linear = nn.Linear(features, output_size[-1] * size[0] * size[1])
         self.unpatch = nn.Fold(output_size[:-1], kernel_size=size, stride=size)
 
@@ -143,38 +193,3 @@ class Unpatch2D(nn.Module):
         """
         embedding = self.linear(x)
         return self.unpatch(rearrange(embedding, "b (x1x2) c -> b c (x1x2)"))
-
-
-class PatchMerge(nn.Module):
-    """Merge patches with normalization and nominally reduced projection.
-
-    Args:
-        d_in: embedding dimension.
-        d_out: output dimension; nominally less than `d_model * prod(scale)`.
-        scale: downsampling factor to apply in each axis.
-    """
-
-    def __init__(
-        self, d_in: int, d_out: int, scale: Sequence[int] = []
-    ) -> None:
-        super().__init__()
-
-        self.scale = scale
-        d_merge = d_in * int(np.prod(scale))
-        self.norm = nn.LayerNorm(d_merge)
-        self.reduction = nn.Linear(d_merge, d_out, bias=False)
-
-    def _merge(self, x: Float[Tensor, "n *t c"]) -> Float[Tensor, "n *t2 c2"]:
-        """Perform patch merging."""
-        n, *t, c = x.shape
-        dims = sum(([d // s, s] for d, s in zip(t, self.scale)), start=[n])
-        order = (
-            [0] + [2 * i + 1 for i in range(len(self.scale))]
-            + [2 * i + 2 for i in range(len(self.scale))] + [-1])
-        t2 = [d // s for d, s in zip(t, self.scale)]
-        return x.reshape(dims + [c]).permute(order).reshape(n, *t2, -1)
-
-    def forward(self, x: Float[Tensor, "n *t c"]) -> Float[Tensor, "n *t2 c2"]:
-        """Merge and project."""
-        merged = self._merge(x)
-        return self.reduction(self.norm(merged))
