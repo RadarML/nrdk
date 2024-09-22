@@ -3,10 +3,8 @@ objectives: []
 encoder:
   name: UNetEncoder
   args:
-    pad: 64
-    n_azimuth: 8
     dim: 64
-    doppler: True
+    n_doppler: 64
 
 decoders: []
 
