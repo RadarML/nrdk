@@ -18,7 +18,7 @@ dataset:
           args: {}        
         - name: Map2D
           args:
-            z_min: -0.3     # new: -0.6
-            z_max: 0.0      # new: 1.0
-            crop_el: 0.25   # new: 0.4
+            z_min: -0.6     # Waist/chest height
+            z_max: 1.0
+            crop_el: 0.4    # Middle 20% (28 beams)
             crop_az: 0.25

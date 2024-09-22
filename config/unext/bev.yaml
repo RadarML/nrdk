@@ -1,0 +1,7 @@
+<<: !include ../objectives/bev.yaml
+
+decoders:
+- name: UNeXTBEVDecoder
+  args:
+    key: bev
+    depth: 3

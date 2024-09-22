@@ -35,11 +35,14 @@ class UNetUp(nn.Module):
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
+
+        # Handle any odd sizes. If up(x1) and x2 have the exact same size, this
+        # step has no effect.
         dy = x2.size()[2] - x1.size()[2]
         dx = x2.size()[3] - x1.size()[3]
-
         x1 = nn.functional.pad(
             x1, [dx // 2, dx - dx // 2, dy // 2, dy - dy // 2])
+
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
@@ -64,22 +67,28 @@ class UNetEncoder(nn.Module):
     NOTE: must be paired with a :py:class:`.UNetBEVDecoder`.
 
     Args:
-        d_input: Number of input features (i.e. slow time / doppler length).
+        dim: model base number of features.
+        pad: Amount of padding; specifies the total number of output azimuth
+            bins, and adds zero padding with width `pad - n_azimuth`.
+        n_azimuth: Number of input azimuth bins.
         doppler: Whether to run FFT on the doppler axis, i.e. use explicit
             doppler information.
     """
 
-    def __init__(self, d_input: int = 64, doppler: bool = False) -> None:
+    def __init__(
+        self, dim: int = 64,
+        pad: int = 64, n_azimuth: int = 8, doppler: bool = False
+    ) -> None:
         super().__init__()
 
         axes = (0, 1, 2) if doppler else (1, 2)
-        self.fft = modules.FFTLinear(pad=56, axes=axes)
+        self.fft = modules.FFTLinear(pad=pad - n_azimuth, axes=axes)
 
-        self.inc = _unetblock(d_input, 64)
-        self.down1 = _down(64, 128)
-        self.down2 = _down(128, 256)
-        self.down3 = _down(256, 512)
-        self.down4 = _down(512, 512)
+        self.inc = _unetblock(pad, dim * 1)
+        self.down1 = _down(dim * 1, dim * 2)
+        self.down2 = _down(dim * 2, dim * 4)
+        self.down3 = _down(dim * 4, dim * 8)
+        self.down4 = _down(dim * 8, dim * 8)
 
     def forward(
         self, x: Complex[Tensor, "n d 4 2 r"]
@@ -93,7 +102,7 @@ class UNetEncoder(nn.Module):
             Encoded output; note that tensors have different sizes since they
             correspond to different skip connections.
         """
-        x = torch.sqrt(torch.abs(self.fft(x))) / 1e3
+        x = torch.sqrt(torch.abs(self.fft(x)))
 
         x1 = self.inc(x)
         x2 = self.down1(x1)
@@ -109,26 +118,32 @@ class UNetBEVDecoder(nn.Module):
 
     NOTE: must be paired with a :py:class:`.UNetEncoder`; can only be used for
     range-azmiuth `bev`.
+
+    Args:
+        key: output key; only supports `bev`.
+        dim: model width (i.e. number of features).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, key: str = "bev", dim: int = 64) -> None:
         super().__init__()
 
-        self.up1 = UNetUp(1024, 256)
-        self.up2 = UNetUp(512, 128)
-        self.up3 = UNetUp(256, 64)
-        self.up4 = UNetUp(128, 64)
-        self.up5 = AzimuthUp(64, 64)
-        self.up6 = AzimuthUp(64, 64)
-        self.up7 = AzimuthUp(64, 64)
-        self.up8 = AzimuthUp(64, 64)
+        self.key = key
+
+        self.up1 = UNetUp(dim * 16, dim * 4)
+        self.up2 = UNetUp(dim * 8, dim * 2)
+        self.up3 = UNetUp(dim * 4, dim)
+        self.up4 = UNetUp(dim * 2, dim)
+        self.up5 = AzimuthUp(dim, dim)
+        self.up6 = AzimuthUp(dim, dim)
+        self.up7 = AzimuthUp(dim, dim)
+        self.up8 = AzimuthUp(dim, dim)
 
         self.out = nn.Conv2d(64, 1, kernel_size=1)
 
 
     def forward(
         self, encoded: list[Float[Tensor, "n ..."]]
-    ) -> Float[Tensor, "n 1024 256"]:
+    ) -> dict[str, Float[Tensor, "n 1024 256"]]:
         """Apply UNet.
 
         Args:
@@ -148,4 +163,4 @@ class UNetBEVDecoder(nn.Module):
         x = self.up7(x)
         x = self.up8(x)
 
-        return self.out(x)[:, 0]
+        return {self.key: self.out(x)[:, 0]}

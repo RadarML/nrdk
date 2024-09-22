@@ -1,12 +1,12 @@
 objectives: []
 
 encoder:
-  name: TransformerEncoder
+  name: UNetEncoder
   args:
-    ff_ratio: 4.0
-    dropout: 0.1
-    activation: GELU
-    patch: [8, 1, 1, 16]
+    pad: 64
+    n_azimuth: 8
+    dim: 64
+    doppler: True
 
 decoders: []
 
@@ -18,7 +18,6 @@ optimizer:
 
 dataset:
   batch_size: 32
-  val_samples: 16
   channels:
     radar:
       name: RawChannel
@@ -27,14 +26,8 @@ dataset:
         sensor: radar
         channel: iq
         transform:
-        - name: AssertTx2
+        - name: DiscardTx2
           args: {}
         - name: IIQQtoIQ
           args:
             scale: 0.001
-        - name: FFTArray
-          args:
-            pad: 0
-            axes: [0, 1, 2, 3]
-        - name: ComplexPhase
-          args: {}

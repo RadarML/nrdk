@@ -89,7 +89,7 @@ class UNeXTEncoder(nn.Module):
       same space, and add (similar to a residual layer).
 
     Args:
-        width: network width multiplier. Each stage has a width of
+        dim: network width multiplier. Each stage has a width of
             `width * 2**stage`, for stage = 0, 1, 2.
         d_input: input dimension.
         depth: number of conv blocks per encode/decode in each stage.
@@ -97,7 +97,7 @@ class UNeXTEncoder(nn.Module):
     """
 
     def __init__(
-        self, width: int = 64, d_input: int = 64, depth: int = 3,
+        self, dim: int = 64, d_input: int = 64, depth: int = 3,
         doppler: bool = False
     ) -> None:
         super().__init__()
@@ -105,14 +105,14 @@ class UNeXTEncoder(nn.Module):
         axes = (0, 1, 2) if doppler else (1, 2)
         self.fft = modules.FFTLinear(pad=56, axes=axes)
 
-        self.embed = nn.Conv2d(d_input, width, kernel_size=(1, 1))
-        self.s0_down = UNetDown(width, depth=depth)
-        self.s1_down = UNetDown(width * 2, depth=depth)
-        self.s2_down = UNetDown(width * 4, depth=depth)
+        self.embed = nn.Conv2d(d_input, dim, kernel_size=(1, 1))
+        self.s0_down = UNetDown(dim, depth=depth)
+        self.s1_down = UNetDown(dim * 2, depth=depth)
+        self.s2_down = UNetDown(dim * 4, depth=depth)
 
         self.bridge = nn.Sequential(*[
             modules.ConvNeXTBlock(
-                d_model=width *  8, d_bottleneck=width * 32, kernel_size=7,
+                d_model=dim *  8, d_bottleneck=dim * 32, kernel_size=7,
                 activation="ReLU"
             ) for _ in range(depth)])
 
@@ -143,28 +143,35 @@ class UNeXTBEVDecoder(nn.Module):
 
     NOTE: must be paired with a :py:class:`.UNeXTEncoder`; can only be used for
     range-azmiuth `bev`.
+
+    Args:
+        key: output key; only supports `bev`.
+        dim: model width (i.e. number of features).
+        depth: number of convolution blocks per stage.
     """
 
     def __init__(
-        self, width: int = 64, depth: int = 3
+        self, key: str = "bev", dim: int = 64, depth: int = 3
     ) -> None:
         super().__init__()
 
-        self.s0_up = UNetUp(width, depth=depth)
-        self.s1_up = UNetUp(width * 2, depth=depth)
-        self.s2_up = UNetUp(width * 4, depth=depth)
+        self.key = key
+
+        self.s0_up = UNetUp(dim, depth=depth)
+        self.s1_up = UNetUp(dim * 2, depth=depth)
+        self.s2_up = UNetUp(dim * 4, depth=depth)
 
         self.asym_up = nn.Sequential(
-            AzimuthUp(width // 2),
-            AzimuthUp(width // 4),
-            AzimuthUp(width // 8),
-            AzimuthUp(width // 16))
+            AzimuthUp(dim // 2),
+            AzimuthUp(dim // 4),
+            AzimuthUp(dim // 8),
+            AzimuthUp(dim // 16))
 
-        self.out = nn.Conv2d(width // 16, 1, kernel_size=(1, 1))
+        self.out = nn.Conv2d(dim // 16, 1, kernel_size=(1, 1))
 
     def forward(
         self, encoded: list[Float[Tensor, "n ..."]]
-    ) -> Float[Tensor, "n 1024 256"]:
+    ) -> dict[str, Float[Tensor, "n 1024 256"]]:
         """Apply UNet.
 
         Args:
@@ -179,4 +186,4 @@ class UNeXTBEVDecoder(nn.Module):
         x = self.s1_up(x, x1)
         x = self.s0_up(x, x0)
 
-        return self.out(self.asym_up(x))[:, 0]
+        return {self.key: self.out(self.asym_up(x))[:, 0]}

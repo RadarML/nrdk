@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from beartype.typing import Sequence, TypedDict, Literal
+from beartype.typing import Literal, Sequence, TypedDict
 from einops import rearrange
 from jaxtyping import Float
 from torch import Tensor, nn

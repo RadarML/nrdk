@@ -1,0 +1,6 @@
+<<: !include ../objectives/bev.yaml
+
+decoders:
+- name: UNetBEVDecoder
+  args:
+    key: bev

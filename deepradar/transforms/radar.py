@@ -55,7 +55,15 @@ class IIQQtoIQ(Transform):
       the length).
 
     See :py:class:`roverc.radar_api.dca_types.RadarFrame` for details.
+
+    Args:
+        scale: scale factor to apply (by multiplication). Since the radar ADC
+            reads a (signed) 16-bit `(-32,768, 32,767)`, there is no clear "1"
+            value. `1e3` seems about right empirically.
     """
+
+    def __init__(self, path: str, scale: float = 1e-3) -> None:
+        self.scale = scale
 
     def __call__(
         self, data: Int16[np.ndarray, "D Tx Rx R2"], aug: dict[str, Any] = {}
@@ -64,7 +72,7 @@ class IIQQtoIQ(Transform):
         iq = np.zeros(shape, dtype=np.complex64)
         iq[..., 0::2] = 1j * data[..., 0::4] + data[..., 2::4]
         iq[..., 1::2] = 1j * data[..., 1::4] + data[..., 3::4]
-        return iq
+        return iq * self.scale
 
 
 class DiscardTx2(Transform):
@@ -291,7 +299,7 @@ class ComplexParts(Representation):
         stretched = [
             self._augment(np.real(data), aug),
             self._augment(np.imag(data), aug)]
-        return np.stack(stretched, axis=-1) / 1e6 * aug.get("radar_scale", 1.0)
+        return np.stack(stretched, axis=-1) * aug.get("radar_scale", 1.0)
 
 
 class ComplexAmplitude(Representation):
@@ -311,7 +319,7 @@ class ComplexAmplitude(Representation):
         self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {}
     ) -> Float32[np.ndarray, "..."]:
         stretched = self._augment(np.sqrt(np.abs(data)), aug)
-        return stretched / 1e3 * aug.get("radar_scale", 1.0)
+        return stretched * aug.get("radar_scale", 1.0)
 
 
 class ComplexPhase(Representation):
@@ -338,6 +346,6 @@ class ComplexPhase(Representation):
         stretched_phase = self._augment(np.angle(data), aug)
 
         return np.stack([
-            stretched_magnitude / 1e3 * aug.get("radar_scale", 1.0),
+            stretched_magnitude * aug.get("radar_scale", 1.0),
             _normalize(stretched_phase + aug.get("phase_shift", 0.0))
         ], axis=-1)
