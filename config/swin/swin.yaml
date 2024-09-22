@@ -33,7 +33,7 @@ optimizer:
   subsets: {}
 
 dataset:
-  batch_size: 32
+  batch_size: 16
   channels:
     radar:
       name: RawChannel
