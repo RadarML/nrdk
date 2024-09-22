@@ -41,6 +41,10 @@ def _parse():
     g.add_argument(
         "--patience", default=5, type=int,
         help="Stop after this many validation checks with no improvement.")
+    g.add_argument(
+        "--find_unused", default=False, action='store_true',
+        help="Find unused parameters during training; only necessary for some "
+        "models with some underlying library bugs.")
 
     g = p.add_argument_group("Logging")
     g.add_argument(
@@ -98,7 +102,7 @@ def _main(args):
     logger = TensorBoardLogger(
         args.out, name=args.name, version=args.version,
         default_hp_metric=False)
-    strategy = DDPStrategy(find_unused_parameters=True)
+    strategy = DDPStrategy(find_unused_parameters=args.find_unused)
     trainer = L.Trainer(
         logger=logger, log_every_n_steps=args.log_interval,
         callbacks=[checkpoint, stopping], max_steps=-1, max_epochs=args.epochs,
