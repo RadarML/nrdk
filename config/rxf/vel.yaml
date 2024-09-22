@@ -1,7 +1,7 @@
 <<: !include ../objectives/vel.yaml
 
 decoders:
-- name: TransformerFixedDecoder
+- name: VectorDecoder
   args:
     key: vel
     layers: [512, 512]

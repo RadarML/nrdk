@@ -31,3 +31,9 @@ dataset:
         - name: IIQQtoIQ
           args:
             scale: 0.001
+        - name: FFTLinear
+          args:
+            pad: 56
+            axes: [0, 1, 2]
+        - name: ComplexAmplitude
+          args: {}

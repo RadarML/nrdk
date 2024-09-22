@@ -1,6 +1,7 @@
 """Radar Transformer."""
 
-from beartype.typing import Sequence, cast
+import torch
+from beartype.typing import Literal, Sequence, cast
 from einops import rearrange
 from jaxtyping import Float
 from torch import Tensor, nn
@@ -141,8 +142,14 @@ class Transformer2DDecoder(nn.Module):
         return {self.key: out}
 
 
-class TransformerFixedDecoder(nn.Module):
-    """Radar transformer MLP decoder without spatial dimensions.
+class VectorDecoder(nn.Module):
+    """Generic MLP-based vector decoder without spatial dimensions.
+
+    Always uses the first encoder output tensor, and supports the following
+    reduction strategies for that tensor:
+
+    - `last`: take the last spatial feature (nominally a readout token).
+    - `max`, `avg`: max or average pooling over all spatial dimensions.
 
     Args:
         key: target key, e.g. `bev`, `depth`.
@@ -152,15 +159,23 @@ class TransformerFixedDecoder(nn.Module):
             to a class in `torch.nn`).
         dim: input features.
         out_dim: output features.
+        reduce: reduction strategy.
+        channels_first: whether input channels are in channels-spatial (`NCHW`)
+            order instead of spatial-channels order (`NHWC`).
     """
 
     def __init__(
         self, key: str, layers: list[int] = [512, 512], dropout: float = 0.1,
-        activation: str = 'GELU', dim: int = 768, out_dim: int = 3
+        activation: str = 'GELU', dim: int = 768, out_dim: int = 3,
+        strategy: Literal["last", "maxpool", "avgpool"] = "last",
+        channels_first: bool = False
     ) -> None:
         super().__init__()
 
         self.key = key
+        self.strategy = strategy
+        self.channels_first = channels_first
+
         _layers = []
         for d1, d2 in zip(([dim] + layers)[:-1], layers):
             _layers += [
@@ -172,7 +187,7 @@ class TransformerFixedDecoder(nn.Module):
         self.mlp = nn.Sequential(*_layers)
 
     def forward(
-        self, encoded: list[Float[Tensor, "n s c"]]
+        self, encoded: list[Float[Tensor, "?n *?s ?c"]]
     ) -> dict[str, Float[Tensor, "n f"]]:
         """Apply decoder.
 
@@ -183,5 +198,20 @@ class TransformerFixedDecoder(nn.Module):
         Returns:
             A tensor with the specified number of features.
         """
-        readout = encoded[-1][:, -1]
-        return {self.key: self.mlp(readout)}
+        if self.channels_first:
+            n, c, *s = encoded[0].shape
+            x = encoded[0].reshape(n, c, -1).permute(0, 2, 1)
+        else:
+            n, *s, c = encoded[0].shape
+            x = encoded[0].reshape(n, -1, c)
+
+        if self.strategy == "last":
+            x = x[:, -1]
+        elif self.strategy == "maxpool":
+            x = torch.max(x, dim=1).values
+        elif self.strategy == "avgpool":
+            x = torch.mean(x, dim=1)
+        else:
+            raise ValueError(f"Invalid strategy: {self.strategy}")
+
+        return {self.key: self.mlp(x)}

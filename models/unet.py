@@ -1,10 +1,8 @@
 """RadarHD U-net model."""
 
 import torch
-from jaxtyping import Complex, Float
+from jaxtyping import Float
 from torch import Tensor, nn
-
-from deepradar import modules
 
 
 def _unetblock(
@@ -68,30 +66,22 @@ class UNetEncoder(nn.Module):
 
     Args:
         dim: model base number of features.
-        pad: Amount of padding; specifies the total number of output azimuth
-            bins, and adds zero padding with width `pad - n_azimuth`.
-        n_azimuth: Number of input azimuth bins.
-        doppler: Whether to run FFT on the doppler axis, i.e. use explicit
-            doppler information.
+        n_doppler: number of doppler bins.
     """
 
     def __init__(
-        self, dim: int = 64,
-        pad: int = 64, n_azimuth: int = 8, doppler: bool = False
+        self, dim: int = 64, n_doppler: int = 64
     ) -> None:
         super().__init__()
 
-        axes = (0, 1, 2) if doppler else (1, 2)
-        self.fft = modules.FFTLinear(pad=pad - n_azimuth, axes=axes)
-
-        self.inc = _unetblock(pad, dim * 1)
+        self.inc = _unetblock(n_doppler, dim * 1)
         self.down1 = _down(dim * 1, dim * 2)
         self.down2 = _down(dim * 2, dim * 4)
         self.down3 = _down(dim * 4, dim * 8)
         self.down4 = _down(dim * 8, dim * 8)
 
     def forward(
-        self, x: Complex[Tensor, "n d 4 2 r"]
+        self, x: Float[Tensor, "n d a r"]
     ) -> list[Float[Tensor, "n ..."]]:
         """Apply UNet.
 
@@ -102,15 +92,13 @@ class UNetEncoder(nn.Module):
             Encoded output; note that tensors have different sizes since they
             correspond to different skip connections.
         """
-        x = torch.sqrt(torch.abs(self.fft(x)))
-
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
         x4 = self.down3(x3)
         x5 = self.down4(x4)
 
-        return [x1, x2, x3, x4, x5]
+        return [x5, x4, x3, x2, x1]
 
 
 class UNetBEVDecoder(nn.Module):
@@ -152,7 +140,7 @@ class UNetBEVDecoder(nn.Module):
         Returns:
             Range-azimuth output.
         """
-        x1, x2, x3, x4, x5 = encoded
+        x5, x4, x3, x2, x1 = encoded
 
         x = self.up1(x5, x4)
         x = self.up2(x, x3)

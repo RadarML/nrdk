@@ -6,17 +6,13 @@
     https://arxiv.org/abs/2201.03545
 """
 
-from .rxf import (
-    Transformer2DDecoder,
-    TransformerEncoder,
-    TransformerFixedDecoder,
-)
+from .rxf import Transformer2DDecoder, TransformerEncoder, VectorDecoder
 from .swin import SwinDPT2DDecoder, SwinTransformerEncoder
 from .unet import UNetBEVDecoder, UNetEncoder
 from .unext import UNeXTBEVDecoder, UNeXTEncoder
 
 __all__ = [
-    "TransformerEncoder", "Transformer2DDecoder", "TransformerFixedDecoder",
+    "TransformerEncoder", "Transformer2DDecoder", "VectorDecoder",
     "SwinDPT2DDecoder", "SwinTransformerEncoder",
     "UNetEncoder", "UNetBEVDecoder",
     "UNeXTEncoder", "UNeXTBEVDecoder"
