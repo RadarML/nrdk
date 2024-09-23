@@ -1,6 +1,7 @@
 """Results metadata."""
 
 import os
+import re
 from functools import cache
 from multiprocessing import Pool
 
@@ -43,40 +44,51 @@ class ComparativeStats(NamedTuple):
         return ComparativeStats(
             traces=self.traces, abs=self.abs.sum(), diff=self.diff.sum())
 
-    def z_boundary(self, p: float = 0.05, corrected: bool = False) -> float:
+    def z_boundary(
+        self, p: float = 0.05, corrected: bool = False, subgroups: int = 1
+    ) -> float:
         """Get z-score cutoff; see :py:meth:`.significance`."""
         p_target = p / 2
         if corrected:
             n_methods = self.abs.m1.shape[-1]
-            n_inferences = n_methods * (n_methods - 1) / 2
+            n_inferences = n_methods * (n_methods - 1) / 2 * subgroups
             p_target = p_target / n_inferences
 
         # norm.ppf returns a np.float64 (float subclass) with scalar input.
         return cast(float, norm.ppf(1 - p_target))
 
     def significance(
-        self, p: float = 0.05, corrected: bool = False
+        self, p: float = 0.05, corrected: bool = False, subgroups: int = 1
     ) -> Float[np.ndarray, "*batch Nr Nr"]:
         """Get significance matrix of the differences.
 
         Args:
             p: target p-value for a 2-sided test (actually one-sided tests for
                 either end with a union bound).
-            corrected: whether to apply the bonferroni (union) correction.
+            corrected: whether to correct for multiple inference using the
+                bonferroni (union) correction.
+            subgroups: number of subgroups being compared in total (i.e. the
+                number of parallel `ComparativeStats` in play) to perform
+                multiple inference over all hypotheses, not just those
+                contained here.
 
         Returns:
             Significance matrix, where +1 indicates that each row value is
             significantly less (better) than the column value, -1 indicates
             significantly greater (worse), and 0 indicates no significance.
         """
-        boundary = self.z_boundary(p=p, corrected=corrected)
+        boundary = self.z_boundary(
+            p=p, corrected=corrected, subgroups=subgroups)
         return (
             1.0 * (self.diff.zscore > boundary)
             - 1.0 * (self.diff.zscore < -boundary))
 
     def percent(self) -> Float[np.ndarray, "*batch Nr Nr"]:
-        """Get percent difference, relative to each row."""
-        return self.diff.mean / self.abs.mean[..., None]
+        """Get percent difference, relative to each row.
+
+        Read as "(column index) is x% better/worse than (row index)".
+        """
+        return 100. * self.diff.mean / self.abs.mean[..., None]
 
 
 class Result:
@@ -141,7 +153,8 @@ class Results:
         return manifest
 
     def compare(
-        self, results: Optional[list[str]] = None, key: str = "loss"
+        self, results: Optional[list[str]] = None, key: str = "loss",
+        pattern: Optional[str] = None
     ) -> ComparativeStats:
         """Get comparison statistics between a list of experiments.
 
@@ -149,6 +162,7 @@ class Results:
             results: list of experiments to compare. Should be file paths,
                 relative to the base path of this container.
             key: metric name to compare on.
+            pattern: regex filter to apply to traces.
 
         Returns:
             Comparison statistics between the specified experiments. Only
@@ -203,4 +217,11 @@ class Results:
             raise ValueError(
                 "The specified results do not have any evaluation traces in "
                 "common.")
+
+        if pattern is not None:
+            common = [c for c in common if re.match(pattern, c)]
+            if len(common) == 0:
+                raise ValueError(
+                    f"No traces common matched the filter pattern {pattern}.")
+
         return ComparativeStats.stack(*[stats(t) for t in common])

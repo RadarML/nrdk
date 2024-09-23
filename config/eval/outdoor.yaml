@@ -1,5 +1,5 @@
 traces: !expand
   outdoor:
-    fifth
-    shadyside.central
-    shadyside.west
+  - fifth
+  - shadyside.central
+  - shadyside.west

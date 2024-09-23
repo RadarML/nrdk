@@ -32,6 +32,7 @@ def _main(args):
             meta = json.load(f)
             checkpoint = os.path.join(args.model, "checkpoints", meta["best"])
     except FileNotFoundError:
+        print("No `meta.json` file found. Defaulting to `last.ckpt`.")
         checkpoint = os.path.join(args.model, "checkpoints", "last.ckpt")
 
     model = DeepRadar.load_from_checkpoint(

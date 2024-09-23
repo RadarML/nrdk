@@ -43,3 +43,10 @@ Radar deep learning toolkit.
     ```sh
     tensorboard --logdir=path/to/results --host=0.0.0.0
     ```
+
+## Method Codes
+
+- Size: `s/m/l` - small/medium/large
+- Objectives: `b/d/g/v` - BEV/Depth/Segment/Vel
+- Datasets: `i/o/k` - Indoor/Outdoor/Bike
+- For example: `rxf/bgv.i.s`
