@@ -1,19 +1,15 @@
 """Plotting utilities."""
 
-from abc import ABC, abstractmethod
-
 import matplotlib.axes as mpl_axes
 import numpy as np
-from beartype.typing import Any, Optional
+from beartype.typing import Optional
 from jaxtyping import Num
-
-from .result import ComparativeStats
 
 
 def comparison_matrix(
     ax: mpl_axes.Axes, x: Num[np.ndarray, "N N"],
     label: Optional[Num[np.ndarray, "N N"]] = None,
-    unit: str = "", sig: int = 3, **kwargs
+    unit: str = "", sig: int = 3, centered: bool = False, **kwargs
 ) -> None:
     """Plot pairwise comparison matrix.
 
@@ -23,12 +19,15 @@ def comparison_matrix(
         label: different array to use as labels if passed. Otherwise, the cells
             are labeled with the values of `x`.
         unit: unit name; prepended to value labels.
-        sig: number of significant figures to display in labels. Can take the
-            special values `0` (the raw number is displayed), or `1` (is cas)
-        the
-            raw number is displayed.
+        sig: number of significant figures to display in labels. If `0`, is
+            displayed without any special formatting.
+        centered: whether the range of `x` is centered around 0.
         kwargs: arguments to forward to `imshow`, e.g. `cmap=`, `aspect=`.
     """
+    if centered:
+        vmax = np.max(np.abs(x))
+        kwargs.update({"vmin": -vmax, "vmax": vmax})
+
     N = np.arange(x.shape[0])
     x_float = np.copy(x).astype(np.float64)
     x_float[N, N] = np.nan
@@ -49,60 +48,3 @@ def comparison_matrix(
     ax.set_yticks(N)
     ax.set_xticklabels([])
     ax.set_yticklabels([])
-
-
-class PlotType(ABC):
-    """Base class for a generic comparison plot."""
-
-    desc: str = "unnamed plot type"
-
-    @abstractmethod
-    def plot(self, ax: mpl_axes.Axes, stats: ComparativeStats) -> None:
-        """Draw plot."""
-        pass
-
-
-class Percent(PlotType):
-    """Percent difference."""
-
-    desc = "percent difference"
-
-    def plot(self, ax: mpl_axes.Axes, stats: ComparativeStats) -> None:
-        """Draw plot."""
-        comparison_matrix(ax, stats.percent(), unit="%", cmap="coolwarm")
-
-
-class ZScore(PlotType):
-    """Z-score of the difference."""
-
-    desc = "Z-score"
-
-    def plot(self, ax: mpl_axes.Axes, stats: ComparativeStats) -> None:
-        """Draw plot."""
-        comparison_matrix(ax, stats.diff.zscore, unit=" se", cmap="coolwarm")
-
-
-class Significance(PlotType):
-    """Colored by significance, labels by z-score."""
-
-    desc = "Z-score"
-
-    def plot(self, ax: mpl_axes.Axes, stats: ComparativeStats) -> None:
-        """Draw plot."""
-        sig = (
-            stats.significance(p=0.05, corrected=True)
-            + stats.significance(p=0.05, corrected=False))
-        comparison_matrix(
-            ax, sig, label=stats.diff.zscore, unit=" se", cmap="coolwarm")
-
-
-class ESS(PlotType):
-    """Effective sample size."""
-
-    desc = "effective sample size"
-
-    def plot(self, ax: mpl_axes.Axes, stats: ComparativeStats) -> None:
-        """Draw plot."""
-        comparison_matrix(
-            ax, stats.diff.ess, label=stats.diff.ess.astype(np.int64),
-            cmap="viridis")

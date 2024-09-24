@@ -84,11 +84,11 @@ class ComparativeStats(NamedTuple):
             - 1.0 * (self.diff.zscore < -boundary))
 
     def percent(self) -> Float[np.ndarray, "*batch Nr Nr"]:
-        """Get percent difference, relative to each row.
+        """Get percent difference, relative to each column.
 
-        Read as "(column index) is x% better/worse than (row index)".
+        Read as "(row index) is x% more/less than (column index)".
         """
-        return 100. * self.diff.mean / self.abs.mean[..., None]
+        return 100. * self.diff.mean / self.abs.mean[..., None, :]
 
 
 class Result:
@@ -170,11 +170,16 @@ class Results:
             experiments are used.
 
         Raises:
-            ValueError: if the specified experiments have no evaluation
-                commonality.
+            ValueError: An invalid configuration is specified:
+                - if the specified experiments have no evaluation commonality.
+                - if the specified list of results contain duplicates.
         """
         if results is None:
             results = self.results
+
+        if len(results) != len(set(results)):
+            raise ValueError(f"Cannot compare duplicate methods: {results}.")
+
         i, j = np.triu_indices(len(results), 1)
 
         def unflatten(

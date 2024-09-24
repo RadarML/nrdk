@@ -66,10 +66,10 @@ class TransformerEncoder(nn.Module):
         Returns:
             Encoding output.
         """
-        embedded = self.pos(self.patch(x))
+        embedded = self.patch(x)
         flat = rearrange(embedded, "n d r a e c -> n (d r a e) c")
 
-        encoded = [self.readout(flat)]
+        encoded = [self.readout(self.pos(flat))]
         for layer in self.layers:
             encoded.append(layer(encoded[-1]))
 
@@ -111,7 +111,7 @@ class Transformer2DDecoder(nn.Module):
             for _ in range(dec_layers)])
 
         self.query = modules.BasisChange(
-            shape=(shape[0] // patch[0], shape[1] // patch[1]))
+            shape=(shape[0] // patch[0] * shape[1] // patch[1],))
 
         self.unpatch = modules.Unpatch2D(
             output_size=(shape[0], shape[1], max(1, self.out_dim)),

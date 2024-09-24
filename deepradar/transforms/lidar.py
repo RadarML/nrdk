@@ -5,7 +5,7 @@ import os
 
 import numpy as np
 from beartype.typing import Any
-from jaxtyping import Bool, Float32, UInt, UInt16
+from jaxtyping import Bool, Float, Float32, UInt, UInt16
 
 # Ouster imports are broken for type checking as of 0.12.0, so we have to
 # ignore type checking any time we use anything...
@@ -87,6 +87,12 @@ class Map2D(Transform):
     ) -> None:
         with open(os.path.join(path, "radar", "radar.json")) as f:
             meta = json.load(f)
+        with open(os.path.join(path, "lidar", "lidar.json")) as f:
+            intrinsics = json.load(f)["beam_intrinsics"]
+            self.beam_angles: Float[np.ndarray, "beams"] = np.array(
+                intrinsics["beam_altitude_angles"]
+            ) / 180 * np.pi
+
         self.resolution: float = meta["range_resolution"]
         self.bins: int = meta["shape"][-1]
         self.z_min = z_min
@@ -104,10 +110,9 @@ class Map2D(Transform):
         x_crop = data[crop_el:-crop_el, crop_az:-crop_az] / 1000
 
         # Project to polar
-        el_angles = np.linspace(
-            -np.pi / 2, np.pi / 2, x_crop.shape[0], dtype=np.float32)
-        z = np.sin(el_angles)[:, None] * x_crop
-        r = np.cos(el_angles)[:, None] * x_crop
+        angles = self.beam_angles[crop_el:-crop_el]
+        z = np.sin(angles)[:, None] * x_crop
+        r = np.cos(angles)[:, None] * x_crop
 
         # Crop to ex
         r[(z > self.z_max) | (z < self.z_min)] = 0
