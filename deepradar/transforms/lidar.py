@@ -82,7 +82,7 @@ class Map2D(Transform):
     """
 
     def __init__(
-        self, path: str, z_min: float = -0.6, z_max: float = 1.0,
+        self, path: str, z_min: float = -0.6, z_max: float = 0.9,
         crop_el: float = 0.25, crop_az: float = 0.25
     ) -> None:
         with open(os.path.join(path, "radar", "radar.json")) as f:

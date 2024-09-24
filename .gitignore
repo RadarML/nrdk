@@ -1,6 +1,11 @@
 # Data / results
 /data
 /results
+*.pdf
+
+# Notebooks
+*.ipynb
+!/notebooks/*.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
