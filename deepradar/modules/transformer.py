@@ -118,8 +118,9 @@ class TransformerDecoder(nn.Module):
     def cross_attention(
         self, x: Float[Tensor, "n t c"], x_enc: Float[Tensor, "n t2 c"]
     ) -> Float[Tensor, "n t c"]:
-        x = self.norm(x)
-        return self.dropout(self.attn2(x, x_enc, x_enc, need_weights=False)[0])
+        x = self.norm2(x)
+        return self.dropout2(
+            self.attn2(x, x_enc, x_enc, need_weights=False)[0])
 
     def forward(
         self, x: Float[Tensor, "n t c"], x_enc: Float[Tensor, "n t2 c"]
