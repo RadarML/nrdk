@@ -91,7 +91,7 @@ class DeepRadar(L.LightningModule):
             y_hat.update(decoder(encoded))
         return y_hat
 
-    def _make_log(self, y_true, y_hat, split) -> None:
+    def _make_log(self, y_true, y_hat, split, step: int) -> None:
         """Inner thread callable for `log_visualizations`.
 
         Pseudo-closure to avoid closure-induced memory leaks in pytorch.
@@ -101,7 +101,7 @@ class DeepRadar(L.LightningModule):
                 imgs = objective.visualizations(y_true, y_hat)
             for k, v in imgs.items():
                 self.logger.experiment.add_image(  # type: ignore
-                    f"{k}/{split}", v, self.global_step, dataformats='HWC')
+                    f"{k}/{split}", v, step, dataformats='HWC')
 
     def log_visualizations(self, y_true, y_hat, split: str = 'train') -> None:
         """Log all image visualizations.
@@ -127,7 +127,8 @@ class DeepRadar(L.LightningModule):
             k: v[:self.num_examples].cpu().detach()
             for k, v in y_hat.items()}
         threading.Thread(
-            target=self._make_log, args=(y_true, y_hat, split)).start()
+            target=self._make_log,
+            args=(y_true, y_hat, split, self.global_step)).start()
 
     def log_debug_stats(self, unit: float = 1024 * 1024 * 1024) -> None:
         """Log memory statistics for each GPU.

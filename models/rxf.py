@@ -30,13 +30,18 @@ class TransformerEncoder(nn.Module):
         activation: activation function; specify as a name (i.e. corresponding
             to a class in `torch.nn`).
         patch: input (doppler, azimuth, elevation, range) patch size.
+        positions: type of positional embedding. `flat`: flattened positional
+            embeddings, similar to the original ViT; `nd`: n-dimensional
+            embeddings, splitting the input features into `d` equal chunks
+            encoding each axis separately.
     """
 
     def __init__(
         self, layers: int = 5,
         dim: int = 768, ff_ratio: float = 4.0, heads: int = 12,
         dropout: float = 0.1, activation: str = 'GELU',
-        patch: Sequence[int] = (16, 1, 1, 16)
+        patch: Sequence[int] = (16, 1, 1, 16),
+        positions: Literal["flat", "nd"] = "flat"
     ) -> None:
         super().__init__()
 
@@ -46,6 +51,7 @@ class TransformerEncoder(nn.Module):
         self.patch = modules.PatchMerge(
             d_in=2, d_out=dim, scale=patch, norm=False)
 
+        self.positions = positions
         self.pos = modules.Sinusoid()
         self.readout = modules.Readout(d_model=dim)
 
@@ -53,7 +59,7 @@ class TransformerEncoder(nn.Module):
             modules.TransformerLayer(
                 d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
                 dropout=dropout, activation=activation)
-            for _ in range(enc_layers)])
+            for _ in range(layers)])
 
     def forward(
         self, x: Float[Tensor, "n d a e r c"]
@@ -68,8 +74,14 @@ class TransformerEncoder(nn.Module):
             Encoding output.
         """
         embedded = self.patch(x)
+
+        if self.positions == "nd":
+            embedded = self.pos(embedded)
         flat = rearrange(embedded, "n d r a e c -> n (d r a e) c")
-        x = self.readout(self.pos(flat))
+        if self.positions == "flat":
+            flat = self.pos(flat)
+
+        x = self.readout(flat)
         for layer in self.layers:
             x = layer(x)
         return x
@@ -90,13 +102,18 @@ class Transformer2DDecoder(nn.Module):
         patch: patch size to use for unpatching. Must evenly divide `shape`.
         out_dim: output channels; if `=0`, the dimension is omitted entirely,
             i.e. `(h, w)` instead of `(h, w, c)`.
+        positions: type of positional embedding. `flat`: flattened positional
+            embeddings, similar to the original ViT; `nd`: n-dimensional
+            embeddings, splitting the input features into `d` equal chunks
+            encoding each axis separately.
     """
 
     def __init__(
         self, key: str, layers: int = 3, dim: int = 768,
         ff_ratio: float = 4.0, heads: int = 12, dropout: float = 0.1,
         activation: str = 'GELU', shape: Sequence[int] = (1024, 256),
-        patch: Sequence[int] = (16, 16), out_dim: int = 0
+        patch: Sequence[int] = (16, 16), out_dim: int = 0,
+        positions: Literal["flat", "nd"] = "flat"
     ) -> None:
         super().__init__()
 
@@ -109,8 +126,10 @@ class Transformer2DDecoder(nn.Module):
                 dropout=dropout, activation=activation)
             for _ in range(layers)])
 
-        self.query = modules.BasisChange(
-            shape=(shape[0] // patch[0] * shape[1] // patch[1],))
+        query_shape = [shape[0] // patch[0], shape[1] // patch[1]]
+        if positions == "flat":
+            query_shape = [query_shape[0] * query_shape[1]]
+        self.query = modules.BasisChange(shape=query_shape)
 
         self.unpatch = modules.Unpatch2D(
             output_size=(shape[0], shape[1], max(1, self.out_dim)),
@@ -188,22 +207,27 @@ class VectorDecoder(nn.Module):
 
     def forward(
         self, encoded: Float[Tensor, "n s c"]
+            | Sequence[Float[Tensor, "?n ?*s ?c"]]
     ) -> dict[str, Float[Tensor, "n f"]]:
         """Apply decoder.
 
         Args:
-            encoded: list of encoded values. Only the last token of the last
-                tensor (nominally the readout token) is used.
+            encoded: encoded values. Only the last token (nominally the readout
+                token) is used; if a list is passed, the last token of the last
+                tensor is used.
 
         Returns:
             A tensor with the specified number of features.
         """
+        if not isinstance(encoded, Tensor):
+            encoded = encoded[0]
+
         if self.channels_first:
-            n, c, *s = encoded[0].shape
-            x = encoded[0].reshape(n, c, -1).permute(0, 2, 1)
+            n, c, *s = encoded.shape
+            x = encoded.reshape(n, c, -1).permute(0, 2, 1)
         else:
-            n, *s, c = encoded[0].shape
-            x = encoded[0].reshape(n, -1, c)
+            n, *s, c = encoded.shape
+            x = encoded.reshape(n, -1, c)
 
         if self.strategy == "last":
             x = x[:, -1]

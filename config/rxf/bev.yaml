@@ -11,3 +11,4 @@ decoders:
     activation: GELU
     shape: [1024, 256]
     patch: [32, 16]
+    positions: nd

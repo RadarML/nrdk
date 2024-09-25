@@ -3,7 +3,8 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
-from beartype.typing import NamedTuple, Union
+import torch
+from beartype.typing import Literal, NamedTuple, Optional, Union
 from jaxtyping import Float, Shaped
 from torch import Tensor
 
@@ -66,3 +67,48 @@ class Objective(ABC):
             value is a RGB images in HWC order.
         """
         return {}
+
+
+class LPObjective:
+    """Generic Lp loss, with optional missing value masking.
+
+    Args:
+        ord: loss order; only l1 (`1`) and l2 (`2`) are supported.
+        mask: value to interpret as "NaN" or "not valid". If `None`, all values
+            are assumed to be valid.
+    """
+
+    def __init__(
+        self, ord: Literal[1, 2] = 1, mask: Optional[int | float] = None
+    ) -> None:
+        self.ord = ord
+        self.mask = mask
+
+    @staticmethod
+    def _reduce(x: Shaped[Tensor, "n *s"]) -> Shaped[Tensor, "n"]:
+        """Reduce a tensor over all but the first axis."""
+        return torch.sum(x, dim=[i for i in range(1, len(x.shape) - 1)])
+
+    def __call__(
+        self, y_hat: Float[Tensor, "batch *spatial"],
+        y_true: Float[Tensor, "batch *spatial"], reduce: bool = True
+    ) -> MetricValue:
+
+        if self.ord == 1:
+            diff = torch.abs(y_hat - y_true)
+        elif self.ord == 2:
+            diff = (y_hat - y_true)**2
+        else:
+            raise NotImplementedError("Only L1 and L2 losses are implemented.")
+
+        if self.mask is not None:
+            mask = y_true != self.mask
+            diff = torch.where(mask, diff, 0.0)
+            n = self._reduce(mask)
+        else:
+            n = np.prod(diff.shape[1:])  # type: ignore
+
+        res = torch.sum(self._reduce(diff) / n)
+        if reduce:
+            res = torch.mean(res)
+        return res

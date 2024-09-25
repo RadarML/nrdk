@@ -12,3 +12,4 @@ decoders:
     shape: [160, 160]
     patch: [8, 8]
     out_dim: 8
+    positions: nd
