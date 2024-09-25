@@ -22,29 +22,30 @@ class TransformerEncoder(nn.Module):
       output of the first encoder layer is index 1).
 
     Args:
-        enc_layers: number of encoder layers.
-        dec_layers: encoded layer indices to pass to the decoder.
+        layers: number of encoder layers.
         dim: hidden dimension.
         ff_ratio: expansion ratio for feedforward blocks.
         heads: number of heads for multiheaded attention.
         dropout: dropout ratio during training.
         activation: activation function; specify as a name (i.e. corresponding
             to a class in `torch.nn`).
-        patch: input (doppler, range) patch size.
+        patch: input (doppler, azimuth, elevation, range) patch size.
     """
 
     def __init__(
-        self, enc_layers: int = 5, dec_layers: list[int] = [5, 3, 1],
+        self, layers: int = 5,
         dim: int = 768, ff_ratio: float = 4.0, heads: int = 12,
         dropout: float = 0.1, activation: str = 'GELU',
         patch: Sequence[int] = (16, 1, 1, 16)
     ) -> None:
         super().__init__()
 
-        self.dec_layers = dec_layers
+        if len(patch) != 4:
+            raise ValueError("Must specify a 4D patch size.")
 
         self.patch = modules.PatchMerge(
             d_in=2, d_out=dim, scale=patch, norm=False)
+
         self.pos = modules.Sinusoid()
         self.readout = modules.Readout(d_model=dim)
 
@@ -56,7 +57,7 @@ class TransformerEncoder(nn.Module):
 
     def forward(
         self, x: Float[Tensor, "n d a e r c"]
-    ) -> list[Float[Tensor, "n s c"]]:
+    ) -> Float[Tensor, "n s c"]:
         """Apply radar transformer.
 
         Args:
@@ -68,12 +69,10 @@ class TransformerEncoder(nn.Module):
         """
         embedded = self.patch(x)
         flat = rearrange(embedded, "n d r a e c -> n (d r a e) c")
-
-        encoded = [self.readout(self.pos(flat))]
+        x = self.readout(self.pos(flat))
         for layer in self.layers:
-            encoded.append(layer(encoded[-1]))
-
-        return [encoded[i] for i in self.dec_layers]
+            x = layer(x)
+        return x
 
 
 class Transformer2DDecoder(nn.Module):
@@ -81,7 +80,7 @@ class Transformer2DDecoder(nn.Module):
 
     Args:
         key: target key, e.g. `bev`, `depth`.
-        dec_layers: number of decoder layers.
+        layers: number of decoder layers.
         dim: hidden dimension; should be the same as the encoder.
         ff_ratio: expansion ratio for feedforward blocks.
         heads: number of attention heads.
@@ -94,7 +93,7 @@ class Transformer2DDecoder(nn.Module):
     """
 
     def __init__(
-        self, key: str, dec_layers: int = 3, dim: int = 768,
+        self, key: str, layers: int = 3, dim: int = 768,
         ff_ratio: float = 4.0, heads: int = 12, dropout: float = 0.1,
         activation: str = 'GELU', shape: Sequence[int] = (1024, 256),
         patch: Sequence[int] = (16, 16), out_dim: int = 0
@@ -108,7 +107,7 @@ class Transformer2DDecoder(nn.Module):
             modules.TransformerDecoder(
                 d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
                 dropout=dropout, activation=activation)
-            for _ in range(dec_layers)])
+            for _ in range(layers)])
 
         self.query = modules.BasisChange(
             shape=(shape[0] // patch[0] * shape[1] // patch[1],))
@@ -118,7 +117,7 @@ class Transformer2DDecoder(nn.Module):
             features=dim, size=cast(tuple[int, int], tuple(patch)))
 
     def forward(
-        self, encoded: list[Float[Tensor, "n s c"]]
+        self, encoded: Float[Tensor, "n s c"]
     ) -> dict[str, Float[Tensor, "n h w ..."]]:
         """Apply decoder.
 
@@ -131,11 +130,12 @@ class Transformer2DDecoder(nn.Module):
             2-dimensional output; only a single key (e.g. the specified `key`)
             is decoded.
         """
-        out = self.query(encoded[0][:, -1, :])
-        for enc, layer in zip(encoded, self.layers):
-            out = layer(out, enc)
+        x = self.query(encoded[:, -1, :])
+        enc = encoded[:, :-1, :]
+        for layer in self.layers:
+            x = layer(x, enc)
 
-        out = self.unpatch(out)
+        out = self.unpatch(x)
         if self.out_dim == 0:
             out = out[:, 0, :, :]
 
@@ -187,7 +187,7 @@ class VectorDecoder(nn.Module):
         self.mlp = nn.Sequential(*_layers)
 
     def forward(
-        self, encoded: list[Float[Tensor, "?n *?s ?c"]]
+        self, encoded: Float[Tensor, "n s c"]
     ) -> dict[str, Float[Tensor, "n f"]]:
         """Apply decoder.
 

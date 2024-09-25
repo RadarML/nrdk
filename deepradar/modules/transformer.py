@@ -28,6 +28,9 @@ def transformer_mlp(
         activation: activation function (class in `torch.nn`).
         dropout: dropout rate.
         eps: layer norm epsilon.
+
+    Returns:
+        `Sequential` module implementing these layers.
     """
     return nn.Sequential(
         nn.LayerNorm(d_model, eps=eps, bias=True),

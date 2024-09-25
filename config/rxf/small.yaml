@@ -1,6 +1,5 @@
 encoder:
   args:
-    enc_layers: 9
-    dec_layers: [9, 6, 3]
+    layers: 9
     dim: 512
     heads: 8

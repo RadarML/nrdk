@@ -74,8 +74,8 @@ class ComparativeStats(NamedTuple):
 
         Returns:
             Significance matrix, where +1 indicates that each row value is
-            significantly less (better) than the column value, -1 indicates
-            significantly greater (worse), and 0 indicates no significance.
+            significantly greater than the column value, -1 indicates
+            significantly less, and 0 indicates no significant difference.
         """
         boundary = self.z_boundary(
             p=p, corrected=corrected, subgroups=subgroups)
