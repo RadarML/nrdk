@@ -2,8 +2,10 @@
 
 import matplotlib.axes as mpl_axes
 import numpy as np
-from beartype.typing import Optional
+from beartype.typing import Optional, Sequence
 from jaxtyping import Num
+
+from .result import ComparativeStats
 
 
 def comparison_matrix(
@@ -48,3 +50,55 @@ def comparison_matrix(
     ax.set_yticks(N)
     ax.set_xticklabels([])
     ax.set_yticklabels([])
+
+
+def comparison_grid(
+    axs: np.ndarray, compare: dict[str, ComparativeStats],
+    method_names: Sequence[str] = []
+) -> None:
+    """Plot a grid of comparison plots.
+
+    Each row plots a different comparison group (e.g. a different test split),
+    while the first column plots the percent difference, and the second column
+    the z-score, colored by significance.
+
+    Args:
+        axs: grid of axes.
+        compare: comparison groups; the key should be the display name of each
+            group, and the value should be a :py:class:`.ComparativeStats`.
+            Note that if the value is in vector form, it is reduced (`.sum()`)
+            before plotting.
+        method_names: display name of methods corresponding to each of the
+            computed statistics.
+    """
+    groups = len(compare)
+    if len(axs.shape) != 2:
+        raise ValueError("`axs` must be a 2D grid of plots.")
+    if axs.shape[0] != groups or axs.shape[1] != 2:
+        raise ValueError(
+            f"For len(compare)={groups}, `axs` must have shape ({groups}, 2).")
+
+    for row, (category, stats) in zip(axs, compare.items()):
+        stats = stats.sum()
+        pct = stats.percent()
+        comparison_matrix(
+            row[0], np.sign(pct) * np.sqrt(np.abs(pct)), label=pct,
+            unit="%", cmap='coolwarm', centered=True)
+        comparison_matrix(
+            row[1],
+            stats.significance(p=0.05, corrected=True, subgroups=groups)
+            + stats.significance(p=0.05, corrected=False),
+            label=stats.diff.zscore, unit=" se", cmap='coolwarm',
+            vmin=-2.3, vmax=2.3)
+
+    for ax, category in zip(axs[:, 0], compare):
+        ax.set_ylabel(category)
+        ax.set_yticklabels(method_names)
+    for ax in axs[:, 1:].reshape(-1):
+        ax.set_yticks([])
+
+    for ax, metric in zip(axs[-1], ["percent difference", "z-score"]):
+        ax.set_xlabel(metric)
+        ax.set_xticklabels(method_names, rotation=90)
+    for ax in axs[:-1].reshape(-1):
+        ax.set_xticks([])

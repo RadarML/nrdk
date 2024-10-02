@@ -3,26 +3,19 @@ objectives: []
 encoder:
   name: SwinTransformerEncoder
   args:
-    stages:
-    - merge: [2, 1, 1, 2]
-      blocks: 2
-      window: [4, 4, 2, 4]
-      shift: [2, 2, 0, 2]
-    - merge: [2, 1, 1, 2]
-      blocks: 2
-      window: [4, 4, 2, 4]
-      shift: [2, 2, 0, 2]
-    - merge: [2, 1, 1, 2]
-      blocks: 2
-      window: [4, 4, 2, 4]
-      shift: [2, 2, 0, 2]
+    stages: [2, 2, 2]
     fa_layers: 2
+    dec_layers: [1, 2, -1]
+    size: [64, 8, 2, 256]
+    patch: [4, 1, 1, 8]
+    window: [4, 4, 2, 4]
+    shift: [2, 2, 0, 2]
+    merge: [2, 1, 1, 2]
     dim: 128
     head_dim: 64
     ff_ratio: 4.0
     dropout: 0.1
     activation: GELU
-    patch: [4, 1, 1, 8]
 
 decoders: []
 

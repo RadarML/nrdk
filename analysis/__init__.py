@@ -85,12 +85,12 @@ We can also get statistics related to the underlying absolute
 """
 
 
-from .plot import comparison_matrix
+from .plot import comparison_grid, comparison_matrix
 from .result import ComparativeStats, Result, Results
 from .stats import NDStats, autocorrelation, effective_sample_size
 
 __all__ = [
-    "comparison_matrix",
+    "comparison_matrix", "comparison_grid",
     "ComparativeStats", "Result", "Results",
     "NDStats", "autocorrelation", "effective_sample_size"
 ]

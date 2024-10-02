@@ -13,7 +13,7 @@ from deepradar import DeepRadar, config
 
 
 def _parse():
-    p = ArgumentParser(description="Train radar model.")
+    p = ArgumentParser(description="Profile radar model throughput.")
 
     p.add_argument(
         "-p", "--path", default="data", help="Root dataset directory.")
@@ -21,7 +21,8 @@ def _parse():
         "-o", "--out", default=None,
         help="Output file; if not specified, the output is discarded.")
     p.add_argument(
-        "-t", "--trace", help="Reference trace to use for benchmarking.")
+        "-t", "--trace", default="outdoor/baum",
+        help="Reference trace to use for benchmarking.")
     p.add_argument(
         "-c", "--cfg", nargs='+', default=None,
         help="Training configuration; see `deepradar.config` for parsing "
@@ -33,7 +34,7 @@ def _parse():
         help="Maximum batch size to test.")
     p.add_argument(
         "--iters", default=100, type=int,
-        help="Number of benchmarking iterations to run.")
+        help="Number of benchmarking iterations (batches) to run.")
     return p
 
 

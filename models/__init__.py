@@ -4,6 +4,8 @@
     https://akarsh-prabhakara.github.io/research/radarhd/
 .. [N2] ConvNeXt: A ConvNet for the 2020s
     https://arxiv.org/abs/2201.03545
+.. [N3] Vision Transformers for Dense Prediction
+    https://arxiv.org/abs/2103.13413
 """
 
 from .rxf import Transformer2DDecoder, TransformerEncoder, VectorDecoder

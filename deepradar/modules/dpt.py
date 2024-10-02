@@ -1,6 +1,6 @@
 """Blocks for DPT."""
 
-from beartype.typing import Literal, Optional
+from beartype.typing import Literal
 from einops import rearrange
 from jaxtyping import Float
 from torch import Tensor, nn
@@ -12,13 +12,14 @@ class Fusion2D(nn.Module):
     """2D 2x upsampling fusion block.
 
     Similar to [M7]_, performs 3x3 (residual) convolutions on the encoder
-    input `x_enc` added to the decoder input `x`, which is upsampled. However
-    we do not apply a convolution to `x_enc`.
+    input `x_enc` added to the decoder input `x`, which is upsampled. To make
+    it play nice with the hierarchical structure of swin transformers, we add
+    an optional linear projection to reduce the number of features at the end.
 
     Args:
         d_in, d_out: input and output channels. Note the encoder and decoder
             inputs must both have `d_in` channels. If `d_in == d_out`, no
-            lienar projection is performed.
+            linear projection is performed.
         activation: activation function to use; must be a `nn.Module` (i.e. not
             `nn.functional.*`).
         conv_type: type of convolution to use; can be "full" (ordinary conv) or
@@ -27,7 +28,7 @@ class Fusion2D(nn.Module):
 
     def __init__(
         self, d_in: int, d_out: int, activation: str = "GELU",
-        conv_type: Literal["full", "separable"] = "full"
+        conv_type: Literal["full", "separable"] = "full",
     ) -> None:
         super().__init__()
 
@@ -36,9 +37,9 @@ class Fusion2D(nn.Module):
         self.conv1 = conv_block(d_in, activation=activation)
         self.conv2 = conv_block(d_in, activation=activation)
 
-        self.upsample: Optional[nn.Module] = None
+        self.project = None
         if d_in != d_out:
-            self.upsample = nn.Linear(d_in, d_out * 2 * 2)
+            self.project = nn.Linear(d_in, d_out, bias=True)
 
     def forward(
         self, x: Float[Tensor, "n c h w"], x_enc: Float[Tensor, "n c h w"]
@@ -52,15 +53,14 @@ class Fusion2D(nn.Module):
         Returns:
             Fused and upsampled output.
         """
-        fused = self.conv1(x) + self.conv2(x_enc)
+        fused = self.conv2(x + self.conv1(x_enc))
+        out = nn.functional.interpolate(
+            fused, scale_factor=2, mode="bilinear", align_corners=True)
 
-        if self.upsample:
-            fused_up = self.upsample(rearrange(fused, "n c h w -> n h w c"))
-            return rearrange(
-                fused_up, "n h w (c s1 s2) -> n c (h s1) (w s2)",
-                c=self.d_out, s1=2, s2=2)
-        else:
-            return fused
+        if self.project is not None:
+            out = self.project(rearrange(out, "n c h w -> n h w c"))
+            out = rearrange(out, "n h w c -> n c h w")
+        return out
 
 
 class FusionDecoder(nn.Module):

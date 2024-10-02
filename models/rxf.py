@@ -1,7 +1,7 @@
 """Radar Transformer."""
 
 import torch
-from beartype.typing import Literal, Sequence, cast
+from beartype.typing import Literal, Optional, Sequence, cast
 from einops import rearrange
 from jaxtyping import Float
 from torch import Tensor, nn
@@ -23,6 +23,8 @@ class TransformerEncoder(nn.Module):
 
     Args:
         layers: number of encoder layers.
+        dec_layers: which layers to pass to the decoder. If `None` (default),
+            only the output of the last layer is returned.
         dim: hidden dimension.
         ff_ratio: expansion ratio for feedforward blocks.
         heads: number of heads for multiheaded attention.
@@ -37,7 +39,7 @@ class TransformerEncoder(nn.Module):
     """
 
     def __init__(
-        self, layers: int = 5,
+        self, layers: int = 5, dec_layers: Optional[Sequence[int]] = None,
         dim: int = 768, ff_ratio: float = 4.0, heads: int = 12,
         dropout: float = 0.1, activation: str = 'GELU',
         patch: Sequence[int] = (16, 1, 1, 16),
@@ -55,6 +57,7 @@ class TransformerEncoder(nn.Module):
         self.pos = modules.Sinusoid()
         self.readout = modules.Readout(d_model=dim)
 
+        self.dec_layers = dec_layers
         self.layers = nn.ModuleList([
             modules.TransformerLayer(
                 d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
@@ -63,7 +66,7 @@ class TransformerEncoder(nn.Module):
 
     def forward(
         self, x: Float[Tensor, "n d a e r c"]
-    ) -> Float[Tensor, "n s c"]:
+    ) -> Float[Tensor, "n s c"] | list[Float[Tensor, "n s c"]]:
         """Apply radar transformer.
 
         Args:
@@ -82,9 +85,18 @@ class TransformerEncoder(nn.Module):
             flat = self.pos(flat)
 
         x = self.readout(flat)
-        for layer in self.layers:
-            x = layer(x)
-        return x
+
+        if self.dec_layers is None:
+            for layer in self.layers:
+                x = layer(x)
+            return x
+        else:
+            out = []
+            for i, layer in enumerate(self.layers):
+                x = layer(x)
+                if i in self.dec_layers:
+                    out.append(x)
+            return out
 
 
 class Transformer2DDecoder(nn.Module):

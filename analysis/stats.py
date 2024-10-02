@@ -129,7 +129,10 @@ class NDStats(NamedTuple):
             raise e
 
     def sum(self) -> "NDStats":
-        """Get aggregate values."""
+        """Get aggregate values.
+
+        If this `NDStats` is not a vector, this simply returns the identity.
+        """
         if len(self.n.shape) == 0:
-            raise ValueError("Can only `.sum()` a stack of statistics.")
+            return self
         return NDStats(*[np.sum(x, axis=0) for x in self])
