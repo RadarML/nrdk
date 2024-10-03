@@ -13,3 +13,4 @@ decoders:
     patch: [8, 4]
     out_dim: 0
     conv_type: separable
+ 

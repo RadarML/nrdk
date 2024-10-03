@@ -37,9 +37,10 @@ class Fusion2D(nn.Module):
         self.conv1 = conv_block(d_in, activation=activation)
         self.conv2 = conv_block(d_in, activation=activation)
 
-        self.project = None
-        if d_in != d_out:
-            self.project = nn.Linear(d_in, d_out, bias=True)
+        # self.project = None
+        # if d_in != d_out:
+        self.project = nn.Conv2d(
+            d_in, d_out * 2 * 2, kernel_size=(1, 1), bias=True)
 
     def forward(
         self, x: Float[Tensor, "n c h w"], x_enc: Float[Tensor, "n c h w"]
@@ -54,12 +55,17 @@ class Fusion2D(nn.Module):
             Fused and upsampled output.
         """
         fused = self.conv2(x + self.conv1(x_enc))
-        out = nn.functional.interpolate(
-            fused, scale_factor=2, mode="bilinear", align_corners=True)
+        fused = self.project(fused)
+        out = rearrange(
+            fused, "n (c dh dw) h w -> n c (h dh) (w dw)",
+            c=self.d_out, dh=2, dw=2)
 
-        if self.project is not None:
-            out = self.project(rearrange(out, "n c h w -> n h w c"))
-            out = rearrange(out, "n h w c -> n c h w")
+        # out = nn.functional.interpolate(
+        #     fused, scale_factor=2, mode="bilinear", align_corners=True)
+
+        # if self.project is not None:
+        #     out = self.project(rearrange(out, "n c h w -> n h w c"))
+        #     out = rearrange(out, "n h w c -> n c h w")
         return out
 
 
