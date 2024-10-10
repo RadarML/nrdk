@@ -6,6 +6,7 @@ from jaxtyping import Float
 from torch import Tensor, nn
 
 from .conv import ConvResidual, ConvSeparable
+from .transformer import TransformerDecoder
 
 
 class Fusion2D(nn.Module):
@@ -93,8 +94,11 @@ class FusionDecoder(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.attn = nn.MultiheadAttention(
-            d_in, n_head, dropout=dropout, bias=True, batch_first=True)
+        # self.attn = nn.MultiheadAttention(
+        #     d_in, n_head, dropout=dropout, bias=True, batch_first=True)
+        self.attn = TransformerDecoder(
+            d_in, n_head, d_feedforward=d_in * 4,
+            dropout=dropout, activation=activation)
         self.fusion = Fusion2D(
             d_in=d_in, d_out=d_out, activation=activation, conv_type=conv_type)
 
@@ -105,6 +109,7 @@ class FusionDecoder(nn.Module):
         """Apply fusion decoder."""
         n, c, h, w = x.shape
         x_query = rearrange(x, "n c h w -> n (h w) c")
-        x_cross = self.attn(x_query, x_enc, x_enc, need_weights=False)[0]
+        # x_cross = self.attn(x_query, x_enc, x_enc, need_weights=False)[0]
+        x_cross = self.attn(x_query, x_enc)
         x_cross = rearrange(x_cross, "n (h w) c -> n c h w", h=h, w=w)
         return self.fusion(x, x_cross)
