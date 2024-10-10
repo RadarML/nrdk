@@ -181,11 +181,11 @@ class AxialTransformerLayer(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.attn = [
+        self.attn = nn.ModuleList([
             WindowAttention(
                 d_model=d_model, n_head=n_head, dropout=dropout, size=size,
                 window=w
-            ) for w in windows]
+            ) for w in windows])
         self.dropout = nn.Dropout(dropout)
         self.norm = nn.LayerNorm(d_model, eps=1e-5, bias=True)
         self.mode = mode

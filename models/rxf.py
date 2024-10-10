@@ -118,6 +118,8 @@ class Transformer2DDecoder(nn.Module):
             embeddings, similar to the original ViT; `nd`: n-dimensional
             embeddings, splitting the input features into `d` equal chunks
             encoding each axis separately.
+        mode: how to obtain the query vector. Can be `last` (use the last
+            token, nominally a output token) or `pool` (average pooling).
     """
 
     def __init__(
@@ -125,12 +127,14 @@ class Transformer2DDecoder(nn.Module):
         ff_ratio: float = 4.0, heads: int = 12, dropout: float = 0.1,
         activation: str = 'GELU', shape: Sequence[int] = (1024, 256),
         patch: Sequence[int] = (16, 16), out_dim: int = 0,
-        positions: Literal["flat", "nd"] = "flat"
+        positions: Literal["flat", "nd"] = "flat",
+        mode: Literal["last", "pool"] = "last"
     ) -> None:
         super().__init__()
 
         self.key = key
         self.out_dim = out_dim
+        self.mode = mode
 
         self.layers = nn.ModuleList([
             modules.TransformerDecoder(
@@ -161,7 +165,12 @@ class Transformer2DDecoder(nn.Module):
             2-dimensional output; only a single key (e.g. the specified `key`)
             is decoded.
         """
-        x = self.query(encoded[:, -1, :])
+        if self.mode == "last":
+            x = encoded[:, -1, :]
+        else:
+            x = torch.mean(encoded, dim=1)
+
+        x = self.query(x)
         enc = encoded[:, :-1, :]
         for layer in self.layers:
             x = layer(x, enc)

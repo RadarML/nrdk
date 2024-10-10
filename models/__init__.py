@@ -8,12 +8,14 @@
     https://arxiv.org/abs/2103.13413
 """
 
+from .axial import AxialEncoder
 from .rxf import Transformer2DDecoder, TransformerEncoder, VectorDecoder
 from .swin import SwinDPT2DDecoder, SwinTransformerEncoder
 from .unet import UNetBEVDecoder, UNetEncoder
 from .unext import UNeXTBEVDecoder, UNeXTEncoder
 
 __all__ = [
+    "AxialEncoder",
     "TransformerEncoder", "Transformer2DDecoder", "VectorDecoder",
     "SwinDPT2DDecoder", "SwinTransformerEncoder",
     "UNetEncoder", "UNetBEVDecoder",

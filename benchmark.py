@@ -30,7 +30,7 @@ def _parse():
     p.add_argument(
         "--cfg_dir", default="config", help="Configuration base directory.")
     p.add_argument(
-        "--max_batch", default=64, type=int,
+        "--max_batch", default=32, type=int,
         help="Maximum batch size to test.")
     p.add_argument(
         "--iters", default=100, type=int,
@@ -48,7 +48,8 @@ def _benchmark(
     t = []
     for _ in tqdm(range(iters), desc=f"batch={batch_size}"):
         start = time.perf_counter()
-        _ = model(batch)
+        with torch.no_grad():
+            _ = model(batch)
         t.append(time.perf_counter() - start)
     return 1 / (np.array(t) / batch_size)
 
