@@ -28,7 +28,7 @@ class TransformerEncoder(nn.Module):
             only the output of the last layer is returned.
         dim: hidden dimension.
         ff_ratio: expansion ratio for feedforward blocks.
-        heads: number of heads for multiheaded attention.
+        head_dim: number of dimensions per head for multihead attention.
         dropout: dropout ratio during training.
         activation: activation function; specify as a name (i.e. corresponding
             to a class in `torch.nn`).
@@ -41,7 +41,7 @@ class TransformerEncoder(nn.Module):
 
     def __init__(
         self, layers: int = 5, dec_layers: Optional[Sequence[int]] = None,
-        dim: int = 768, ff_ratio: float = 4.0, heads: int = 12,
+        dim: int = 768, ff_ratio: float = 4.0, head_dim: int = 64,
         dropout: float = 0.1, activation: str = 'GELU',
         patch: Sequence[int] = (16, 1, 1, 16),
         positions: Literal["flat", "nd"] = "flat"
@@ -61,8 +61,8 @@ class TransformerEncoder(nn.Module):
         self.dec_layers = dec_layers
         self.layers = nn.ModuleList([
             modules.TransformerLayer(
-                d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
-                dropout=dropout, activation=activation)
+                d_feedforward=int(ff_ratio * dim), d_model=dim,
+                n_head=dim // head_dim, dropout=dropout, activation=activation)
             for _ in range(layers)])
 
     def forward(
@@ -108,7 +108,7 @@ class Transformer2DDecoder(nn.Module):
         layers: number of decoder layers.
         dim: hidden dimension; should be the same as the encoder.
         ff_ratio: expansion ratio for feedforward blocks.
-        heads: number of attention heads.
+        head_dim: number of feature dimensions per head.
         dropout: dropout during training.
         activation: activation function to use.
         shape: output shape; should be a 2 element list or tuple.
@@ -125,7 +125,7 @@ class Transformer2DDecoder(nn.Module):
 
     def __init__(
         self, key: str, layers: int = 3, dim: int = 768,
-        ff_ratio: float = 4.0, heads: int = 12, dropout: float = 0.1,
+        ff_ratio: float = 4.0, head_dim: int = 64, dropout: float = 0.1,
         activation: str = 'GELU', shape: Sequence[int] = (1024, 256),
         patch: Sequence[int] = (16, 16), out_dim: int = 0,
         positions: Literal["flat", "nd"] = "flat",
@@ -139,8 +139,8 @@ class Transformer2DDecoder(nn.Module):
 
         self.layers = nn.ModuleList([
             modules.TransformerDecoder(
-                d_feedforward=int(ff_ratio * dim), d_model=dim, n_head=heads,
-                dropout=dropout, activation=activation)
+                d_feedforward=int(ff_ratio * dim), d_model=dim,
+                n_head=dim // head_dim, dropout=dropout, activation=activation)
             for _ in range(layers)])
 
         query_shape = [s // p for s, p in zip(shape, patch)]

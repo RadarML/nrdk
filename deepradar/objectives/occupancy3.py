@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from jaxtyping import Shaped
 from torch import Tensor
-from torch.nn.functional import binary_cross_entropy_with_logits, sigmoid
+from torch.nn.functional import binary_cross_entropy_with_logits
 
 from deepradar.utils import comparison_grid, polar3_to_bev
 
@@ -77,13 +77,13 @@ class PolarOccupancy(Objective):
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         """Generate visualizations."""
         depth = torch.argmax(y_true['map'].to(torch.uint8), dim=-1)
-        bev = -polar3_to_bev(y_true['map'], mode='highest')
+        bev = polar3_to_bev(y_true['map'], mode='highest')
         bev_min = torch.min(bev) - 2
         bev[bev == 0] = bev_min
 
         map_pred = y_hat['map'] > 0
         depth_hat = torch.argmax(map_pred.to(torch.uint8), dim=-1)
-        bev_hat = -polar3_to_bev(map_pred, mode="highest")
+        bev_hat = polar3_to_bev(map_pred, mode="highest")
         bev_hat[bev_hat == 0] = bev_min
 
         return {

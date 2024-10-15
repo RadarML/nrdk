@@ -1,5 +1,0 @@
-encoder:
-  args:
-    layers: 12
-    dim: 640
-    heads: 10

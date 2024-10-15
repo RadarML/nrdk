@@ -6,7 +6,7 @@ decoders:
     key: map
     layers: 2
     ff_ratio: 4.0
-    heads: 8
+    head_dim: 64
     dropout: 0.1
     activation: GELU
     shape: [64, 128, 64]

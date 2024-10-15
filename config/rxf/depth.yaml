@@ -4,11 +4,11 @@ decoders:
 - name: Transformer2DDecoder
   args:
     key: depth
-    layers: 3
+    layers: 2
     ff_ratio: 4.0
-    heads: 8
+    head_dim: 64
     dropout: 0.1
     activation: GELU
     shape: [128, 1024]
-    patch: [16, 16]
+    patch: [16, 32]
     positions: nd

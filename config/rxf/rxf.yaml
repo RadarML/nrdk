@@ -5,6 +5,7 @@ encoder:
   args:
     ff_ratio: 4.0
     dropout: 0.1
+    head_dim: 64
     activation: GELU
     patch: [8, 1, 1, 16]
     positions: nd
@@ -18,7 +19,7 @@ optimizer:
   subsets: {}
 
 dataset:
-  batch_size: 32
+  batch_size: 16
   val_samples: 16
   channels:
     radar:
