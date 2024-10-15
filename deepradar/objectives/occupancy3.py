@@ -67,7 +67,7 @@ class PolarOccupancy(Objective):
         loss = torch.sum(loss, dim=(1, 2, 3)) / total_weight
 
         if reduce:
-            loss = torch.sum(loss)
+            loss = torch.mean(loss)
 
         return Metrics(loss=self.weight * loss, metrics={"map_loss": loss})
 
