@@ -78,13 +78,12 @@ class PolarOccupancy(Objective):
         """Generate visualizations."""
         depth = torch.argmax(y_true['map'].to(torch.uint8), dim=-1)
         bev = polar3_to_bev(y_true['map'], mode='highest')
-        bev_min = torch.min(bev) - 2
-        bev[bev == 0] = bev_min
+        bev[bev == 0] = torch.min(bev) - 2
 
         map_pred = y_hat['map'] > 0
         depth_hat = torch.argmax(map_pred.to(torch.uint8), dim=-1)
         bev_hat = polar3_to_bev(map_pred, mode="highest")
-        bev_hat[bev_hat == 0] = bev_min
+        bev_hat[bev_hat == 0] = torch.min(bev_hat) - 2
 
         return {
             "bev": comparison_grid(

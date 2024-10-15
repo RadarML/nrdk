@@ -4,7 +4,7 @@ import matplotlib
 import numpy as np
 import torch
 from beartype.typing import Literal
-from jaxtyping import Bool, Num, Shaped
+from jaxtyping import Bool, Num, Shaped, Float
 from torch import Tensor
 
 
@@ -113,6 +113,13 @@ def polar3_to_bev(
     return torch.stack(res)
 
 
+def _normalize(data: Shaped[Tensor, "..."]) -> Float[Tensor, "..."]:
+    """Normalize data to [0, 1] using its min/max."""
+    left = torch.min(data)
+    right = torch.max(data)
+    return torch.clip((data - left) / (right - left), 0.0, 1.0)
+
+
 def comparison_grid(
     y_true: Shaped[Tensor, "batch h w"], y_hat: Shaped[Tensor, "batch h w"],
     cols: int = 8, cmap: str = 'viridis', normalize: bool = False
@@ -127,18 +134,17 @@ def comparison_grid(
         cmap: matplotlib colormap to use, e.g. `viridis`, `inferno`. Note that
             the alpha channel is discarded.
         normalize: whether to normalize the input data. All data is normalized
-            with respect to `y_true`, and clipped. If `normalize=False`, the
-            caller is expected to provide pre-normalized data in `[0.0, 1.0]`.
+            and clipped; `y_true` and `y_hat` are normalized separately.
+            If `normalize=False`, the caller is expected to provide
+            pre-normalized data in `[0.0, 1.0]`.
 
     Returns:
         Colormapped grid of the inputs `y_true` and `y_hat` in alternating rows
         as a single HWC image.
     """
     if normalize:
-        ymin = torch.min(y_true)
-        ymax = torch.max(y_true)
-        y_true = (y_true - ymin) / (ymax - ymin)
-        y_hat = torch.clip((y_hat - ymin) / (ymax - ymin), ymin, ymax)
+        y_true = _normalize(y_true)
+        y_hat = _normalize(y_hat)
 
     nrows = y_true.shape[0] // cols
     rows = []
