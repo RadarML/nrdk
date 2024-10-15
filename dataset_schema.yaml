@@ -1,0 +1,11 @@
+camera: ["ts", "video.avi"]
+_camera: ["ts", "segment"]
+lidar: ["ts", "rng"]
+radar: ["ts", "iq"]
+imu: ["ts", "rot", "acc", "avel"]
+_:
+- _camera/pose.npz
+- _fusion/indices.npz
+- _lidar/pose.npz
+- _radar/pose.npz
+- _slam/trajectory.csv

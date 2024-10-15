@@ -51,6 +51,13 @@ class Sinusoid(nn.Module):
             self._embed(i, d, theta, x)
             for i, d in enumerate(x.shape[1:-1])
         ], dim=-1)
+
+        if embedding.shape[-1] < x.shape[-1]:
+            pad = torch.zeros(
+                *embedding.shape[:-1], x.shape[-1] - embedding.shape[-1],
+                device=x.device)
+            embedding = torch.concatenate([embedding, pad], dim=-1)
+
         return embedding[None, ...] + x
 
 

@@ -38,10 +38,11 @@ which returns a dict of generated images.
 from .base import Metrics, MetricValue, Objective
 from .depth import Depth
 from .occupancy import BEVOccupancy
+from .occupancy3 import PolarOccupancy
 from .odometry import Velocity
 from .semantics import Segmentation
 
 __all__ = [
-    "MetricValue", "Metrics", "Objective",
+    "MetricValue", "Metrics", "Objective", "PolarOccupancy",
     "BEVOccupancy", "Depth", "Segmentation", "Velocity"
 ]

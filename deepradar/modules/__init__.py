@@ -20,7 +20,7 @@
 
 from .conv import ConvDownsample, ConvNeXTBlock, ConvResidual, ConvSeparable
 from .dpt import Fusion2D, FusionDecoder
-from .patch import FFTLinear, Patch2D, Patch4D, PatchMerge, Unpatch2D
+from .patch import FFTLinear, Patch2D, Patch4D, PatchMerge, Unpatch
 from .position import Learnable1D, LearnableND, Readout, Rotary2D, Sinusoid
 from .swin import AxialTransformerLayer, SwinTransformerLayer, WindowAttention
 from .transformer import BasisChange, TransformerDecoder, TransformerLayer
@@ -29,7 +29,7 @@ from .window import RelativePositionBias, WindowPartition
 __all__ = [
     "ConvDownsample", "ConvNeXTBlock", "ConvResidual", "ConvSeparable",
     "Fusion2D", "FusionDecoder",
-    "FFTLinear", "Patch2D", "Patch4D", "Unpatch2D", "PatchMerge",
+    "FFTLinear", "Patch2D", "Patch4D", "Unpatch", "PatchMerge",
     "Learnable1D", "LearnableND", "Readout", "Rotary2D", "Sinusoid",
     "AxialTransformerLayer", "SwinTransformerLayer", "WindowAttention",
     "BasisChange", "TransformerDecoder", "TransformerLayer",

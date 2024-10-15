@@ -6,7 +6,6 @@ from jaxtyping import Float
 from torch import Tensor, nn
 
 from .conv import ConvResidual, ConvSeparable
-from .transformer import TransformerDecoder
 
 
 class Fusion2D(nn.Module):
@@ -38,8 +37,6 @@ class Fusion2D(nn.Module):
         self.conv1 = conv_block(d_in, activation=activation)
         self.conv2 = conv_block(d_in, activation=activation)
 
-        # self.project = None
-        # if d_in != d_out:
         self.project = nn.Conv2d(
             d_in, d_out * 2 * 2, kernel_size=(1, 1), bias=True)
 
@@ -57,17 +54,9 @@ class Fusion2D(nn.Module):
         """
         fused = self.conv2(x + self.conv1(x_enc))
         fused = self.project(fused)
-        out = rearrange(
+        return rearrange(
             fused, "n (c dh dw) h w -> n c (h dh) (w dw)",
             c=self.d_out, dh=2, dw=2)
-
-        # out = nn.functional.interpolate(
-        #     fused, scale_factor=2, mode="bilinear", align_corners=True)
-
-        # if self.project is not None:
-        #     out = self.project(rearrange(out, "n c h w -> n h w c"))
-        #     out = rearrange(out, "n h w c -> n c h w")
-        return out
 
 
 class FusionDecoder(nn.Module):
@@ -94,11 +83,8 @@ class FusionDecoder(nn.Module):
     ) -> None:
         super().__init__()
 
-        # self.attn = nn.MultiheadAttention(
-        #     d_in, n_head, dropout=dropout, bias=True, batch_first=True)
-        self.attn = TransformerDecoder(
-            d_in, n_head, d_feedforward=d_in * 4,
-            dropout=dropout, activation=activation)
+        self.attn = nn.MultiheadAttention(
+            d_in, n_head, dropout=dropout, bias=True, batch_first=True)
         self.fusion = Fusion2D(
             d_in=d_in, d_out=d_out, activation=activation, conv_type=conv_type)
 
@@ -109,7 +95,6 @@ class FusionDecoder(nn.Module):
         """Apply fusion decoder."""
         n, c, h, w = x.shape
         x_query = rearrange(x, "n c h w -> n (h w) c")
-        # x_cross = self.attn(x_query, x_enc, x_enc, need_weights=False)[0]
-        x_cross = self.attn(x_query, x_enc)
+        x_cross = self.attn(x_query, x_enc, x_enc, need_weights=False)[0]
         x_cross = rearrange(x_cross, "n (h w) c -> n c h w", h=h, w=w)
         return self.fusion(x, x_cross)

@@ -1,0 +1,21 @@
+objectives:
+- name: PolarOccupancy
+  args:
+    weight: 1.0
+    range_weighted: True
+
+dataset:
+  channels:
+    map:
+      name: RawChannel
+      indices: lidar
+      args:
+        sensor: lidar
+        channel: rng
+        transform:
+        - name: Destagger
+          args: {}        
+        - name: Map3D
+          args:
+            decimate: [2, 8, 4]
+            crop_az: 0.25

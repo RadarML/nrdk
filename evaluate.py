@@ -17,7 +17,8 @@ def _parse():
         "-p", "--path", default="data", help="Root dataset directory.")
     p.add_argument("-m", "--model", help="Path to model.")
     p.add_argument(
-        "-t", "--traces", nargs='+', help="Traces to evaluate.", default=[])
+        "-t", "--traces", nargs='+', help="Traces to evaluate.",
+        default=["eval[indoor,outdoor,bike"])
     p.add_argument(
         "--cfg_dir", default="config", help="Configuration base directory.")
     p.add_argument("--batch", default=16, help="Evaluation batch size.")
@@ -45,6 +46,7 @@ def _main(args):
     checkpoint = os.path.join(args.model, "checkpoints", args.checkpoint)
     model = DeepRadar.load_from_checkpoint(
         checkpoint, hparams_file=os.path.join(args.model, "hparams.yaml"))
+    model = torch.compile(model)
     datamodule = model.get_dataset(args.path)
 
     if len(args.traces) == 0:

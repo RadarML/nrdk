@@ -1,7 +1,8 @@
 """Radar Transformer."""
 
+import numpy as np
 import torch
-from beartype.typing import Literal, Optional, Sequence, cast
+from beartype.typing import Literal, Optional, Sequence
 from einops import rearrange
 from jaxtyping import Float
 from torch import Tensor, nn
@@ -142,14 +143,14 @@ class Transformer2DDecoder(nn.Module):
                 dropout=dropout, activation=activation)
             for _ in range(layers)])
 
-        query_shape = [shape[0] // patch[0], shape[1] // patch[1]]
+        query_shape = [s // p for s, p in zip(shape, patch)]
         if positions == "flat":
-            query_shape = [query_shape[0] * query_shape[1]]
+            query_shape = [int(np.prod(query_shape))]
         self.query = modules.BasisChange(shape=query_shape)
 
-        self.unpatch = modules.Unpatch2D(
-            output_size=(shape[0], shape[1], max(1, self.out_dim)),
-            features=dim, size=cast(tuple[int, int], tuple(patch)))
+        self.unpatch = modules.Unpatch(
+            output_size=(*shape, max(1, self.out_dim)),
+            features=dim, size=patch)
 
     def forward(
         self, encoded: Float[Tensor, "n s c"]
@@ -177,7 +178,7 @@ class Transformer2DDecoder(nn.Module):
 
         out = self.unpatch(x)
         if self.out_dim == 0:
-            out = out[:, 0, :, :]
+            out = out[..., 0]
 
         return {self.key: out}
 

@@ -4,7 +4,8 @@ import json
 import os
 
 import numpy as np
-from beartype.typing import Any
+from beartype.typing import Any, Sequence
+from einops import rearrange
 from jaxtyping import Bool, Float, Float32, UInt, UInt16
 
 # Ouster imports are broken for type checking as of 0.12.0, so we have to
@@ -132,24 +133,69 @@ class Map2D(Transform):
         return res
 
 
-class DecimateMap(Transform):
-    """Downsample lidar map.
+class Map3D(Transform):
+    """3D elevation-azimuth-range lidar map.
+
+    Augmentations:
+
+        - `range_scale`: random scaling applied to ranges to the sensor.
+        - `azimuth_flip`: flip along the azimuth axis.
 
     Args:
-        azimuth, range: azimuth and range decimation factors.
+        decimate: (elevation, elevation, range) decimation to apply.
+        crop_az: amount of (symmetric) cropping to apply in the azimuth axis.
+            Used to eliminate rear-facing lidar points.
     """
 
-    def __init__(self, path: str, azimuth: int = 1, range: int = 1) -> None:
-        self.azimuth = azimuth
-        self.range = range
+    def __init__(
+        self, path: str, decimate: Sequence[int] = (1, 1, 1),
+        crop_az: float = 0.25
+    ) -> None:
+        if len(decimate) != 3:
+            raise ValueError("Must have a 3D decimation factor.")
+
+        with open(os.path.join(path, "radar", "radar.json")) as f:
+            meta = json.load(f)
+
+        d_el, d_az, d_rng = decimate
+        self.resolution: float = meta["range_resolution"] * d_rng
+        self.bins: int = meta["shape"][-1] // d_rng
+        self.d_el = d_el
+        self.d_az = d_az
+
+        self.crop_az = crop_az
 
     def __call__(
-        self, data: Bool[np.ndarray, "Az Nr"], aug: dict[str, Any] = {}
-    ) -> Bool[np.ndarray, "Az_dec Nr_dec"]:
-        na, nr = data.shape
-        return np.any(data.reshape(
-            na // self.azimuth, self.azimuth, nr // self.range, self.range
-        ), axis=(1, 3))
+        self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {}
+    ) -> Bool[np.ndarray, "El2 Az2 Nr"]:
+        # Crop, convert mm -> m
+        _, az = data.shape
+        crop_az = int(self.crop_az * az)
+        rng = data[:, crop_az:-crop_az] / 1000
+
+        if "range_scale" in aug:
+            rng = rng * aug["range_scale"]
+        if aug.get("azimuth_flip"):
+            rng = np.flip(rng, axis=1)
+
+        # Create map
+        bin = (rng // (self.resolution)).astype(np.uint16)
+        bin[bin >= self.bins] = 0
+
+        n_el = bin.shape[0] // self.d_el
+        n_az = bin.shape[1] // self.d_az
+
+        bin = rearrange(
+            bin, "(el d_el) (az d_az) -> el d_el az d_az",
+            el=n_el, d_el=self.d_el, az=n_az, d_az=self.d_az)
+        res = np.zeros((n_el, n_az, self.bins), dtype=bool)
+
+        i_el = np.broadcast_to(np.arange(n_el)[:, None, None, None], bin.shape)
+        i_az = np.broadcast_to(np.arange(n_az)[None, None, :, None], bin.shape)
+        res[i_el.flatten(), i_az.flatten(), bin.flatten()] = True
+        res[:, :, 0] = False
+
+        return res
 
 
 class Depth(Transform):

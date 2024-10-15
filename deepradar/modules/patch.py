@@ -161,7 +161,7 @@ class Patch4D(Patch2D):
             n=xn, x1=x1_out, x2=x2_out, x3=x3, x4=x4)
 
 
-class Unpatch2D(nn.Module):
+class Unpatch(nn.Module):
     """Unpatch data.
 
     Args:
@@ -171,25 +171,40 @@ class Unpatch2D(nn.Module):
     """
 
     def __init__(
-        self, output_size: tuple[int, int, int] = (1024, 256, 1),
+        self, output_size: Sequence[int],
         features: int = 512, size: Sequence[int] = (16, 16)
     ) -> None:
         super().__init__()
 
-        if len(size) != 2:
-            raise ValueError("Must specify a 2D patch size.")
-        size = cast(tuple[int, int], tuple(size))
-
-        self.linear = nn.Linear(features, output_size[-1] * size[0] * size[1])
-        self.unpatch = nn.Fold(output_size[:-1], kernel_size=size, stride=size)
+        self.linear = nn.Linear(features, output_size[-1] * int(np.prod(size)))
+        self.size = size
+        self.output_size = output_size
 
     def forward(
-        self, x: Float[Tensor, "n x1x2 c"]
-    ) -> Float[Tensor, "n x1_out x2_out c_out"]:
+        self, x: Float[Tensor, "n xin c"]
+    ) -> Float[Tensor, "n *xout c_out"]:
         """Perform 2D unpatching.
 
         Operates in batch-spatial-feature order; spatial axes are flattened on
         the input, and unflattened in the output.
         """
         embedding = self.linear(x)
-        return self.unpatch(rearrange(embedding, "b (x1x2) c -> b c (x1x2)"))
+
+        if len(self.size) == 2:
+            return rearrange(
+                embedding, "n (x1 x2) (s1 s2 c) -> n (x1 s1) (x2 s2) c",
+                x1=self.output_size[0] // self.size[0],
+                x2=self.output_size[1] // self.size[1],
+                s1=self.size[0], s2=self.size[1], c=self.output_size[-1])
+        elif len(self.size) == 3:
+            return rearrange(
+                embedding,
+                "n (x1 x2 x3) (s1 s2 s3 c) -> n (x1 s1) (x2 s2) (x3 s3) c",
+                x1=self.output_size[0] // self.size[0],
+                x2=self.output_size[1] // self.size[1],
+                x3=self.output_size[2] // self.size[2],
+                s1=self.size[0], s2=self.size[1], s3=self.size[2],
+                c=self.output_size[-1])
+        else:
+            raise ValueError(
+                "Unpatch is only implemented for 2D and 3D tensors.")

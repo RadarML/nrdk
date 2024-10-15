@@ -7,7 +7,7 @@ from jaxtyping import Bool, Float, Shaped
 from torch import Tensor
 from torch.nn.functional import binary_cross_entropy_with_logits, sigmoid
 
-from deepradar.utils import comparison_grid, polar_to_bev
+from deepradar.utils import comparison_grid, polar2_to_bev
 
 from .base import Metrics, MetricValue, Objective
 
@@ -76,7 +76,7 @@ class CombinedDiceBCE:
         return loss
 
 
-class Chamfer:
+class Chamfer2D:
     """L2 Chamfer distance for a polar range-azimuth grid, in range bins.
 
     Supported modes:
@@ -168,8 +168,8 @@ class BEVOccupancy(Objective):
         self.weight = weight
         self.loss = CombinedDiceBCE(
             bce_weight=bce_weight, range_weighted=range_weighted)
-        self.chamfer = Chamfer(mode="chamfer", on_empty=128.0)
-        self.hausdorff = Chamfer(mode="modhausdorff", on_empty=128.0)
+        self.chamfer = Chamfer2D(mode="chamfer", on_empty=128.0)
+        self.hausdorff = Chamfer2D(mode="modhausdorff", on_empty=128.0)
         self.cmap = cmap
 
     def metrics(
@@ -197,6 +197,6 @@ class BEVOccupancy(Objective):
         """Generate visualizations."""
         return {
             "bev": comparison_grid(
-                polar_to_bev(y_true['bev'], height=256),
-                polar_to_bev(sigmoid(y_hat['bev']), height=256),
+                polar2_to_bev(y_true['bev'], height=256),
+                polar2_to_bev(sigmoid(y_hat['bev']), height=256),
                 cmap=self.cmap, cols=8)}

@@ -1,0 +1,14 @@
+<<: !include ../objectives/map.yaml
+
+decoders:
+- name: Transformer2DDecoder
+  args:
+    key: map
+    layers: 2
+    ff_ratio: 4.0
+    heads: 8
+    dropout: 0.1
+    activation: GELU
+    shape: [64, 128, 64]
+    patch: [8, 8, 8]
+    positions: nd

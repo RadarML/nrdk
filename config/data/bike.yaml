@@ -1,0 +1,19 @@
+dataset:
+  traces: !expand
+    bike:
+    - bloomfield.back
+    - bloomfield.out
+    - downtown.back
+    - downtown.out
+    - greenfield.back
+    - greenfield.out
+    - highland2.back
+    - highland2.out
+    - highland.back
+    - highland.out
+    - lawrenceville.back
+    - lawrenceville.out
+    - point.back
+    - point.out
+    - sqhill.back
+    - sqhill.out

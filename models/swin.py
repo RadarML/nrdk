@@ -152,7 +152,7 @@ class SwinDPT2DDecoder(nn.Module):
 
         self.head = modules.ConvResidual(
             dim // 2, kernel_size=(3, 3), activation="GELU")
-        self.unpatch = modules.Unpatch2D(
+        self.unpatch = modules.Unpatch(
             output_size=(shape[0], shape[1], max(1, self.out_dim)),
             features=dim // 2, size=patch)
 
