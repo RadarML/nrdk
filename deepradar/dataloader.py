@@ -154,6 +154,8 @@ class RoverDataModule(L.LightningDataModule):
         pval: proportion of data to use for validation. Each `train` trace is
             split into two parts, with the first `1 - pval` being used for
             training, and the last `pval` being used for validation.
+        ptrain: If specified, overrides `1 - pval` as the proportion used for
+            training (e.g. to implement dataset size ablations).
         batch_size: train batch size.
         val_samples: indices of (val) data to use as visualization samples. If
             `val_samples: int`, uses evenly spaced samples from the validation
@@ -168,6 +170,7 @@ class RoverDataModule(L.LightningDataModule):
 
     def __init__(self,
         path: str, traces: list[str] = [], pval: float = 0.2,
+        ptrain: Optional[float] = None,
         batch_size: int = 64, val_samples: int | Iterable[int] = 16,
         channels: dict[str, dict] = {},
         augmentations: dict[str, dict] = {}, debug: bool = False
@@ -176,6 +179,7 @@ class RoverDataModule(L.LightningDataModule):
         self.base = path
         self.traces = traces
         self.pval = pval
+        self.ptrain = (1 - pval if ptrain is None else ptrain)
 
         self._augmentations = {
             k: getattr(mod_augmentations, v["name"])(**v["args"])
@@ -195,7 +199,7 @@ class RoverDataModule(L.LightningDataModule):
         """
         ds = RoverData(
             self._paths, channels=self._channels,
-            augmentations=self._augmentations, bounds=(0.0, 1.0 - self.pval))
+            augmentations=self._augmentations, bounds=(0.0, self.ptrain))
         return DataLoader(
             ds, batch_size=self.batch_size, shuffle=True, drop_last=True,
             num_workers=self.nproc, pin_memory=True)

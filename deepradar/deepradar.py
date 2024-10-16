@@ -1,5 +1,7 @@
 """Training objective."""
 
+import json
+import os
 import threading
 
 import lightning as L
@@ -59,6 +61,37 @@ class DeepRadar(L.LightningModule):
         self.save_hyperparameters()
 
         # warn_tensor_cycles()
+
+    @classmethod
+    def load_from_experiment(
+        cls, path: str, checkpoint: Optional[str] = None
+    ) -> "DeepRadar":
+        """Load from experiment directory.
+
+        - If `checkpoint` is specified, that checkpoint is loaded.
+        - Otherwise, if a `meta.json` is available, the `best` checkpoint
+          in `meta.json` is loaded.
+        - Otherwise, `last.ckpt` is loaded.
+
+        Args:
+            path: experiment directory; should contain a `hparams.yaml` file
+                and `checkpoints` directory.
+            checkpoint: target checkpoint name (file in `<path>/checkpoints`).
+        """
+        if checkpoint is None:
+            try:
+                with open(os.path.join(path, "meta.json")) as f:
+                    checkpoint = str(json.load(f)["best"])
+                print(f"Using best checkpoint: {checkpoint}")
+            except FileNotFoundError:
+                print("No `meta.json` file found. Defaulting to `last.ckpt`.")
+                checkpoint = "last.ckpt"
+        else:
+            print(f"Using specified checkpoint: {checkpoint}")
+
+        return cls.load_from_checkpoint(
+            os.path.join(path, "checkpoints", checkpoint),
+            hparams_file=os.path.join(path, "hparams.yaml"))
 
     def get_dataset(self, path: str, debug: bool = False) -> RoverDataModule:
         """Get datamodule.

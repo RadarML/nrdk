@@ -32,20 +32,7 @@ def _parse():
 
 def _main(args):
 
-    if args.checkpoint is None:
-        try:
-            with open(os.path.join(args.model, "meta.json")) as f:
-                args.checkpoint = json.load(f)["best"]
-            print(f"Using best checkpoint: {args.checkpoint}")
-        except FileNotFoundError:
-            print("No `meta.json` file found. Defaulting to `last.ckpt`.")
-            args.checkpoint = "last.ckpt"
-    else:
-        print(f"Using specified checkpoint: {args.checkpoint}")
-
-    checkpoint = os.path.join(args.model, "checkpoints", args.checkpoint)
-    model = DeepRadar.load_from_checkpoint(
-        checkpoint, hparams_file=os.path.join(args.model, "hparams.yaml"))
+    model = DeepRadar.load_from_experiment(args.model, checkpoint=args.checkpoint)
     model = torch.compile(model)
     datamodule = model.get_dataset(args.path)
 

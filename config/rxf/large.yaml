@@ -1,4 +1,4 @@
 encoder:
   args:
-    layers: 8
-    dim: 1024
+    layers: 12
+    dim: 768

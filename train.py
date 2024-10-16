@@ -46,6 +46,16 @@ def _parse():
         help="Find unused parameters during training; only necessary for some "
         "models with some underlying library bugs.")
 
+    g = p.add_argument_group("Fine tuning")
+    g.add_argument(
+        "-b", "--base_model", default=None,
+        help="Encoder base model to load, if specified. Should be a "
+        "experiment directory containing a `hparams.yaml` file and "
+        "`checkpoints` directory.")
+    g.add_argument(
+        "-f", "--freeze", action='store_true', default=False,
+        help="Freeze encoder (i.e. don't allow tuning the encoder).")
+
     g = p.add_argument_group("Logging")
     g.add_argument(
         "-n", "--name", default=None,
@@ -81,12 +91,20 @@ def _main(args):
     else:
         args.cfg = [os.path.join(args.cfg_dir, c) for c in args.cfg]
 
+    # Resume training
     model_cfg = config.load_config(args.cfg)
     if args.checkpoint is None:
         model = DeepRadar(**model_cfg)
     else:
         model = DeepRadar.load_from_checkpoint(
             args.checkpoint, hparams_file=args.cfg[0])
+
+    # Use base model
+    if args.base_model is not None:
+        base = DeepRadar.load_from_experiment(args.base_model, checkpoint=None)
+        model.encoder.load_state_dict(base.encoder.state_dict())
+        if args.freeze:
+            model.encoder.freeze()
 
     # Bypass save_hyperparameters
     model.configure(log_interval=args.log_example_interval, num_examples=16)

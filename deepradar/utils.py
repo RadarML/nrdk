@@ -4,7 +4,7 @@ import matplotlib
 import numpy as np
 import torch
 from beartype.typing import Literal
-from jaxtyping import Bool, Num, Shaped, Float
+from jaxtyping import Bool, Float, Num, Shaped
 from torch import Tensor
 
 

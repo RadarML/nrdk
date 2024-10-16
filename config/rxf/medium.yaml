@@ -1,0 +1,4 @@
+encoder:
+  args:
+    layers: 8
+    dim: 512

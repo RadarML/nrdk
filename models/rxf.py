@@ -1,5 +1,6 @@
 """Radar Transformer."""
 
+import lightning as L
 import numpy as np
 import torch
 from beartype.typing import Literal, Optional, Sequence
@@ -10,7 +11,7 @@ from torch import Tensor, nn
 from deepradar import modules
 
 
-class TransformerEncoder(nn.Module):
+class TransformerEncoder(L.LightningModule):
     """Radar Doppler Transformer.
 
     Only a selected subset of hidden layers are passed to the decoder, and
@@ -100,7 +101,7 @@ class TransformerEncoder(nn.Module):
             return out
 
 
-class Transformer2DDecoder(nn.Module):
+class Transformer2DDecoder(L.LightningModule):
     """Radar transformer 2D tensor decoder.
 
     Args:
@@ -183,7 +184,7 @@ class Transformer2DDecoder(nn.Module):
         return {self.key: out}
 
 
-class VectorDecoder(nn.Module):
+class VectorDecoder(L.LightningModule):
     """Generic MLP-based vector decoder without spatial dimensions.
 
     Always uses the first encoder output tensor, and supports the following
