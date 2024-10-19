@@ -26,6 +26,8 @@ dataset:
 
 decoder:
   args:
+    # Canonical axes: elevation-azimuth-range
     key: map
+    pos_scale: [1.0, 1.0, 1.0]
     shape: [64, 128, 64]
     patch: [8, 8, 8]

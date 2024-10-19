@@ -63,7 +63,8 @@ class TransformerEncoder(L.LightningModule):
             d_in=input_channels, d_out=dim, scale=patch, norm=False)
 
         self.positions = positions
-        self.pos = modules.Sinusoid()
+        self.pos = modules.Sinusoid(
+            scale=pos_scale, global_scale=global_scale)
         self.readout = modules.Readout(d_model=dim)
 
         self.dec_layers = dec_layers

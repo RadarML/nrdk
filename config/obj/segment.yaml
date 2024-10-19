@@ -17,6 +17,9 @@ dataset:
 
 decoder:
   args:
+    # Canonical axes: elevation-azimuth-range
+    # 120 deg / 180 deg azimuth crop; no elevation crop
     key: segment
-    shape: [160, 160]
-    patch: [5, 5]
+    pos_scale: [1.0, 0.666, 1.0]
+    shape: [160, 160, 1]
+    patch: [5, 5, 1]

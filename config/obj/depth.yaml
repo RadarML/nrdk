@@ -23,6 +23,8 @@ dataset:
 decoder:
   name: TransformerDecoder
   args:
+    # Canonical axes: elevation-azimuth-range
     key: depth
-    shape: [128, 1024]
-    patch: [16, 32]
+    pos_scale: [1.0, 1.0, 1.0]
+    shape: [128, 1024, 1]
+    patch: [16, 32, 1]

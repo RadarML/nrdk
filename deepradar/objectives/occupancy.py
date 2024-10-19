@@ -178,14 +178,16 @@ class BEVOccupancy(Objective):
         reduce: bool = True, train: bool = True
     ) -> Metrics:
         """Get training metrics."""
-        loss = self.loss(y_hat['bev'], y_true['bev'], reduce=reduce)
+        # Canonical batch-elevation-azimuth-range -> batch-azimuth-range
+        bev_hat = y_hat['bev'][:, 0]
+
+        loss = self.loss(bev_hat, y_true['bev'], reduce=reduce)
         if train:
             return Metrics(loss=self.weight * loss, metrics={"bev_loss": loss})
         else:
-            chamfer = self.chamfer(
-                y_hat['bev'] > 0, y_true['bev'], reduce=reduce)
-            hausdorff = self.hausdorff(
-                y_hat['bev'] > 0, y_true['bev'], reduce=reduce)
+            occ = bev_hat > 0
+            chamfer = self.chamfer(occ, y_true['bev'], reduce=reduce)
+            hausdorff = self.hausdorff(occ, y_true['bev'], reduce=reduce)
             return Metrics(loss=loss, metrics={
                 "bev_loss": loss, "bev_chamfer": chamfer,
                 "bev_hausdorff": hausdorff})
@@ -195,8 +197,11 @@ class BEVOccupancy(Objective):
         y_hat: dict[str, Shaped[Tensor, "..."]]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         """Generate visualizations."""
+        # Canonical batch-elevation-azimuth-range -> batch-azimuth-range
+        bev_hat = y_hat['bev'][:, 0]
+
         return {
             "bev": comparison_grid(
-                polar2_to_bev(y_true['bev'], height=256),
-                polar2_to_bev(sigmoid(y_hat['bev']), height=256),
+                polar2_to_bev(bev_hat, height=256),
+                polar2_to_bev(sigmoid(bev_hat), height=256),
                 cmap=self.cmap, cols=8)}

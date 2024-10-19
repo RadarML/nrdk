@@ -60,7 +60,7 @@ class Sinusoid(nn.Module):
         start_dim = 0
         for axis, (d, scale) in enumerate(zip(x.shape[1:-1], self.scale * nd)):
             # t = scale * (j - d/2) / (d/2) = scale * (2j / d - 1)
-            t = scale * (2 * torch.arange(d, device=x.device) / d - 1)
+            t = scale * (2 * (torch.arange(d, device=x.device) - 0.5) / d - 1)
             wt: Float[Tensor, "d c"] = t[:, None] * w[None, :]
 
             p_slice = [None] * (len(x.shape) - 1) + [slice(None)]

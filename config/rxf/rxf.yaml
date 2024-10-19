@@ -9,16 +9,19 @@ encoder:
     head_dim: 64
     activation: GELU
     patch: [8, 1, 1, 16]
+    pos_scale: [1.0, 1.0, 1.0, 1.0]
+    global_scale: 16.0
     positions: nd
 
 decoder:
   name: TransformerDecoder
   args:
     # From size spec: layers, dim
-    # From objective spec: key, shape, patch
+    # From objective spec: key, shape, patch, pos_scale
     ff_ratio: 4.0
     head_dim: 64
     dropout: 0.1
+    global_scale: 16.0
     activation: GELU
     positions: nd
 

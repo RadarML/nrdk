@@ -37,8 +37,11 @@ class Segmentation(Objective):
         reduce: bool = True, train: bool = True
     ) -> Metrics:
         """Get training metrics."""
+        # Canonical elevation-azimuth-range -> elevation-azimuth
+        seg_hat = y_hat["segment"][..., 0]
+
         target: UInt[Tensor, "batch h w"] = y_true["segment"].to(torch.long)
-        input_logits: Float[Tensor, "batch c h w"] = y_hat["segment"]
+        input_logits: Float[Tensor, "batch c h w"] = seg_hat
 
         loss = torch.mean(self.ce(input_logits, target), dim=(1, 2))
         if reduce:
@@ -67,7 +70,10 @@ class Segmentation(Objective):
         y_hat: dict[str, Shaped[Tensor, "..."]]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         """Generate visualizations."""
+        # Canonical elevation-azimuth-range -> elevation-azimuth
+        seg_hat = y_hat["segment"][..., 0]
+
         rez = Resize((180, 320), interpolation=InterpolationMode.NEAREST)
-        y_hat_idx = torch.argmax(y_hat["segment"], dim=1)
+        y_hat_idx = torch.argmax(seg_hat, dim=1)
         return {"segment": comparison_grid(
             rez(y_true["segment"]), rez(y_hat_idx), cmap=self.cmap, cols=8)}

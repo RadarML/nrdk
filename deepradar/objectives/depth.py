@@ -65,7 +65,10 @@ class Depth(Objective):
         reduce: bool = True, train: bool = True
     ) -> Metrics:
         """Get training metrics."""
-        loss = self.loss(y_hat['depth'], y_true['depth'], reduce=reduce)
+        # Canonical elevation-azimuth-range -> elevation-azimuth
+        depth_hat = y_hat["depth"][..., 0]
+
+        loss = self.loss(depth_hat, y_true['depth'], reduce=reduce)
         return Metrics(loss=self.weight * loss, metrics={"depth_loss": loss})
 
     def visualizations(
@@ -73,6 +76,9 @@ class Depth(Objective):
         y_hat: dict[str, Shaped[Tensor, "..."]]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         """Generate visualizations."""
+        # Canonical elevation-azimuth-range -> elevation-azimuth
+        depth_hat = y_hat["depth"][..., 0]
+
         rez = Resize((256, 256 * 2), interpolation=InterpolationMode.NEAREST)
         return {"depth": comparison_grid(
-            rez(y_true['depth']), rez(y_hat['depth']), cmap=self.cmap, cols=8)}
+            rez(y_true['depth']), rez(depth_hat), cmap=self.cmap, cols=8)}
