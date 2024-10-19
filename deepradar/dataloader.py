@@ -146,7 +146,13 @@ class RoverData(Dataset):
 
 
 class RoverDataModule(L.LightningDataModule):
-    """Rover dataloaders.
+    """Dataloaders for Rover multimodal data.
+
+    Implementation notes:
+
+    - The input `traces` are sorted (in alphabetical order) prior to loading;
+      this order then determines the actual loading order. This ensures that
+      the dataset order (which relates to train and val order) is consistent.
 
     Args:
         path: base path (directory containing datasets).
@@ -177,7 +183,7 @@ class RoverDataModule(L.LightningDataModule):
     ) -> None:
         super().__init__()
         self.base = path
-        self.traces = traces
+        self.traces = sorted(traces)
         self.pval = pval
         self.ptrain = (1 - pval if ptrain is None else ptrain)
 

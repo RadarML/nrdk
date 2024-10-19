@@ -3,6 +3,7 @@
 import json
 import os
 import threading
+from queue import Queue
 
 import lightning as L
 import numpy as np
@@ -32,16 +33,14 @@ class DeepRadar(L.LightningModule):
         objectives: list of objective specifications; see
             :py:mod:`deepradar.objectives`.
         encoder: encoder specification; see :py:mod:`models`.
-        decoders: list of decoder specifications; see :py:mod:`models`; the
-            `dim` (embedding dimension) specification is fetched from the
-            encoder specification, and should not be included in `decoders`.
+        decoder: decoder specifications; note that the `dim` input is fetched
+            from the encoder specification.
         optimizer: optimizer specifications; see :py:func:`.create_optimizer`.
     """
 
     def __init__(
         self, dataset: dict = {}, objectives: list[dict] = [],
-        encoder: dict = {}, decoders: list[dict] = [],
-        optimizer: dict = {}
+        encoder: dict = {}, decoder: dict = {}, optimizer: dict = {}
     ) -> None:
         super().__init__()
 
@@ -50,11 +49,8 @@ class DeepRadar(L.LightningModule):
             getattr(mod_objectives, spec["name"])(**spec["args"])
             for spec in objectives]
         self.encoder = getattr(models, encoder["name"])(**encoder["args"])
-        self.decoders = torch.nn.ModuleList(
-            getattr(
-                models, spec["name"]
-            )(**spec["args"], dim=encoder["args"]["dim"])
-            for spec in decoders)
+        self.decoder = getattr(models, decoder["name"])(
+            dim=encoder["args"]["dim"], **decoder["args"])
         self.optimizer = optimizer
 
         self.configure()
@@ -119,10 +115,7 @@ class DeepRadar(L.LightningModule):
     def forward(self, batch):
         """Apply model."""
         encoded = self.encoder(batch['radar'])
-        y_hat = {}
-        for decoder in self.decoders:
-            y_hat.update(decoder(encoded))
-        return y_hat
+        return self.decoder(encoded)
 
     def _make_log(self, y_true, y_hat, split, step: int) -> None:
         """Inner thread callable for `log_visualizations`.
@@ -186,8 +179,11 @@ class DeepRadar(L.LightningModule):
             metrics = objective.metrics(batch, y_hat, train=True, reduce=True)
             loss += metrics.loss
             for k, v in metrics.metrics.items():
-                self.log(f"{k}/train", v, on_step=True, sync_dist=True)
-        self.log("loss/train", loss, on_step=True, sync_dist=True)
+                self.log(
+                    f"{k}/train", v,
+                    on_step=True, on_epoch=True, sync_dist=True)
+        self.log(
+            "loss/train", loss, on_step=True, on_epoch=True, sync_dist=True)
 
         if self.global_rank == 0:
             if self.global_step % self.log_interval == 0:
@@ -266,3 +262,49 @@ class DeepRadar(L.LightningModule):
         return {
             k: np.concatenate([x[k].cpu().numpy() for x in results])
             for k in results[0]}
+
+    def render_step(
+        self, batch
+    ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
+        """Run objective output rendering (:py:meth:`.Objective.render`).
+
+        Args:
+            batch: input batch
+
+        Returns:
+            Dictionary of rendered values with the input order preserved. Note
+            that each objective should already have converted its rendered
+            output to `np.ndarray` already.
+        """
+        y_hat = self.forward(batch)
+        rendered = {}
+        for objective in self.objectives:
+            rendered.update(objective.render(batch, y_hat))
+        return rendered
+
+    def render(
+        self, trace: DataLoader, device=0, desc: Optional[str] = None,
+        outputs: dict[str, Queue[Optional[Shaped[np.ndarray, "..."]]]] = {}
+    ) -> None:
+        """Render a (nominally test) trace.
+
+        Args:
+            trace, device, desc: See `:py:meth:DeepRadar.evaluate`.
+            outputs: A dictionary of queues; each rendered value is placed
+                in the queue inside `outputs` with the same key. Another
+                caller-managed thread is then responsible for handling the
+                queues (e.g. :py:meth:`roverd.Channel.consume`). `None` values
+                are put in the queues to indicate termination.
+        """
+        device = torch.device(device)
+        for batch in tqdm(trace, desc=desc):
+            with torch.no_grad():
+                batch_gpu = {
+                    k: torch.Tensor(v).to(device) for k, v in batch.items()}
+                rendered = self.render_step(batch_gpu)
+                for k, v in rendered.items():
+                    for sample in v:
+                        outputs[k].put(sample)
+
+        for q in outputs.values():
+            q.put(None)

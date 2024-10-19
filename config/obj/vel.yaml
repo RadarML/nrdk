@@ -15,3 +15,13 @@ dataset:
         transform:
         - name: RelativeVelocity
           args: {}
+
+# Override all args since this isn't a standard transform layer
+:decoder:
+  name: VectorDecoder
+  args:
+    key: vel
+    layers: [512, 512]
+    dropout: 0.1
+    activation: GELU
+    out_dim: 3

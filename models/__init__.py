@@ -9,14 +9,14 @@
 """
 
 from .axial import AxialEncoder
-from .rxf import Transformer2DDecoder, TransformerEncoder, VectorDecoder
+from .rxf import TransformerDecoder, TransformerEncoder, VectorDecoder
 from .swin import SwinDPT2DDecoder, SwinTransformerEncoder
 from .unet import UNetBEVDecoder, UNetEncoder
 from .unext import UNeXTBEVDecoder, UNeXTEncoder
 
 __all__ = [
     "AxialEncoder",
-    "TransformerEncoder", "Transformer2DDecoder", "VectorDecoder",
+    "TransformerEncoder", "TransformerDecoder", "VectorDecoder",
     "SwinDPT2DDecoder", "SwinTransformerEncoder",
     "UNetEncoder", "UNetBEVDecoder",
     "UNeXTEncoder", "UNeXTBEVDecoder"

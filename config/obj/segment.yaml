@@ -1,7 +1,7 @@
 objectives:
 - name: Segmentation
   args:
-    weight: 0.208
+    weight: 1.0
 
 dataset:
   channels:
@@ -14,3 +14,9 @@ dataset:
         transform:
         - name: CameraAugmentations
           args: {}
+
+decoder:
+  args:
+    key: segment
+    shape: [160, 160]
+    patch: [5, 5]

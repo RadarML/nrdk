@@ -3,6 +3,7 @@ objectives: []
 encoder:
   name: TransformerEncoder
   args:
+    # From size spec: layers, dim
     ff_ratio: 4.0
     dropout: 0.1
     head_dim: 64
@@ -10,7 +11,16 @@ encoder:
     patch: [8, 1, 1, 16]
     positions: nd
 
-decoders: []
+decoder:
+  name: TransformerDecoder
+  args:
+    # From size spec: layers, dim
+    # From objective spec: key, shape, patch
+    ff_ratio: 4.0
+    head_dim: 64
+    dropout: 0.1
+    activation: GELU
+    positions: nd
 
 optimizer:
   name: AdamW

@@ -1,64 +1,84 @@
 """Positional Embeddings."""
 
 import torch
+from beartype.typing import Optional, Sequence
 from jaxtyping import Float
 from torch import Tensor, nn
 
 
 class Sinusoid(nn.Module):
-    """Centered N-dimensional sinusoidal positional embedding."""
+    """Centered N-dimensional sinusoidal positional embedding.
 
-    def _embed(self, i, d, theta, x):
-        """Former closure in `.forward`.
+    Channel dimensions are evenly divided between positional embeddings for
+    each axis. Before applying the positional embedding, each positional index
+    is also centered, scaled to `(-1, 1)`, and multiplied by a specified scale.
 
-        You may be tempted to refactor this into a closure. Indeed, it was
-        originally written as a closure on `theta` and `x`.
+    Uses the following equation for each axis::
 
-        Unfortunately, it turns out that **all closures which could
-        hypothetically close on pytorch Tensors immediately result in a memory
-        leak**. This is because closures create an `implicit reference cycle
-        <https://pytorch.org/blog/understanding-gpu-memory-2/?hss_channel=tw-776585502606721024>`__,
-        which causes the tensors not to be properly garbage collected when
-        they should, and instead have to wait for the python cycle-detector.
-        """
-        a = torch.arange(d, device=x.device) - d // 2
-        embedding = torch.concatenate([
-            torch.sin(theta[None, :] * a[:, None]),
-            torch.cos(theta[None, :] * a[:, None])], dim=1)
+        c = n_channels / n_spatial_dims / 2
+        i = 1, 2, ... c
+        w = coef ** (-i / c)
+        t = scale * (j - d/2) / (d/2) = scale * (2j / d - 1)
+        pos[2 * i] = sin(w * t)
+        pos[2 * i + 1] = cos(w * t)
 
-        shape = list(x.shape[1:-1]) + [1]
-        shape[i] = 1
+    where `d` is the dimension of the axis, and `j` is the index in that axis.
 
-        reshape = [None] * (len(x.shape) - 1)
-        reshape[-1] = slice(None)  # type: ignore
-        reshape[i] = slice(None)   # type: ignore
+    Args:
+        scale: position embedding scale (i.e. the spatial range that this axis
+            corresponds to). If `None`, only the global scale is used.
+        global_scale: scalar constant to multiply scale by for convenience of
+            representation; yields a net scale of `scale * global_scale`.
+        coef: geometric frequency progression base coefficient; the
+            frequencies are given by `coef ** (-i / c)`.
+    """
 
-        tmp = torch.tile(embedding[reshape], shape)
-        return tmp
+    def __init__(
+        self, scale: Optional[Sequence[float]] = None,
+        global_scale: float = 1.0, coef: float = 10000.0
+    ) -> None:
+        super().__init__()
+        if scale is None:
+            self.scale = [global_scale]
+        else:
+            self.scale = [s * global_scale for s in scale]
+        self.coef = coef
 
     def forward(
-        self, x: Float[Tensor, "b ... f"]
-    ) -> Float[Tensor, "b ... f"]:
+        self, x: Float[Tensor, "batch *spatial channels"]
+    ) -> Float[Tensor, "batch *spatial channels"]:
         """Apply sinusoidal embedding.
 
         Data should be in batch-spatial-feature order.
         """
-        embedding_dim = x.shape[-1] // 2 // (len(x.shape) - 2)
-        i = torch.arange(embedding_dim, device=x.device)
-        theta = 100000 ** (-i / embedding_dim)
+        # w = coef ** (-i / c)
+        nd = len(x.shape) - 2
+        c = x.shape[-1] // 2 // nd
+        i = torch.arange(c, device=x.device)
+        w = self.coef ** (-i / c)
 
-        embedding = torch.concatenate([
-            self._embed(i, d, theta, x)
-            for i, d in enumerate(x.shape[1:-1])
-        ], dim=-1)
+        start_dim = 0
+        for axis, (d, scale) in enumerate(zip(x.shape[1:-1], self.scale * nd)):
+            # t = scale * (j - d/2) / (d/2) = scale * (2j / d - 1)
+            t = scale * (2 * torch.arange(d, device=x.device) / d - 1)
+            wt: Float[Tensor, "d c"] = t[:, None] * w[None, :]
 
-        if embedding.shape[-1] < x.shape[-1]:
-            pad = torch.zeros(
-                *embedding.shape[:-1], x.shape[-1] - embedding.shape[-1],
-                device=x.device)
-            embedding = torch.concatenate([embedding, pad], dim=-1)
+            p_slice = [None] * (len(x.shape) - 1) + [slice(None)]
+            p_slice[axis + 1] = slice(None)
 
-        return embedding[None, ...] + x
+            # pos[2 * i] = sin(w * t)
+            x_sin_slice = [slice(None)] * len(x.shape)
+            x_sin_slice[-1] = slice(start_dim, start_dim + c * 2, 2)
+            x[x_sin_slice] = x[x_sin_slice] + torch.sin(wt)[p_slice]
+
+            # pos[2 * i + 1] = cos(w * t)
+            x_cos_slice = [slice(None)] * len(x.shape)
+            x_cos_slice[-1] = slice(start_dim + 1, start_dim + c * 2 + 1, 2)
+            x[x_cos_slice] = x[x_cos_slice] + torch.cos(wt)[p_slice]
+
+            start_dim += c * 2
+
+        return x
 
 
 class Rotary2D(nn.Module):

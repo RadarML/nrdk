@@ -34,6 +34,11 @@ class TransformerEncoder(L.LightningModule):
         activation: activation function; specify as a name (i.e. corresponding
             to a class in `torch.nn`).
         patch: input (doppler, azimuth, elevation, range) patch size.
+        pos_scale: position embedding scale (i.e. the spatial range that this
+            axis corresponds to). If `None`, only the global scale is used.
+        global_scale: scalar constant to multiply scale by for convenience of
+            representation; yields a net scale of `scale * global_scale`.
+        input_channels: number of input channels.
         positions: type of positional embedding. `flat`: flattened positional
             embeddings, similar to the original ViT; `nd`: n-dimensional
             embeddings, splitting the input features into `d` equal chunks
@@ -45,7 +50,9 @@ class TransformerEncoder(L.LightningModule):
         dim: int = 768, ff_ratio: float = 4.0, head_dim: int = 64,
         dropout: float = 0.1, activation: str = 'GELU',
         patch: Sequence[int] = (16, 1, 1, 16),
-        positions: Literal["flat", "nd"] = "flat"
+        pos_scale: Optional[Sequence[float]] = None, global_scale: float = 1.0,
+        input_channels: int = 2,
+        positions: Literal["flat", "nd"] = "flat",
     ) -> None:
         super().__init__()
 
@@ -53,7 +60,7 @@ class TransformerEncoder(L.LightningModule):
             raise ValueError("Must specify a 4D patch size.")
 
         self.patch = modules.PatchMerge(
-            d_in=2, d_out=dim, scale=patch, norm=False)
+            d_in=input_channels, d_out=dim, scale=patch, norm=False)
 
         self.positions = positions
         self.pos = modules.Sinusoid()
@@ -101,8 +108,8 @@ class TransformerEncoder(L.LightningModule):
             return out
 
 
-class Transformer2DDecoder(L.LightningModule):
-    """Radar transformer 2D tensor decoder.
+class TransformerDecoder(L.LightningModule):
+    """Radar transformer tensor decoder.
 
     Args:
         key: target key, e.g. `bev`, `depth`.
@@ -113,6 +120,10 @@ class Transformer2DDecoder(L.LightningModule):
         dropout: dropout during training.
         activation: activation function to use.
         shape: output shape; should be a 2 element list or tuple.
+        pos_scale: position embedding scale (i.e. the spatial range that this
+            axis corresponds to). If `None`, only the global scale is used.
+        global_scale: scalar constant to multiply scale by for convenience of
+            representation; yields a net scale of `scale * global_scale`.
         patch: patch size to use for unpatching. Must evenly divide `shape`.
         out_dim: output channels; if `=0`, the dimension is omitted entirely,
             i.e. `(h, w)` instead of `(h, w, c)`.
@@ -128,6 +139,7 @@ class Transformer2DDecoder(L.LightningModule):
         self, key: str, layers: int = 3, dim: int = 768,
         ff_ratio: float = 4.0, head_dim: int = 64, dropout: float = 0.1,
         activation: str = 'GELU', shape: Sequence[int] = (1024, 256),
+        pos_scale: Optional[Sequence[float]] = None, global_scale: float = 1.0,
         patch: Sequence[int] = (16, 16), out_dim: int = 0,
         positions: Literal["flat", "nd"] = "flat",
         mode: Literal["last", "pool"] = "last"
@@ -147,7 +159,8 @@ class Transformer2DDecoder(L.LightningModule):
         query_shape = [s // p for s, p in zip(shape, patch)]
         if positions == "flat":
             query_shape = [int(np.prod(query_shape))]
-        self.query = modules.BasisChange(shape=query_shape)
+        self.query = modules.BasisChange(
+            shape=query_shape, scale=pos_scale, global_scale=global_scale)
 
         self.unpatch = modules.Unpatch(
             output_size=(*shape, max(1, self.out_dim)),

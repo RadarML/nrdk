@@ -22,8 +22,6 @@ Radar deep learning toolkit.
 
     roverp export -p $SRC -o $DST --metadata
     roverp align -p $DST --mode left
-    roverp decompress -p $SRC -o $DST
-    cp $SRC/radar/iq $DST/radar/iq
     ```
 
 ## Usage
@@ -44,9 +42,8 @@ Radar deep learning toolkit.
     tensorboard --logdir=path/to/results --host=0.0.0.0
     ```
 
-## Method Codes
+## Current Training Command
 
-- Size: `s/m/l` - small/medium/large
-- Objectives: `b/d/g/v` - BEV/Depth/Segment/Vel
-- Datasets: `i/o/k` - Indoor/Outdoor/Bike
-- For example: `rxf/bgv.i.s`
+```
+nq python train.py -c rxf[small] obj[map] aug[full] data[indoor,outdoor,bike]
+```

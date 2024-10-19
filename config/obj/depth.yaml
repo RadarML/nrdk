@@ -19,3 +19,10 @@ dataset:
           args:
             crop_el: 0.0
             crop_az: 0.25
+
+decoder:
+  name: TransformerDecoder
+  args:
+    key: depth
+    shape: [128, 1024]
+    patch: [16, 32]

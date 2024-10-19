@@ -17,5 +17,15 @@ dataset:
           args: {}        
         - name: Map3D
           args:
+            # (elevation, azimuth, range): (128, 2048, 256)
+            # -> crop(0, 0.25, 0) -> (128, 1024, 256)
+            # -> decimate(2, 8, 4) -> (64, 128, 64) ~ 0.52MP
+            # Comparable to radar input, which is 64 * 8 * 2 * 256 ~ 0.26MP
             decimate: [2, 8, 4]
             crop_az: 0.25
+
+decoder:
+  args:
+    key: map
+    shape: [64, 128, 64]
+    patch: [8, 8, 8]

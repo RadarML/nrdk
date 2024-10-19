@@ -101,7 +101,7 @@ class Chamfer2D:
         phi = (bin - mask.shape[0] // 2) / mask.shape[0] * np.pi
         x = torch.cos(phi) * r
         y = torch.sin(phi) * r
-        return torch.stack([x, y]).T
+        return torch.stack([x, y], dim=-1)
 
     @staticmethod
     def distance(

@@ -1,7 +1,7 @@
 """Transformer blocks."""
 
 import torch
-from beartype.typing import Sequence
+from beartype.typing import Optional, Sequence
 from jaxtyping import Float
 from torch import Tensor, nn
 
@@ -147,20 +147,26 @@ class BasisChange(nn.Module):
     """Create "change-of-basis" query.
 
     Uses a 'reference vector', e.g. the output for a readout token or the
-    token-wise mean of the output.
+    token-wise mean of the output. The vector is tiled, and a sinusoidal
+    embedding :py:class:`modules.Sinusoid` is applied.
 
     Args:
         shape: query shape.
         flatten: whether to flatten spatial axes (e.g. for spatial-agnostic
             decoders such as generic transformers).
+        scale: position embedding scale (i.e. the spatial range that this axis
+            corresponds to). If `None`, only the global scale is used.
+        global_scale: scalar constant to multiply scale by for convenience of
+            representation; yields a net scale of `scale * global_scale`.
     """
 
     def __init__(
-        self, shape: Sequence[int] = [], flatten: bool = True
+        self, shape: Sequence[int] = [], flatten: bool = True,
+        scale: Optional[Sequence[float]] = None, global_scale: float = 1.0
     ) -> None:
         super().__init__()
 
-        self.pos = Sinusoid()
+        self.pos = Sinusoid(scale=scale, global_scale=global_scale)
         self.shape = shape
         self.flatten = flatten
 

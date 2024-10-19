@@ -39,7 +39,7 @@ def _parse():
     g.add_argument(
         "--epochs", default=-1, type=int, help="Maximum number of epochs.")
     g.add_argument(
-        "--patience", default=5, type=int,
+        "--patience", default=3, type=int,
         help="Stop after this many validation checks with no improvement.")
     g.add_argument(
         "--find_unused", default=False, action='store_true',

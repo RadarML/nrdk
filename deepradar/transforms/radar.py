@@ -245,11 +245,13 @@ class Representation(Transform):
         speed_out_dim = 2 * (int(aug.get("speed_scale", 1.0) * Nd) // 2)
 
         if range_out_dim != Nr or speed_out_dim != Nd:
+            as_tensor = torch.Tensor(
+                np.ascontiguousarray(np.moveaxis(data, 0, -1)))
             resized = transforms.Resize(
                 (range_out_dim, speed_out_dim),
                 interpolation=transforms.InterpolationMode.BILINEAR,
                 antialias=True
-            )(torch.Tensor(np.moveaxis(data, 0, -1)))
+            )(as_tensor)
             resized = np.moveaxis(resized.numpy(), -1, 0)
 
             # Upsample -> crop
@@ -297,9 +299,9 @@ class ComplexParts(Representation):
             data *= np.exp(-1j * aug["radar_phase"])
 
         stretched = [
-            self._augment(np.real(data), aug),
-            self._augment(np.imag(data), aug)]
-        return np.stack(stretched, axis=-1) * aug.get("radar_scale", 1.0)
+            self._augment(np.real(data), aug) * aug.get("radar_scale", 1.0),
+            self._augment(np.imag(data), aug) * aug.get("radar_scale", 1.0)]
+        return np.stack(stretched, axis=-1)
 
 
 class ComplexAmplitude(Representation):
@@ -347,5 +349,5 @@ class ComplexPhase(Representation):
 
         return np.stack([
             stretched_magnitude * aug.get("radar_scale", 1.0),
-            _normalize(stretched_phase + aug.get("phase_shift", 0.0))
+            _normalize(stretched_phase + aug.get("radar_phase", 0.0))
         ], axis=-1)

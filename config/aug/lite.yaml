@@ -1,4 +1,4 @@
-# Subset of augmentations
+# Subset of augmentationsc (excluding resizing-related augmentations)
 dataset:
   augmentations:
     azimuth_flip:

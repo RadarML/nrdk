@@ -108,7 +108,8 @@ def polar3_to_bev(
                 dtype=torch.uint8, device=data.device)
             cartesian[ix, iy, iz - zmin] = 1
 
-            res.append(-torch.argmax(cartesian, dim=2))
+            height = -torch.argmax(cartesian, dim=2)
+            res.append(torch.where(height == 0, 0, height - zmin))
 
     return torch.stack(res)
 

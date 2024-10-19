@@ -18,6 +18,8 @@ Then, at each level:
 - Otherwise, the right node overwrites the left node. This includes cases
   where both nodes are scalars, but also allows scalars to overwrite mappings
   and sequences.
+- Exception: if the right node's name starts is given the prefix `:`, it
+  overwrites the left node completely in all cases
 
 For example::
 
@@ -27,6 +29,8 @@ For example::
       x: 10
     c:
     - 15
+    d:
+    - 0
 
   right.yaml:
     a2: 6
@@ -34,9 +38,10 @@ For example::
       x: 11
     c:
     - 16
+    :d: 5
 
   load_config(["left.yaml", "right.yaml"]):
-    {"a": 5, "a2": 6, "b": {"x": 11}, "c": [15, 16]}
+    {"a": 5, "a2": 6, "b": {"x": 11}, "c": [15, 16], "d": 5}
 
 
 File Shorthand
@@ -186,15 +191,18 @@ def merge_config(x: dict, y: dict) -> None:
         y: config to be merged in.
     """
     for k, v in y.items():
-        if k in x:
-            if isinstance(v, dict) and isinstance(x[k], dict):
-                merge_config(x[k], v)
-            elif isinstance(v, list) and isinstance(x[k], list):
-                x[k] = x[k] + v
+        if k.startswith(":"):
+            x[k[1:]] = v
+        else:
+            if k in x:
+                if isinstance(v, dict) and isinstance(x[k], dict):
+                    merge_config(x[k], v)
+                elif isinstance(v, list) and isinstance(x[k], list):
+                    x[k] = x[k] + v
+                else:
+                    x[k] = v
             else:
                 x[k] = v
-        else:
-            x[k] = v
 
 
 def parse_paths(configs: list[str]) -> list[str]:

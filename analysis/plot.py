@@ -4,6 +4,7 @@ import matplotlib.axes as mpl_axes
 import numpy as np
 from beartype.typing import Optional, Sequence
 from jaxtyping import Num
+from scipy.stats import norm
 
 from .result import ComparativeStats
 
@@ -54,7 +55,8 @@ def comparison_matrix(
 
 def comparison_grid(
     axs: np.ndarray, compare: dict[str, ComparativeStats],
-    method_names: Sequence[str] = []
+    method_names: Sequence[str] = [], shortnames: bool = False,
+    cmap: str = "coolwarm", **kwargs
 ) -> None:
     """Plot a grid of comparison plots.
 
@@ -74,31 +76,70 @@ def comparison_grid(
     groups = len(compare)
     if len(axs.shape) != 2:
         raise ValueError("`axs` must be a 2D grid of plots.")
-    if axs.shape[0] != groups or axs.shape[1] != 2:
+    if axs.shape[1] != groups or axs.shape[0] != 3:
         raise ValueError(
-            f"For len(compare)={groups}, `axs` must have shape ({groups}, 2).")
+            f"For len(compare)={groups}, `axs` must have shape ({groups}, 3).")
 
-    for row, (category, stats) in zip(axs, compare.items()):
+    for row, (category, stats) in zip(axs.T, compare.items()):
         stats = stats.sum()
         pct = stats.percent()
         comparison_matrix(
-            row[0], np.sign(pct) * np.sqrt(np.abs(pct)), label=pct,
-            unit="%", cmap='coolwarm', centered=True)
+            row[1], np.sign(pct) * np.sqrt(np.abs(pct)), label=pct,
+            unit="%", cmap=cmap, centered=True, **kwargs)
         comparison_matrix(
-            row[1],
+            row[2],
             stats.significance(p=0.05, corrected=True, subgroups=groups)
             + stats.significance(p=0.05, corrected=False),
-            label=stats.diff.zscore, unit=" se", cmap='coolwarm',
-            vmin=-2.3, vmax=2.3)
+            label=stats.diff.zscore, unit=" se", cmap=cmap,
+            vmin=-2.3, vmax=2.3, **kwargs)
 
-    for ax, category in zip(axs[:, 0], compare):
-        ax.set_ylabel(category)
-        ax.set_yticklabels(method_names)
-    for ax in axs[:, 1:].reshape(-1):
-        ax.set_yticks([])
 
-    for ax, metric in zip(axs[-1], ["percent difference", "z-score"]):
-        ax.set_xlabel(metric)
-        ax.set_xticklabels(method_names, rotation=90)
-    for ax in axs[:-1].reshape(-1):
+    lower = None
+    upper = None
+    for ax, stats in zip(axs[0], compare.values()):
+        stats = stats.sum()
+        y = stats.abs.mean
+        yerr = norm.ppf(1 - 0.05 / 2) * stats.abs.stderr
+        ax.errorbar(
+            np.arange(len(method_names)), y, yerr=yerr, capsize=10)
+        ax.set_xticks(np.arange(len(method_names)))
+        ax.grid()
+        ax.set_xlim(-0.5, len(method_names) - 0.5)
+
+        if lower is None:
+            lower = min(y - yerr)
+            upper = max(y + yerr)
+        else:
+            lower = min(lower, min(y - yerr))
+            upper = max(upper, max(y + yerr))
+
+    axs[0, 0].set_ylabel("mean")
+    if upper is not None and lower is not None:
+        margin = 0.05 * (upper - lower)
+        lower -= margin
+        upper += margin
+    for ax in axs[0]:
+        ax.set_ylim(lower, upper)
+        for tick in ax.xaxis.get_major_ticks():
+            tick.tick1line.set_visible(False)
+            tick.tick2line.set_visible(False)
+            tick.label1.set_visible(False)
+            tick.label2.set_visible(False)
+    for ax in axs[0, 1:]:
+        for tick in ax.yaxis.get_major_ticks():
+            tick.tick1line.set_visible(False)
+            tick.tick2line.set_visible(False)
+            tick.label1.set_visible(False)
+            tick.label2.set_visible(False)
+
+    for ax, category in zip(axs[-1], compare):
+        ax.set_xlabel(category)
+        ax.set_xticklabels(method_names, rotation=None if shortnames else 90)
+    for ax in axs[1:-1].reshape(-1):
         ax.set_xticks([])
+
+    for ax, metric in zip(axs[1:, 0], ["difference", "z-score"]):
+        ax.set_ylabel(metric)
+        ax.set_yticklabels(method_names)
+    for ax in axs[1:, 1:].reshape(-1):
+        ax.set_yticks([])

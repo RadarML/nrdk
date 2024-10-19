@@ -22,3 +22,9 @@ dataset:
             z_max: 0.6
             crop_el: 0.4    # Middle 20% (28 beams)
             crop_az: 0.25
+
+decoder:
+  args:
+    key: bev
+    shape: [1024, 256]
+    patch: [16, 16]

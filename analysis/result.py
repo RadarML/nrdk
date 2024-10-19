@@ -107,8 +107,9 @@ class Result:
         base = os.path.join(path, "eval")
         for root, _, files in os.walk(base):
             for file in files:
-                manifest.append(
-                    os.path.relpath(os.path.join(root, file), base))
+                if file.endswith(".npz"):
+                    manifest.append(
+                        os.path.relpath(os.path.join(root, file), base))
         return manifest
 
     def __getitem__(self, eval: str):
