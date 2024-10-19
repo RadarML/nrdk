@@ -47,3 +47,9 @@ Radar deep learning toolkit.
 ```
 nq python train.py -c rxf[small] obj[map] aug[full] data[indoor,outdoor,bike]
 ```
+
+## Approximate data processing time
+
+- Cartographer Slam: 1:1 (7950X)
+- Segmentation: 1:1 (4090)
+- FFT/AOA: ???

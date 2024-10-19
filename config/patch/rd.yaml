@@ -1,0 +1,5 @@
+# Azimuth, elevation TX-RX pairs are treated as features.
+# Range-doppler is patched by (2, 4) to equal the target patch size (128).
+encoder:
+  args:
+    :patch: [2, 8, 2, 4]
