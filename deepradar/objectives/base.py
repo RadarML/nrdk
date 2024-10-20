@@ -1,4 +1,4 @@
-"""Radar training objectives."""
+"""Radar training objectives and common building blocks for losses/metrics."""
 
 from abc import ABC, abstractmethod
 
@@ -207,7 +207,17 @@ def accuracy_metrics(
     y_hat: Bool[Tensor, "batch ..."], y_true: Bool[Tensor, "batch ..."],
     prefix: str = "", reduce: bool = True
 ) -> dict[str, Float[Tensor, "*#batch"]]:
-    """Generic accuracy-related metrics."""
+    """Generic accuracy-related metrics.
+
+    Args:
+        y_hat: predicted occupancy.
+        y_true: actual occupancy:
+        prefix: string prefix for metric names (e.g. `map_`).
+        reduce: whether to average the metrics over the batch.
+
+    Returns:
+        A dict with different metrics as keys/values (see source).
+    """
     batch = y_hat.shape[0]
     y_hat = y_hat.reshape(batch, -1)
     y_true = y_true.reshape(batch, -1)
@@ -230,3 +240,42 @@ def accuracy_metrics(
         metrics = {k: torch.mean(v) for k, v in metrics.items()}
 
     return {prefix + k: v for k, v in metrics.items()}
+
+
+def focal_loss_with_logits(
+    y_hat: Float[Tensor, "*shape"], y_true: Bool[Tensor, "*shape"],
+    gamma: float = 2.0, eps: float = 1e-4
+) -> Float[Tensor, "*shape"]:
+    """Compute focal loss [L1]_.
+
+    Analagous to `torch.binary_cross_entropy_with_logits`.
+
+    Args:
+        y_hat: predicted occupancy logits.
+        y_true: actual occupancy.
+        gamma: focusing parameter [L1]_; the original paper suggests
+            `gamma = 2.0` as a good default.
+        eps: epsilon for clipping the focusing coefficient `(1 - p_t)**gamma`
+            to avoid `NaN` gradients caused by floating point errors when
+            this is close to 0 or 1. By default, we select `1e-4` to be
+            larger than the maximum normal for IEEE float16 (`~6.1 x 10^-5`).
+    """
+    # d = 1 + exp(y_hat)
+    log_d = torch.logaddexp(y_hat, torch.tensor([0.], device=y_hat.device))
+    d = torch.exp(y_hat) + 1.0
+
+    # y_t = exp(y_hat)          y_true = True
+    #       1                   otherwise
+    log_y_t = torch.where(y_true, y_hat, 0.0)
+    y_t = torch.exp(log_y_t)
+
+    # p_t = sigmoid(y_hat)      y_true = True
+    #       1 - sigmoid(y_hat)  otherwise
+    p_t = y_t / d
+    log_p_t = log_y_t - log_d
+
+    # FL = - (1 - p_t)**gamma * log(p_t)
+    focus = torch.clip((1 - p_t) ** gamma, eps, 1 - eps)
+    fl = - focus * log_p_t
+
+    return fl

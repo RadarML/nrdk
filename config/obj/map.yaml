@@ -2,6 +2,10 @@ objectives:
 - name: PolarOccupancy
   args:
     weight: 1.0
+    positive_weight: 16.0
+    max_range: 64.0
+    el_span: 0.7853981633974483
+    az_span: 1.5707963267948966
     range_weighted: True
 
 dataset:
@@ -14,7 +18,7 @@ dataset:
         channel: rng
         transform:
         - name: Destagger
-          args: {}        
+          args: {}
         - name: Map3D
           args:
             # (elevation, azimuth, range): (128, 2048, 256)

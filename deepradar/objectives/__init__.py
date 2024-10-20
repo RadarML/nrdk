@@ -32,10 +32,21 @@ which returns a dict of generated images.
   :py:meth:`.Objective.visualizations` is called asynchronously (on the first
   worker only (`global_rank == 0`) in distributed training), and should not use
   any GPU acceleration.
+
+.. [L1] Focal Loss for Dense Object Detection
+  https://arxiv.org/abs/1708.02002v2
 """
 
 
-from .base import LPObjective, Metrics, MetricValue, Objective, PointCloudObjective
+from .base import (
+    LPObjective,
+    Metrics,
+    MetricValue,
+    Objective,
+    PointCloudObjective,
+    accuracy_metrics,
+    focal_loss_with_logits,
+)
 from .depth import Depth
 from .occupancy import BEVOccupancy
 from .occupancy3 import PolarOccupancy
@@ -44,6 +55,7 @@ from .semantics import Segmentation
 
 __all__ = [
     "LPObjective", "PointCloudObjective",
+    "accuracy_metrics", "focal_loss_with_logits",
     "MetricValue", "Metrics", "Objective", "PolarOccupancy",
     "BEVOccupancy", "Depth", "Segmentation", "Velocity"
 ]

@@ -112,7 +112,7 @@ class Chamfer2D:
             x[:, None, :] - y[None, :, :]
         ), dim=-1))
 
-    def _forward(self, x, y):
+    def _forward(self, x, y) -> Tensor:
         pts_x = self.as_points(x)
         pts_y = self.as_points(y)
         dist = self.distance(pts_x, pts_y)

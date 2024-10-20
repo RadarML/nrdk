@@ -33,7 +33,7 @@ optimizer:
   subsets: {}
 
 dataset:
-  batch_size: 16
+  batch_size: 32
   val_samples: 16
   channels:
     radar:

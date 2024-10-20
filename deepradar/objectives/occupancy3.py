@@ -9,7 +9,14 @@ from torch.nn.functional import binary_cross_entropy_with_logits
 
 from deepradar.utils import comparison_grid, polar3_to_bev
 
-from .base import LPObjective, Metrics, Objective, PointCloudObjective, accuracy_metrics
+from .base import (
+    LPObjective,
+    Metrics,
+    Objective,
+    PointCloudObjective,
+    accuracy_metrics,
+    focal_loss_with_logits,
+)
 
 
 class PolarChamfer(PointCloudObjective):
@@ -53,6 +60,11 @@ class PolarOccupancy(Objective):
             (i.e. multiplying the weight by `range**2`).
         positive_weight: weight to give occupied samples; nominally the number
             of range bins.
+        focal_loss: focusing parameter `gamma` for a focal loss [L1]_. If
+            `focal_loss = 0` (default), BCE loss is used instead, and the
+            focal loss is optimized out. Note that if a focal loss is used,
+            `positive_weight` should be adjusted accordingly; [L1]_ recommends
+            `positive_weight = 3.0` with `focal_loss = 2.0`.
         max_range: nominal maximum range, in bins.
         el_span, az_span: max elevation, azimuth angles, in radians.
         cmap_bev, cmap_depth: colors to use for visualization.
@@ -70,7 +82,8 @@ class PolarOccupancy(Objective):
 
     def __init__(
         self, weight: float = 1.0, range_weighted: bool = True,
-        positive_weight: float = 64.0, max_range: float = 64.0,
+        positive_weight: float = 64.0, focal_loss: float = 0.0,
+        max_range: float = 64.0,
         el_span: float = np.pi / 4, az_span: float = np.pi / 2,
         cmap_bev: str = 'inferno', cmap_depth: str = 'viridis'
     ) -> None:
@@ -79,6 +92,7 @@ class PolarOccupancy(Objective):
         self.positive_weight = positive_weight
         self.cmap_bev = cmap_bev
         self.cmap_depth = cmap_depth
+        self.focal_loss = focal_loss
 
         self.chamfer = PolarChamfer(
             az_span=az_span, el_span=el_span, max_range=max_range)
@@ -100,9 +114,13 @@ class PolarOccupancy(Objective):
         weight = torch.where(y_true, self.positive_weight, 1.0) * weight
         total_weight = torch.sum(weight, dim=(1, 2, 3))
 
-        loss = weight * binary_cross_entropy_with_logits(
-            y_hat, y_true.to(y_hat.dtype), reduction='none')
-        loss = torch.sum(loss, dim=(1, 2, 3)) / total_weight
+        if self.focal_loss == 0.0:
+            loss = binary_cross_entropy_with_logits(
+                y_hat, y_true.to(y_hat.dtype), reduction='none')
+        else:
+            loss = focal_loss_with_logits(y_hat, y_true, gamma=self.focal_loss)
+
+        loss = torch.sum(weight * loss, dim=(1, 2, 3)) / total_weight
 
         return torch.mean(loss) if reduce else loss
 

@@ -62,6 +62,7 @@ from functools import cached_property
 
 import lightning as L
 import numpy as np
+import torch
 from beartype.typing import Any, Callable, Iterable, Optional
 from jaxtyping import Shaped
 from torch.utils.data import DataLoader, Dataset
@@ -162,7 +163,9 @@ class RoverDataModule(L.LightningDataModule):
             training, and the last `pval` being used for validation.
         ptrain: If specified, overrides `1 - pval` as the proportion used for
             training (e.g. to implement dataset size ablations).
-        batch_size: train batch size.
+        batch_size: train batch size. If multiple gpus are present (via
+            `torch.cuda.device_count()`), the batch size is evenly divided
+            between GPUs.
         val_samples: indices of (val) data to use as visualization samples. If
             `val_samples: int`, uses evenly spaced samples from the validation
             set (i.e. `linspace(0, len(val) - 1, val_samples)`).
@@ -193,7 +196,7 @@ class RoverDataModule(L.LightningDataModule):
         self._paths = [os.path.join(self.base, t) for t in self.traces]
         self._channels = channels
 
-        self.batch_size = batch_size
+        self.batch_size = batch_size // torch.cuda.device_count()
         self.nproc = 0 if debug else multiprocessing.cpu_count()
         self._val_samples = val_samples
 
