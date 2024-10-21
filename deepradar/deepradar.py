@@ -89,17 +89,20 @@ class DeepRadar(L.LightningModule):
             os.path.join(path, "checkpoints", checkpoint),
             hparams_file=os.path.join(path, "hparams.yaml"))
 
-    def get_dataset(self, path: str, debug: bool = False) -> RoverDataModule:
+    def get_dataset(
+        self, path: str, n_workers: Optional[int] = None
+    ) -> RoverDataModule:
         """Get datamodule.
 
         Args:
             path: dataset root directory.
-            debug: whether to run in debug mode.
+            n_workers: number of workers. Use `0` to debug; leave `None` to
+                use the number of CPUs.
 
         Returns:
             Corresponding `RoverDataModule`.
         """
-        return RoverDataModule(**self.dataset, path=path, debug=debug)
+        return RoverDataModule(**self.dataset, path=path, n_workers=n_workers)
 
     def configure(
         self, log_interval: int = 1, num_examples: int = 6,

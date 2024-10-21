@@ -14,29 +14,52 @@ batched frames per second with a sweep over (1, 2, 4, ... 32) frames per batch.
 
 ## Ablations
 
-**Core scaling law experiments** (16)
+**Core scaling law experiments**
 
-Split: training data percent
+Approx [0.1, 0.2, 0.5, 1.0] x [0.5, 1, 2, 4] x 8h ~ 5 days
 
+Split: 
 - Base: 100%
 - `p10`, `p20`, `p50`: 10%, 20%, 50% of training data
 
 Model size: see above.
 
+**Fine tuning**
+
+Approx [0.1, 0.2, 0.5, 1.0] x 6 x 8h = 4 days
+
+Objectives:
+- Base: 3D map objective
+- `bev`: Radarhd-style BEV
+- `segment`: Semantic segmentation
+- `vel`: Velocity estimation
+
+Fine tune:
+- `bev`: Radarhd-style BEV
+- `segment`: Semantic segmentation
+- `vel`: Velocity estimation
+
+
 **Other ablations**
 
-Patch: patch size (+2)
+Approx 12 x 8h = 4 days
 
+Individual vs separate: +3
+- `bike`
+- `indoor`
+- `outdoor`
+
+Patch: +2
 - Base: balanced `patch(8, 1, 1, 6) -> (8, 8, 2, 16)`
-- `rae`: `patch(64, 1, 1, 2) -> (1, 8, 2, 128)`
-- `rd`: `patch(2, 8, 2, 4) -> (32, 1, 1, 64)`
+- `rae`: range-azimuth-elevation patches `patch(64, 1, 1, 2) -> (1, 8, 2, 128)`
+- `rd`: range-doppler patches `patch(2, 8, 2, 4) -> (32, 1, 1, 64)`
 
-Augmentation: (+2)
+Augmentation: +2
 - Base: scalar + crop augmentation
 - `aug.lite`: only scalar augmentation
 - `aug.none`: no augmentation
 
-Input representation: (+5)
+Input representation: +5
 - `base`: (doppler, amplitude + phase)
 - `shuffle`: (shuffled slow time, amplitude + phase)
 - `nofft`: (slow time, amplitude + phase)

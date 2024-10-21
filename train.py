@@ -76,10 +76,20 @@ def _parse():
         "--num_checkpoints", default=-1, type=int,
         help="Number of checkpoints to save.")
 
+    g = p.add_argument_group("Environment")
+    g.add_argument(
+        "-e", "--environment", default="local",
+        help="Current system environment. Known options: local (generic "
+        "system with possibly multiple GPUs), psc (bridges-2 @ PSC).")
+
     return p
 
 
 def _main(args):
+
+    if args.environment == "psc":
+        torch.multiprocessing.set_sharing_strategy('file_system')
+
     if args.cfg is None:
         if args.checkpoint is not None:
             experiment_dir = os.path.dirname(os.path.dirname(args.checkpoint))
@@ -109,7 +119,12 @@ def _main(args):
     # Bypass save_hyperparameters
     model.configure(log_interval=args.log_example_interval, num_examples=16)
 
-    data = model.get_dataset(args.path)
+    if args.environment == "local":
+        data = model.get_dataset(args.path)
+    elif args.environment == "psc":
+        data = model.get_dataset(args.path, n_workers=10)
+    else:
+        raise ValueError(f"Unknown environment: {args.environment}")
 
     checkpoint = ModelCheckpoint(
         save_top_k=args.num_checkpoints, monitor="loss/val",

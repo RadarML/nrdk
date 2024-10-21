@@ -172,9 +172,11 @@ class RoverDataModule(L.LightningDataModule):
         channels: channel specifications; see :py:mod:`deepradar.channels`.
         augmentations: data augmentation spec generators; see
             :py:mod:`deepradar.augmentations`.
-        debug: whether to run in debug mode. When `debug=True`, uses
-            `num_workers=0` (run dataloaders in main thread) to allow debuggers
-            to work properly; otherwise, uses `num_workers=nproc`.
+        n_workers: number of workers to use; uses the number of cpus
+            (i.e. `nproc`) by default. Note that when `n_workers = 0`,
+            the dataloader is run in the main thread to allow debuggers
+            to work properly.
+
     """
 
     def __init__(self,
@@ -182,7 +184,7 @@ class RoverDataModule(L.LightningDataModule):
         ptrain: Optional[float] = None,
         batch_size: int = 64, val_samples: int | Iterable[int] = 16,
         channels: dict[str, dict] = {},
-        augmentations: dict[str, dict] = {}, debug: bool = False
+        augmentations: dict[str, dict] = {}, n_workers: Optional[int] = None
     ) -> None:
         super().__init__()
         self.base = path
@@ -197,7 +199,12 @@ class RoverDataModule(L.LightningDataModule):
         self._channels = channels
 
         self.batch_size = batch_size // torch.cuda.device_count()
-        self.nproc = 0 if debug else multiprocessing.cpu_count()
+
+        if n_workers is None:
+            self.nproc = multiprocessing.cpu_count()
+        else:
+            self.nproc = n_workers
+
         self._val_samples = val_samples
 
     def train_dataloader(self) -> DataLoader:
