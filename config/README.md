@@ -50,9 +50,10 @@ Individual vs separate: +3
 - `outdoor`
 
 Patch: +2
-- Base: balanced `patch(8, 1, 1, 6) -> (8, 8, 2, 16)`
+- `dear`: balanced `patch(8, 1, 1, 16) -> (8, 8, 2, 16)`
 - `rae`: range-azimuth-elevation patches `patch(64, 1, 1, 2) -> (1, 8, 2, 128)`
 - `rd`: range-doppler patches `patch(2, 8, 2, 4) -> (32, 1, 1, 64)`
+- `dea`: doppler-elevation-azimuth patches `patch(1, 1, 1, 128) -> (64, 8, 2, 2)`
 
 Augmentation: +2
 - Base: scalar + crop augmentation

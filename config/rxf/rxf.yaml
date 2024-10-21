@@ -8,7 +8,7 @@ encoder:
     dropout: 0.1
     head_dim: 64
     activation: GELU
-    patch: [8, 1, 1, 16]
+    patch: [2, 8, 2, 4]
     pos_scale: [1.0, 1.0, 1.0, 1.0]
     global_scale: 16.0
     input_channels: 2
