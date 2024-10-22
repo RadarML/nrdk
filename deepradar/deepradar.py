@@ -216,30 +216,44 @@ class DeepRadar(L.LightningModule):
             self.log_visualizations(samples_torch, y_hat, split="val")
 
     def evaluation_step(
-        self, batch
-    ) -> dict[str, Shaped[torch.Tensor, "batch"]]:
+        self, batch, render: bool = False
+    ) -> tuple[
+        dict[str, Shaped[np.ndarray, "batch"]],
+        dict[str, Shaped[np.ndarray, "batch ..."]]
+    ]:
         """Evaluation step with mo metric aggregation.
 
         Args:
             batch: input batch.
+            render: whether to perform rendering as well instead of only
+                computing metrics.
 
         Returns:
-            Dictionary of metrics for each entry in the batch (object-of-list)
-            without aggregation, with the input order preserved.
+            A tuple with a dictionary of metrics and a dictionary of
+            rendered values for each entry in the batch (object-of-list). No
+            mean/sum aggregation is performed, and the input order is
+            preserved. If `render=False`, the rendered values dict is empty.
         """
         y_hat = self.forward(batch)
 
         loss = 0.0
         metrics = {}
+        rendered = {}
         for objective in self.objectives:
             m = objective.metrics(batch, y_hat, train=False, reduce=False)
-            loss += m.loss  # type: ignore
-            metrics.update(m.metrics)
+            loss += m.loss.cpu().numpy()  # type: ignore
+            metrics.update({k: v.cpu().numpy() for k, v in m.metrics.items()})
+
+            if render:
+                rendered.update(objective.render(batch, y_hat))
+
         metrics["loss"] = loss  # type: ignore
-        return metrics
+        return metrics, rendered
 
     def evaluate(
-        self, trace: DataLoader, device=0, desc: Optional[str] = None
+        self, trace: DataLoader, device=0, desc: Optional[str] = None,
+        outputs: Optional[
+            dict[str, Queue[Optional[Shaped[np.ndarray, "..."]]]]] = None
     ) -> dict[str, Shaped[np.ndarray, "N"]]:
         """Evaluate model with no metric aggregation.
 
@@ -250,6 +264,13 @@ class DeepRadar(L.LightningModule):
                 distributed data parallelism; parallelism should be applied at
                 the trace level.
             desc: progress bar description (display only).
+            outputs: output queues for rendering. If not specified, no
+                rendering is performed -- only evaluation. Should contain a
+                dictionary of queues; each rendered value is placed
+                in the queue inside `outputs` with the same key. Another
+                caller-managed thread is then responsible for handling the
+                queues (e.g. :py:meth:`roverd.Channel.consume`). `None` values
+                are put in the queues to indicate termination.
 
         Returns:
             Dictionary with metric names as keys and raw metric results as
@@ -261,53 +282,17 @@ class DeepRadar(L.LightningModule):
             with torch.no_grad():
                 batch_gpu = {
                     k: torch.Tensor(v).to(device) for k, v in batch.items()}
-                results.append(self.evaluation_step(batch_gpu))
-        return {
-            k: np.concatenate([x[k].cpu().numpy() for x in results])
-            for k in results[0]}
 
-    def render_step(
-        self, batch
-    ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
-        """Run objective output rendering (:py:meth:`.Objective.render`).
+                metrics, rendered = self.evaluation_step(
+                    batch_gpu, render=(outputs is not None))
+                results.append(metrics)
+                if outputs is not None:
+                    for k, v in rendered.items():
+                        for sample in v:
+                            outputs[k].put(sample)
 
-        Args:
-            batch: input batch
+        if outputs is not None:
+            for q in outputs.values():
+                q.put(None)
 
-        Returns:
-            Dictionary of rendered values with the input order preserved. Note
-            that each objective should already have converted its rendered
-            output to `np.ndarray` already.
-        """
-        y_hat = self.forward(batch)
-        rendered = {}
-        for objective in self.objectives:
-            rendered.update(objective.render(batch, y_hat))
-        return rendered
-
-    def render(
-        self, trace: DataLoader, device=0, desc: Optional[str] = None,
-        outputs: dict[str, Queue[Optional[Shaped[np.ndarray, "..."]]]] = {}
-    ) -> None:
-        """Render a (nominally test) trace.
-
-        Args:
-            trace, device, desc: See `:py:meth:DeepRadar.evaluate`.
-            outputs: A dictionary of queues; each rendered value is placed
-                in the queue inside `outputs` with the same key. Another
-                caller-managed thread is then responsible for handling the
-                queues (e.g. :py:meth:`roverd.Channel.consume`). `None` values
-                are put in the queues to indicate termination.
-        """
-        device = torch.device(device)
-        for batch in tqdm(trace, desc=desc):
-            with torch.no_grad():
-                batch_gpu = {
-                    k: torch.Tensor(v).to(device) for k, v in batch.items()}
-                rendered = self.render_step(batch_gpu)
-                for k, v in rendered.items():
-                    for sample in v:
-                        outputs[k].put(sample)
-
-        for q in outputs.values():
-            q.put(None)
+        return {k: np.concatenate([x[k] for x in results]) for k in results[0]}

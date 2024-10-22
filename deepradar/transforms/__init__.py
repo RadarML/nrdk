@@ -42,6 +42,7 @@ from .radar import (
     ComplexParts,
     ComplexPhase,
     DiscardTx2,
+    DopplerShuffle,
     FFTArray,
     FFTLinear,
     IIQQtoIQ,
@@ -55,6 +56,7 @@ __all__ = [
     "RadarResolution",
     "IIQQtoIQ", "DiscardTx2", "AssertTx2", "FFTLinear", "FFTArray",
     "Representation", "ComplexParts", "ComplexAmplitude", "ComplexPhase",
+    "DopplerShuffle",
     "RelativeVelocity",
     "CameraAugmentations"
 ]

@@ -62,6 +62,7 @@ Augmentation: +2
 
 Input representation: +5
 - `base`: (doppler, amplitude + phase)
+- `pad`: padded FFT
 - `shuffle`: (shuffled slow time, amplitude + phase)
 - `nofft`: (slow time, amplitude + phase)
 - `amplitude`: (doppler, amplitude)

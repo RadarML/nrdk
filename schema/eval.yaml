@@ -1,0 +1,27 @@
+metrics:
+  map_loss: BCE
+  map_depth: Depth
+  map_chamfer: Chamfer
+
+splits:
+  indoor: ^indoor
+  outdoor: ^outdoor
+  bike: ^bike
+
+methods:
+  separate:
+    name: Separate Splits
+    methods: ["small/base", "small/indoor", "small/outdoor", "small/bike"]
+    descriptions: ["all*", "indoor", "outdoor", "bike"]
+
+  patch:
+    name: Encoder Patch Axes
+    methods: [
+      "small/base", "small/patch.dae", "small/patch.rae", "small/patch.rdae"]
+    descriptions: ["RD*", "DAE", "RAE", "RDAE"]
+
+  balance:
+    name: Balancing Coefficient
+    methods: [
+      "small/weight8", "small/base", "small/weight32", "small/weight64"]
+    descriptions: ["8.0", "16.0*", "32.0", "64.0"]

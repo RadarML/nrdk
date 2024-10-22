@@ -1,0 +1,22 @@
+# Padded FFT
+dataset:
+  channels:
+    radar:
+      args:
+        :transform:
+        - name: AssertTx2
+          args: {}
+        - name: IIQQtoIQ
+          args:
+            scale: 0.001
+        - name: FFTArray
+          args:
+            pad: 8
+            axes: [0, 1, 2, 3]
+        - name: ComplexPhase
+          args: {}
+
+# Need to also increase the patch size to match
+encoder:
+  args:
+    :patch: [2, 16, 2, 4]

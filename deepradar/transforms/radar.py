@@ -203,9 +203,10 @@ class DopplerShuffle(Transform):
     def __call__(
         self, data: Complex64[np.ndarray, "D Tx Rx R"],
         aug: dict[str, Any] = {}
-    ) -> None:
+    ) -> Complex64[np.ndarray, "D Tx Rx R"]:
         rng = np.random.default_rng()
-        return rng.shuffle(data, axis=0)
+        rng.shuffle(data, axis=0)
+        return data
 
 
 class Representation(Transform):
@@ -319,9 +320,9 @@ class ComplexAmplitude(Representation):
 
     def __call__(
         self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {}
-    ) -> Float32[np.ndarray, "..."]:
+    ) -> Float32[np.ndarray, "... 1"]:
         stretched = self._augment(np.sqrt(np.abs(data)), aug)
-        return stretched * aug.get("radar_scale", 1.0)
+        return (stretched * aug.get("radar_scale", 1.0))[..., None]
 
 
 class ComplexPhase(Representation):

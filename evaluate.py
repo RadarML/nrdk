@@ -1,9 +1,11 @@
 """Evaluate radar model."""
 
 import os
+import queue
 from argparse import ArgumentParser
 
 import numpy as np
+import roverd
 import torch
 
 from deepradar import DeepRadar, config
@@ -26,8 +28,39 @@ def _parse():
         "-k", "--checkpoint", default=None,
         help="Override the default selected checkpoint; should be a file in "
         "{model}/checkpoints/.")
+    p.add_argument(
+        "-r", "--render", default=False, action='store_true',
+        help="Render visualizations if specified.")
 
     return p
+
+
+def evaluate(model, datamodule, trace, args, desc: str):
+    """Evaluate a single trace."""
+    out = os.path.join(args.model, "eval", trace + ".npz")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+
+    if args.render:
+        outd = roverd.sensors.SensorData(
+            os.path.join(args.model, "eval", trace),
+            create=True, exist_ok=True)
+
+        queues: dict[str, queue.Queue] = {}
+        for objective in model.objectives:
+            for name, fmt in objective.RENDER_CHANNELS.items():
+                queues[name] = queue.Queue()
+                channel = outd.create(name, fmt)
+                if isinstance(channel, roverd.channels.LzmaFrameChannel):
+                    channel.consume(queues[name], thread=True, batch=0)
+                else:
+                    channel.consume(queues[name], thread=True)
+
+    else:
+        queues = None  # type: ignore
+
+    dataloader = datamodule.eval_dataloader(trace, batch_size=args.batch)
+    res = model.evaluate(dataloader, desc=desc, outputs=queues)
+    np.savez(out, **res)
 
 
 def _main(args):
@@ -43,13 +76,8 @@ def _main(args):
     traces = config.load_config(
         [os.path.join(args.cfg_dir, t) for t in args.traces])["traces"]
     for i, trace in enumerate(traces):
-        out = os.path.join(args.model, "eval", trace + ".npz")
-        os.makedirs(os.path.dirname(out), exist_ok=True)
-
-        dataloader = datamodule.eval_dataloader(trace, batch_size=args.batch)
-        res = model.evaluate(
-            dataloader, desc=f"[{i + 1}/{len(traces)}] {trace}")
-        np.savez(out, **res)
+        evaluate(
+            model, datamodule, trace, args, f"[{i + 1}/{len(traces)}] {trace}")
 
 
 if __name__ == '__main__':
