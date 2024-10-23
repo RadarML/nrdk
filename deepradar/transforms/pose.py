@@ -34,7 +34,7 @@ class RelativeVelocity(Transform):
 
     def __call__(
         self, data: dict[str, Float[np.ndarray, "..."]],
-        aug: dict[str, Any] = {}
+        aug: dict[str, Any] = {}, idx: int = 0
     ) -> Float[np.ndarray, "3"]:
         scale = aug.get("speed_scale", 1.0) / self.resolution
         vel = np.matmul(np.linalg.inv(data["rot"]), data["vel"]) * scale

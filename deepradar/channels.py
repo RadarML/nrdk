@@ -56,7 +56,7 @@ class Channel(ABC):
         """
         data = self._index(self._indices[idx])
         for tf in self._transforms:
-            data = tf(data, aug=aug)
+            data = tf(data, aug=aug, idx=int(idx))
         return data
 
     @classmethod

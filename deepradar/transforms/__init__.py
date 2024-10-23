@@ -34,29 +34,32 @@ new transformations:
 
 from .base import ToFloat16, Transform
 from .camera import CameraAugmentations
-from .lidar import Depth, Destagger, Map2D, Map3D
-from .pose import RelativeVelocity
-from .radar import (
+from .fft import (
     AssertTx2,
-    ComplexAmplitude,
-    ComplexParts,
-    ComplexPhase,
     DiscardTx2,
     DopplerShuffle,
     FFTArray,
     FFTLinear,
     IIQQtoIQ,
+)
+from .lidar import Depth, Destagger, Map2D, Map3D
+from .pose import RelativeVelocity
+from .radar import (
+    AmplitudeAOA,
+    ComplexAmplitude,
+    ComplexParts,
+    ComplexPhase,
     RadarResolution,
     Representation,
 )
 
 __all__ = [
     "Transform", "ToFloat16",
+    "CameraAugmentations",
+    "AssertTx2", "DiscardTx2", "DopplerShuffle", "FFTLinear", "FFTArray",
+    "IIQQtoIQ",
     "Destagger", "Map2D", "Map3D", "Depth",
-    "RadarResolution",
-    "IIQQtoIQ", "DiscardTx2", "AssertTx2", "FFTLinear", "FFTArray",
-    "Representation", "ComplexParts", "ComplexAmplitude", "ComplexPhase",
-    "DopplerShuffle",
     "RelativeVelocity",
-    "CameraAugmentations"
+    "AmplitudeAOA", "ComplexAmplitude", "ComplexParts", "ComplexPhase",
+    "RadarResolution", "Representation",
 ]

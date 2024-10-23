@@ -74,7 +74,7 @@ def polar3_to_bev(
 
     Returns:
         Batched BEV image, with spatial resolution equal to the range
-        resolution `
+        resolution.
     """
     nr = data.shape[-1]
     el_angles = torch.linspace(el_span, -el_span, nr, device=data.device)

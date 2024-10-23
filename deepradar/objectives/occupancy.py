@@ -1,15 +1,21 @@
-"""Occupancy classification objective."""
+"""2D Occupancy classification objective."""
 
 import numpy as np
 import torch
-from beartype.typing import cast
+from beartype.typing import Any
 from jaxtyping import Bool, Float, Shaped
 from torch import Tensor
 from torch.nn.functional import binary_cross_entropy_with_logits, sigmoid
 
 from deepradar.utils import comparison_grid, polar2_to_bev
 
-from .base import Metrics, MetricValue, Objective
+from .base import (
+    Metrics,
+    MetricValue,
+    Objective,
+    PointCloudObjective,
+    accuracy_metrics,
+)
 
 
 class CombinedDiceBCE:
@@ -76,70 +82,23 @@ class CombinedDiceBCE:
         return loss
 
 
-class Chamfer2D:
-    """L2 Chamfer distance for a polar range-azimuth grid, in range bins.
+class Chamfer2D(PointCloudObjective):
+    """Chamfer metric for 2D polar occupancy grids.
 
-    Supported modes:
-
-    - `chamfer` (default): chamfer distance (mean)
-    - `hausdorff`: hausdorff distance (max)
-    - `modhausdorff`: modified hausdorff distance (median)
-
-    Args:
-        mode: specified modes.
-        on_empty: value to use if one of the provided maps is completely empty.
+    See :py:class:`.PointCloudObjective`.
     """
 
-    def __init__(self, on_empty: float = 64.0, mode: str = "chamfer") -> None:
-        self.mode = mode
-        self.on_empty = on_empty
-
     @staticmethod
-    def as_points(mask: Bool[Tensor, "azimuth range"]) -> Float[Tensor, "n 2"]:
+    def as_points(
+        data: Bool[Tensor, "azimuth range"]
+    ) -> Float[Tensor, "n 2"]:
         """Convert (azimuth, range) occupancy grid to points."""
-        bin, r = torch.where(mask)
-        phi = (bin - mask.shape[0] // 2) / mask.shape[0] * np.pi
+        Na, Nr = data.shape
+        bin, r = torch.where(data)
+        phi = (bin - Na // 2) / Na * np.pi
         x = torch.cos(phi) * r
         y = torch.sin(phi) * r
         return torch.stack([x, y], dim=-1)
-
-    @staticmethod
-    def distance(
-        x: Float[Tensor, "n1 d"], y: Float[Tensor, "n2 d"]
-    ) -> Float[Tensor, "n1 n2"]:
-        """Compute the pairwise distances between x and y."""
-        return torch.sqrt(torch.sum(torch.square(
-            x[:, None, :] - y[None, :, :]
-        ), dim=-1))
-
-    def _forward(self, x, y) -> Tensor:
-        pts_x = self.as_points(x)
-        pts_y = self.as_points(y)
-        dist = self.distance(pts_x, pts_y)
-
-        if dist.shape[0] == 0 or dist.shape[1] == 0:
-            return torch.full((), self.on_empty, device=x.device)
-
-        d1 = torch.min(dist, dim=0).values
-        d2 = torch.min(dist, dim=1).values
-
-        if self.mode == "modhausdorff":
-            return torch.median(torch.concatenate([d1, d2]))
-        elif self.mode == "chamfer":
-            return (torch.mean(d1) + torch.mean(d2)) / 2
-        else:
-            raise ValueError(f"Invalid mode: {self.mode}")
-
-    def __call__(
-        self, y_hat: Bool[Tensor, "b w h"], y_true: Bool[Tensor, "b w h"],
-        reduce: bool = True
-    ) -> MetricValue:
-        """Compute chamfer distance, in range bins."""
-        _iter = (self._forward(xs, ys) for xs, ys in zip(y_hat, y_true))
-        if reduce:
-            return cast(Float[Tensor, ""], sum(_iter)) / y_hat.shape[0]
-        else:
-            return torch.stack(list(_iter))
 
 
 class BEVOccupancy(Objective):
@@ -159,6 +118,10 @@ class BEVOccupancy(Objective):
     - `bev_chamfer`: chamfer distance (mean point cloud distance), in radar
       range bins.
     - `bev_hausdorff`: modified hausdorff distance (median), in range bins.
+    - `bev_(tpr|fpr|tnr|fnr)`: true/false positive/negative rate.
+    - `bev_(precision|recall)`: precision and recall.
+    - `bev_acc`: accuracy (`tnr + tnr`).
+    - `bev_f1`: F1 score (`2 precision * recall / (precision + recall)`).
     """
 
     def __init__(
@@ -169,7 +132,6 @@ class BEVOccupancy(Objective):
         self.loss = CombinedDiceBCE(
             bce_weight=bce_weight, range_weighted=range_weighted)
         self.chamfer = Chamfer2D(mode="chamfer", on_empty=128.0)
-        self.hausdorff = Chamfer2D(mode="modhausdorff", on_empty=128.0)
         self.cmap = cmap
 
     def metrics(
@@ -187,10 +149,12 @@ class BEVOccupancy(Objective):
         else:
             occ = bev_hat > 0
             chamfer = self.chamfer(occ, y_true['bev'], reduce=reduce)
-            hausdorff = self.hausdorff(occ, y_true['bev'], reduce=reduce)
             return Metrics(loss=loss, metrics={
-                "bev_loss": loss, "bev_chamfer": chamfer,
-                "bev_hausdorff": hausdorff})
+                "bev_loss": loss,
+                "bev_chamfer": chamfer,
+                **accuracy_metrics(
+                    occ, y_true['bev'], prefix="bev_", reduce=reduce)
+            })
 
     def visualizations(
         self, y_true: dict[str, Shaped[Tensor, "..."]],
@@ -202,6 +166,37 @@ class BEVOccupancy(Objective):
 
         return {
             "bev": comparison_grid(
-                polar2_to_bev(bev_hat, height=256),
+                polar2_to_bev(y_true['bev'], height=256),
                 polar2_to_bev(sigmoid(bev_hat), height=256),
                 cmap=self.cmap, cols=8)}
+
+    RENDER_CHANNELS: dict[str, dict[str, Any]] = {
+        "bev": {
+            "format": "lzma", "type": "u1", "shape": [256, 512],
+            "desc": "BEV in cartesian coordinates and quantized to 0-255."},
+        "bev_gt": {
+            "format": "lzma", "type": "u1", "shape": [256, 512],
+            "desc": "Ground truth BEV view."}
+    }
+
+    def render(
+        self, y_true: dict[str, Shaped[Tensor, "batch ..."]],
+        y_hat: dict[str, Shaped[Tensor, "batch ..."]]
+    ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
+        """Summarize predictions to visualize later.
+
+        Args:
+            y_true, y_hat: see :py:meth:`Objective.metrics`.
+
+        Returns:
+            A dict, where each key is the name of a visualization or output
+            data, and the value is a quantized or packed format if possible.
+        """
+        bev_hat = y_hat['bev'][:, 0]
+
+        bev = polar2_to_bev(sigmoid(bev_hat), height=256) * 255
+        bev_gt = polar2_to_bev(y_true['bev'], height=256) * 255
+        return {
+            "bev": bev.to(torch.uint8).cpu().numpy(),
+            "bev_gt": bev_gt.to(torch.uint8).cpu().numpy()
+        }

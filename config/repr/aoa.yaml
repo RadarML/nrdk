@@ -1,0 +1,24 @@
+# Amplitude + AOA
+dataset:
+  channels:
+    radar:
+      args:
+        :transform:
+        - name: AssertTx2
+          args: {}
+        - name: IIQQtoIQ
+          args:
+            scale: 0.001
+        - name: FFTArray
+          args:
+            pad: 0
+            axes: [0, 1, 2, 3]
+        - name: AmplitudeAOA
+          args: {}
+
+# Input channels: 2 (amplitude in both elevation bins) + Azimuth AOA
+# Eliminate elevation-azimuth patch size, and use these 3 values as features.
+encoder:
+  args:
+    input_channels: 3
+    :patch: [2, 1, 1, 4]

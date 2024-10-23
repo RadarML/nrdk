@@ -15,6 +15,8 @@ from .base import LPObjective, Metrics, Objective
 class Radar(Objective):
     """Radar -> radar autoencoder objective.
 
+    NOTE: not up to date!
+
     Args:
         weight: objective weight.
         loss_order: Loss type (l1/l2).

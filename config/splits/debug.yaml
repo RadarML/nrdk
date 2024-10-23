@@ -1,0 +1,7 @@
+# For debugging only! Should be specified last.
+# Train on 2% of the data, test on 1%
+# Corresponds to ~1200 steps @ batch 16, bike + indoor + outdoor
+dataset:
+  batch_size: 16
+  ptrain: 0.02
+  pval: 0.01

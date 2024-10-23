@@ -23,3 +23,4 @@ decoder:
     pos_scale: [1.0, 0.666, 1.0]
     shape: [160, 160, 1]
     patch: [5, 5, 1]
+    out_dim: 8

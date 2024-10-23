@@ -53,3 +53,27 @@ nq python train.py -c rxf[small] obj[map] aug[full] data[indoor,outdoor,bike]
 - Cartographer Slam: 1:1 (7950X)
 - Segmentation: 1:1 (4090)
 - FFT/AOA: ???
+
+## Dataset Breakdown
+
+Raw Data: 2.91T
+- Camera (`video.avi`): 860G
+- Radar (`iq`): 1.5T
+- Lidar:
+    - Depth (`rng`): 174G
+    - Reflectance (`rfl`): 102G
+    - Infrared (`nir`): 274G
+- IMU:
+    - Acceleration (`acc`): 121M
+    - Rotation (`rot`): 121M
+    - Angular Acceleration (`avel`): 121M
+
+Metadata: 224M
+- Timestamps (`ts`): 154M
+- Indices (`*_i.npz`): 70M
+
+Processed Data: 4.13G
+- Poses (`pose.npz`): 910M
+- Segmentation Maps: 2.1G
+- CFAR mask: 1.1G
+- AOA estimates: 18G

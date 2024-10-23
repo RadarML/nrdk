@@ -43,6 +43,8 @@ class LPDepth:
 class Depth(Objective):
     """Radar -> lidar as depth estimation.
 
+    NOTE: not up to date!
+
     Missing values (`range==0`) are ignored during loss calculation, and
     treated as "void".
 

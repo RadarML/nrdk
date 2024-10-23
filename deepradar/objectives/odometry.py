@@ -1,6 +1,8 @@
 """Odometry objective."""
 
+import numpy as np
 import torch
+from beartype.typing import Any
 from jaxtyping import Float, Shaped
 from torch import Tensor
 
@@ -59,3 +61,30 @@ class Velocity(Objective):
             metrics["vel_loss"] = loss
 
         return Metrics(loss=self.weight * loss, metrics=metrics)
+
+    RENDER_CHANNELS: dict[str, dict[str, Any]] = {
+        "vel": {
+            "format": "raw", "type": "f4", "shape": [3],
+            "desc": "Ego-velocity vector."},
+        "vel_gt": {
+            "format": "raw", "type": "f4", "shape": [3],
+            "desc": "Ground truth ego-velocity."}
+    }
+
+    def render(
+        self, y_true: dict[str, Shaped[Tensor, "batch ..."]],
+        y_hat: dict[str, Shaped[Tensor, "batch ..."]]
+    ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
+        """Summarize predictions to visualize later.
+
+        Args:
+            y_true, y_hat: see :py:meth:`Objective.metrics`.
+
+        Returns:
+            A dict, where each key is the name of a visualization or output
+            data, and the value is a quantized or packed format if possible.
+        """
+        return {
+            "vel": y_hat["vel"].to(torch.float32).cpu().numpy(),
+            "vel_gt": y_true["vel"].to(torch.float32).cpu().numpy()
+        }

@@ -18,7 +18,9 @@ class Transform(ABC):
         pass
 
     @abstractmethod
-    def __call__(self, data: Any, aug: dict[str, Any] = {}) -> Any:
+    def __call__(
+        self, data: Any, aug: dict[str, Any] = {}, idx: int = 0
+    ) -> Any:
         """Apply transform."""
         raise NotImplementedError()
 
@@ -27,6 +29,7 @@ class ToFloat16(Transform):
     """Convert to 16-bit float."""
 
     def __call__(
-        self, data: Float[np.ndarray, "..."], aug: dict[str, Any] = {}
+        self, data: Float[np.ndarray, "..."], aug: dict[str, Any] = {},
+        idx: int = 0
     ) -> Float16[np.ndarray, "..."]:
         return data.astype(np.float16)

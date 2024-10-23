@@ -16,7 +16,8 @@ class CameraAugmentations(Transform):
     """
 
     def __call__(
-        self, data: Shaped[np.ndarray, "h w ..."], aug: dict[str, Any] = {}
+        self, data: Shaped[np.ndarray, "h w ..."], aug: dict[str, Any] = {},
+        idx: int = 0
     ) -> Shaped[np.ndarray, "h w ..."]:
         if aug.get("azimuth_flip"):
             # A copy is required here since torch doesn't allow creating

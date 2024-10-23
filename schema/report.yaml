@@ -25,3 +25,23 @@ methods:
     methods: [
       "small/weight8", "small/base", "small/weight32", "small/weight64"]
     descriptions: ["8.0", "16.0*", "32.0", "64.0"]
+
+  aug:
+    name: Augmentations
+    methods: ["small/base", "small/aug.none"]
+    descriptions: ["Full", "None"]
+
+  tiny:
+    name: Data Scaling (Tiny)
+    methods: ["tiny/p10", "tiny/p20", "tiny/p50"]
+    descriptions: ["10%", "20%", "50%"]
+
+  small:
+    name: Data Scaling (Small)
+    methods: ["small/p10", "small/p20", "small/p50", "small/base"]
+    descriptions: ["10%", "20%", "50%", "100%"]
+
+  p10:
+    name: Model Scaling (10%)
+    methods: ["tiny/p10", "small/p10"]
+    descriptions: ["Tiny", "Small"]

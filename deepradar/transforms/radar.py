@@ -4,10 +4,10 @@ import json
 import os
 
 import numpy as np
+import roverd
 import torch
-from beartype.typing import Any, Iterable
-from jaxtyping import Complex64, Float32, Int16
-from scipy import fft
+from beartype.typing import Any, Optional
+from jaxtyping import Bool, Complex64, Float32
 from torchvision import transforms
 
 from .base import Transform
@@ -33,7 +33,7 @@ class RadarResolution(Transform):
         self.doppler_res = cfg["doppler_resolution"]
 
     def __call__(
-        self, _, aug: dict[str, Any] = {}
+        self, data, aug: dict[str, Any] = {}, idx: int = 0
     ) -> Float32[np.ndarray, "d2"]:
 
         meta = np.array([
@@ -41,172 +41,6 @@ class RadarResolution(Transform):
             self.doppler_res * aug.get("speed_scale", 1.0)
         ], dtype=np.float32)
         return meta
-
-
-class IIQQtoIQ(Transform):
-    """Convert IIQQ i16 raw data to I/Q complex64 data.
-
-    Input shape (MIMO Radar Frames):
-
-    - D: Slow Time
-    - Tx: TX antenna index
-    - Rx: RX antenna index
-    - R2: Fast Time (IIQQ i16 data); is converted to `complex64` (with half
-      the length).
-
-    See :py:class:`roverc.radar_api.dca_types.RadarFrame` for details.
-
-    Args:
-        scale: scale factor to apply (by multiplication). Since the radar ADC
-            reads a (signed) 16-bit `(-32,768, 32,767)`, there is no clear "1"
-            value. `1e3` seems about right empirically.
-    """
-
-    def __init__(self, path: str, scale: float = 1e-3) -> None:
-        self.scale = scale
-
-    def __call__(
-        self, data: Int16[np.ndarray, "D Tx Rx R2"], aug: dict[str, Any] = {}
-    ) -> Complex64[np.ndarray, "D Tx Rx R"]:
-        shape = [*data.shape[:-1], data.shape[-1] // 2]
-        iq = np.zeros(shape, dtype=np.complex64)
-        iq[..., 0::2] = 1j * data[..., 0::4] + data[..., 2::4]
-        iq[..., 1::2] = 1j * data[..., 1::4] + data[..., 3::4]
-        return iq * self.scale
-
-
-class DiscardTx2(Transform):
-    """Discard middle antenna TX2 if data was collected in 3x4 mode."""
-
-    def __call__(
-        self, data: Int16[np.ndarray, "D Tx Rx R"], aug: dict[str, Any] = {}
-    ) -> Int16[np.ndarray, "D Tx2 Rx R"]:
-        if data.shape[1] == 3:
-            return data[:, [0, 2]]
-        else:
-            return data
-
-
-class AssertTx2(Transform):
-    """Assert that the radar data is collected in 3x4 mode."""
-
-    def __call__(
-        self, data: Int16[np.ndarray, "D Tx Rx R"], aug: dict[str, Any] = {}
-    ) -> Int16[np.ndarray, "D Tx Rx R"]:
-        assert data.shape[1] == 3, "Data was not collected in 3x4 mode."
-        return data
-
-
-class BaseFFT(Transform):
-    """FFT base class."""
-
-    @staticmethod
-    def _augment(
-        data: Complex64[np.ndarray, "D A ... R"], aug: dict[str, Any] = {}
-    ) -> Complex64[np.ndarray, "D A ... R"]:
-        """Apply radar representation-agnostic data augmentations."""
-        if aug.get("azimuth_flip"):
-            data = np.flip(data, axis=1)
-        if aug.get("doppler_flip"):
-            data = np.flip(data, axis=0)
-        return data
-
-
-class FFTLinear(BaseFFT):
-    """N-dimensional FFT on a linear array.
-
-    Augmentations:
-
-        - `azimuth_flip`: flip along azimuth axis.
-        - `doppler_flip`: flip along doppler axis.
-
-    Args:
-        pad: azimuth padding; output has shape (tx * rx + pad).
-        axes: axes to apply an FFT to; 0=doppler, 1=azimuth, 2=range.
-    """
-
-    def __init__(
-        self, path: str, pad: int = 0, axes: Iterable[int] = (0, 1, 2)
-    ) -> None:
-        self.pad = pad
-        self.axes = axes
-
-    def __call__(
-        self, data: Complex64[np.ndarray, "D Tx Rx R"],
-        aug: dict[str, Any] = {}
-    ) -> Complex64[np.ndarray, "D A R"]:
-        d, tx, rx, r = data.shape
-        assert tx == 2, "Only 2-tx mode is supported."
-
-        iq_dar = data.reshape(d, tx * rx, r)
-
-        if self.pad > 0:
-            zeros = np.zeros([d, self.pad, r], dtype=np.complex64)
-            iq_dar = np.concatenate([iq_dar, zeros], axis=1)
-
-        dar = fft.fftn(iq_dar, axes=self.axes)
-        dar_shf = fft.fftshift(dar, axes=[x for x in self.axes if x in (0, 1)])
-
-        return self._augment(dar_shf, aug=aug)
-
-
-class FFTArray(BaseFFT):
-    """N-dimensional FFT on a nonlinear array.
-
-    Augmentations:
-
-        - `azimuth_flip`: flip along azimuth axis.
-        - `doppler_flip`: flip along doppler axis.
-
-    Args:
-        pad: azimuth padding; output has shape (tx * rx + pad).
-        axes: axes to apply an FFT to; 0=doppler, 1=azimuth, 2=elevation,
-            3=range.
-    """
-
-    def __init__(
-        self, path: str, pad: int = 0, axes: Iterable[int] = (0, 1, 2, 3)
-    ) -> None:
-        self.pad = pad
-        self.axes = axes
-
-    def __call__(
-        self, data: Complex64[np.ndarray, "D Tx Rx R"],
-        aug: dict[str, Any] = {}
-    ) -> Complex64[np.ndarray, "D A E R"]:
-        d, tx, rx, r = data.shape
-
-        assert tx == 3, "Only 3-tx mode is supported."
-        assert rx == 4, "Only 4-rx mode is supported."
-        iq_daer = np.zeros((d, 8, 2, r), dtype=np.complex64)
-        iq_daer[:, :4, 0, :] = data[:, 0, :, :]
-        iq_daer[:, 4:8, 0, :] = data[:, 2, :, :]
-        iq_daer[:, 2:6, 1, :] = data[:, 1, :, :]
-
-        if self.pad > 0:
-            zeros = np.zeros([d, self.pad, 2, r], dtype=np.complex64)
-            iq_daer = np.concatenate([iq_daer, zeros], axis=1)
-
-        daer = fft.fftn(iq_daer, axes=self.axes)
-        daer_shf = fft.fftshift(
-            daer, axes=[x for x in self.axes if x in (0, 1, 2)])
-
-        return self._augment(daer_shf, aug=aug)
-
-
-class DopplerShuffle(Transform):
-    """Shuffle the doppler axis to destroy all doppler information.
-
-    Used only for ablations, obviously don't do this in practice!
-    """
-
-    def __call__(
-        self, data: Complex64[np.ndarray, "D Tx Rx R"],
-        aug: dict[str, Any] = {}
-    ) -> Complex64[np.ndarray, "D Tx Rx R"]:
-        rng = np.random.default_rng()
-        rng.shuffle(data, axis=0)
-        return data
 
 
 class Representation(Transform):
@@ -294,7 +128,8 @@ class ComplexParts(Representation):
     """
 
     def __call__(
-        self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {}
+        self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {},
+        idx: int = 0
     ) -> Float32[np.ndarray, "... 2"]:
         if aug.get("radar_phase"):
             data *= np.exp(-1j * aug["radar_phase"])
@@ -318,10 +153,25 @@ class ComplexAmplitude(Representation):
           velocities are zero-filled.
     """
 
+    def __init__(self, path: str, cfar: bool = False) -> None:
+        self.cfar: Optional[roverd.channels.Channel] = None
+        if cfar:
+            _radar = roverd.sensors.RadarData(os.path.join(path, "_radar"))
+            self.cfar = _radar["cfar"]
+
     def __call__(
-        self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {}
+        self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {},
+        idx: int = 0
     ) -> Float32[np.ndarray, "... 1"]:
-        stretched = self._augment(np.sqrt(np.abs(data)), aug)
+        data = np.sqrt(np.abs(data))
+
+        if self.cfar is not None:
+            mask: Bool[np.ndarray, "Nd Nr"] = self.cfar.read(idx, samples=1)[0]
+            Nd, Nr = mask.shape
+            reshape = [Nd] + [1] * (len(data.shape) - 2) + [Nr]
+            data = data * mask.reshape(reshape)
+
+        stretched = self._augment(data, aug)
         return (stretched * aug.get("radar_scale", 1.0))[..., None]
 
 
@@ -340,7 +190,8 @@ class ComplexPhase(Representation):
     """
 
     def __call__(
-        self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {}
+        self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {},
+        idx: int = 0
     ) -> Float32[np.ndarray, "... 2"]:
         def _normalize(x):
             return (x + np.pi) % (2 * np.pi) - np.pi
@@ -352,3 +203,48 @@ class ComplexPhase(Representation):
             stretched_magnitude * aug.get("radar_scale", 1.0),
             _normalize(stretched_phase + aug.get("radar_phase", 0.0))
         ], axis=-1)
+
+
+class AmplitudeAOA(Representation):
+    """Convert to amplitude + Azimuth AOA.
+
+    Requires the input to be a 4D radar cube with elevation. A pre-computed
+    AOA calculation is loaded, and concatenated to the norm of the amplitude
+    across the azimuth axis.
+
+    Augmentations:
+
+        - `radar_scale`: radar magnitude scale factor.
+        - `range_scale`: apply random range scale. Excess ranges are cropped;
+          missing ranges are zero-filled.
+        - `speed_scale`: apply random speed scale. Excess doppler bins are
+          wrapped (causing ambiguous doppler velocities); missing doppler
+          velocities are zero-filled.
+        - `azimuth_flip`: apply azimuth flipping. :py:class:`.BaseFFT`
+          typically handles this; however, since we integrate the azimuth
+          axis out and use a pre-computed AOA, we must add it back in here.
+    """
+
+    def __init__(self, path: str) -> None:
+        _radar = roverd.sensors.RadarData(os.path.join(path, "_radar"))
+        self.aoa = _radar["aoa"]
+
+    def __call__(
+        self, data: Complex64[np.ndarray, "D A E R"], aug: dict[str, Any] = {},
+        idx: int = 0
+    ) -> Float32[np.ndarray, "D 1 1 R 3"]:
+
+        aoa_dr = self.aoa.read(idx, samples=1)[0].astype(np.float32) / 128.0
+        if aug.get("azimuth_flip"):
+            aoa_dr = -aoa_dr
+
+        amplitude_der = np.linalg.norm(
+            np.abs(data), axis=1) * aug.get("radar_scale", 1.0)
+
+        # Add singleton azimuth and elevation axes back.
+        stretched = np.stack([
+            self._augment(amplitude_der[:, 0, None, None, :], aug),
+            self._augment(amplitude_der[:, 1, None, None, :], aug),
+            self._augment(aoa_dr[:, None, None, :])
+         ], axis=-1)
+        return stretched

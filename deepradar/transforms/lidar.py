@@ -34,7 +34,8 @@ class Destagger(Transform):
         os.close(stdout)
 
     def __call__(
-        self, data: UInt[np.ndarray, "El Az"], aug: dict[str, Any] = {}
+        self, data: UInt[np.ndarray, "El Az"], aug: dict[str, Any] = {},
+        idx: int = 0
     ) -> UInt[np.ndarray, "El Az"]:
         return client.destagger(self.metadata, data)  # type: ignore
 
@@ -102,7 +103,8 @@ class Map2D(Transform):
         self.crop_az = crop_az
 
     def __call__(
-        self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {}
+        self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {},
+        idx: int = 0
     ) -> Bool[np.ndarray, "Az2 Nr"]:
         # Crop, convert mm -> m
         el, az = data.shape
@@ -166,7 +168,8 @@ class Map3D(Transform):
         self.crop_az = crop_az
 
     def __call__(
-        self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {}
+        self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {},
+        idx: int = 0
     ) -> Bool[np.ndarray, "El2 Az2 Nr"]:
         # Crop, convert mm -> m
         _, az = data.shape
@@ -236,7 +239,8 @@ class Depth(Transform):
         self.crop_az = crop_az
 
     def __call__(
-        self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {}
+        self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {},
+        idx: int = 0
     ) -> Float32[np.ndarray, "El2 Az2"]:
         el, az = data.shape
         crop_el = int(el * self.crop_el)

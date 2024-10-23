@@ -20,7 +20,10 @@ from .base import (
 
 
 class PolarChamfer(PointCloudObjective):
-    """Chamfer metric for polar point clouds."""
+    """Chamfer metric for 3D polar depth maps.
+
+    See :py:class:`.PointCloudObjective`.
+    """
 
     def __init__(
         self, az_span: float = np.pi / 2, el_span: float = np.pi / 4,
@@ -71,7 +74,6 @@ class PolarOccupancy(Objective):
 
     Metrics:
 
-    - `map_loss`: weighted BCE across 3D polar grid cells.
     - `map_depth`: L1 depth loss, after projecting to a depth image.
     - `map_chamfer`: chamfer point cloud loss; occluded points are excluded.
     - `map_(tpr|fpr|tnr|fnr)`: true/false positive/negative rate.
