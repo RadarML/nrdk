@@ -42,6 +42,10 @@ def _parse():
         "--patience", default=3, type=int,
         help="Stop after this many validation checks with no improvement.")
     g.add_argument(
+        "--workers", default=None, type=int,
+        help="Number of dataloader workers. By default, the dataloader will "
+        "use the number of (virtual) cores in the system.")
+    g.add_argument(
         "--find_unused", default=False, action='store_true',
         help="Find unused parameters during training; only necessary for some "
         "models with some underlying library bugs.")
@@ -119,13 +123,7 @@ def _main(args):
     # Bypass save_hyperparameters
     model.configure(log_interval=args.log_example_interval, num_examples=16)
 
-    if args.environment == "local":
-        data = model.get_dataset(args.path)
-    elif args.environment == "psc":
-        data = model.get_dataset(args.path, n_workers=10)
-    else:
-        raise ValueError(f"Unknown environment: {args.environment}")
-
+    data = model.get_dataset(args.path, n_workers=args.workers)
     checkpoint = ModelCheckpoint(
         save_top_k=args.num_checkpoints, monitor="loss/val",
         save_last=True, dirpath=None)

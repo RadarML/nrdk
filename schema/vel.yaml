@@ -1,0 +1,15 @@
+metrics:
+  vel_loss: Velocity
+  vel_speedp: Speed (%)
+  vel_angle: Angle
+
+splits:
+  indoor: ^indoor
+  outdoor: ^outdoor
+  bike: ^bike
+
+methods:
+  vel.trained:
+    name: Velocity / Independently Trained
+    methods: ["vel.s/p10", "vel.s/p20", "vel.s/p50", "vel.s/base"] 
+    descriptions: ["10%", "20%", "50%", "100%"]

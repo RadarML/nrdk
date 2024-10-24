@@ -1,16 +1,15 @@
-"""Results metadata."""
+"""Experiment metadata."""
 
 import os
 import re
-from functools import cache
-from multiprocessing import Pool
 
 import numpy as np
-from beartype.typing import NamedTuple, Optional, cast
+from beartype.typing import Mapping, NamedTuple, Optional, cast
 from jaxtyping import Float, Shaped
 from scipy.stats import norm
+from tensorboard.backend.event_processing import event_accumulator
 
-from analysis.stats import NDStats, effective_sample_size
+from analysis.stats import NDStats
 
 
 class ComparativeStats(NamedTuple):
@@ -120,114 +119,80 @@ class Result:
         """
         return np.load(os.path.join(self.path, "eval", eval))
 
+    def load_all(self, pattern: Optional[str] = None):
+        """Load all traces (as NpzFiles).
 
-class Results:
-    """Results container.
-
-    Args:
-        path: path to the root results folder. `path` itself can be a symlink,
-            but symlinks inside `path` are not followed.
-        marker_name: filename to search for; each directory inside `path`
-            containing a file with this name is considered a single "result".
-    """
-
-    def __init__(
-        self, path: str = "results", marker_name: str = "hparams.yaml"
-    ) -> None:
-        self.path = path
-        self.marker_name = marker_name
-        self.results = sorted(self._discover_results(path))
-
-    @cache
-    def __getitem__(self, name: str) -> Result:
-        return Result(os.path.join(self.path, name))
-
-    def _discover_results(self, path: str) -> list[str]:
-        """Discover `deepradar` results in a root directory.
-
-        NOTE: This method does not follow symlinks (to prevent infinite loops).
+        If a regex `pattern` is specified, only traces which match the pattern
+        are loaded.
         """
-        manifest = []
-        for root, _, files in os.walk(path):
-            if self.marker_name in files:
-                manifest.append(os.path.relpath(root, path))
-        return manifest
-
-    def compare(
-        self, results: Optional[list[str]] = None, key: str = "loss",
-        pattern: Optional[str] = None
-    ) -> ComparativeStats:
-        """Get comparison statistics between a list of experiments.
-
-        Args:
-            results: list of experiments to compare. Should be file paths,
-                relative to the base path of this container.
-            key: metric name to compare on.
-            pattern: regex filter to apply to traces.
-
-        Returns:
-            Comparison statistics between the specified experiments. Only
-            evaluation traces which are present in all of the specified
-            experiments are used.
-
-        Raises:
-            ValueError: An invalid configuration is specified:
-                - if the specified experiments have no evaluation commonality.
-                - if the specified list of results contain duplicates.
-        """
-        if results is None:
-            results = self.results
-
-        if len(results) != len(set(results)):
-            raise ValueError(f"Cannot compare duplicate methods: {results}.")
-
-        i, j = np.triu_indices(len(results), 1)
-
-        def unflatten(
-            vec: Float[np.ndarray, "C"], signed: bool = False
-        ) -> Float[np.ndarray, "Nr Nr"]:
-            """Expand `0 <= i < j < Nr` indices to a square matrix."""
-            mat = np.zeros((len(results), len(results)))
-            mat[i, j] = vec
-            mat[j, i] = -vec if signed else vec
-            return mat
-
-        def stats(trace: str) -> ComparativeStats:
-            """Calculate statistics."""
-            arr: Shaped[np.ndarray, "Nr N"] = np.stack([
-                self[r][trace][key] for r in results])
-
-            with Pool(processes=arr.shape[0]) as p:
-                mean_ess = np.array(p.map(effective_sample_size, arr))
-
-            diff_raw = arr[i] - arr[j]
-            with Pool(processes=diff_raw.shape[0]) as p:
-                diff_ess_flat = p.map(effective_sample_size, diff_raw)
-
-            return ComparativeStats(
-                traces=[trace],
-                abs=NDStats(
-                    n=np.array(arr.shape[1]),
-                    m1=np.sum(arr, axis=1),
-                    m2=np.sum(arr**2, axis=1),
-                    ess=mean_ess),
-                diff=NDStats(
-                    n=np.array(arr.shape[1]),
-                    m1=unflatten(np.sum(diff_raw, axis=1), signed=True),
-                    m2=unflatten(np.sum(diff_raw**2, axis=1)),
-                    ess=unflatten(np.array(diff_ess_flat))))
-
-        common = sorted(list(
-            set.intersection(*[set(self[r].eval) for r in results])))
-        if len(common) == 0:
-            raise ValueError(
-                "The specified results do not have any evaluation traces in "
-                "common.")
-
+        traces = self.eval
         if pattern is not None:
-            common = [c for c in common if re.match(pattern, c)]
-            if len(common) == 0:
+            traces = [c for c in traces if re.match(pattern, c)]
+            if len(traces) == 0:
                 raise ValueError(
                     f"No traces common matched the filter pattern {pattern}.")
 
-        return ComparativeStats.stack(*[stats(t) for t in common])
+        return [self[t] for t in traces]
+
+    def summarize_training(
+        self, create: bool = False
+    ) -> Mapping[str, Shaped[np.ndarray, "..."]]:
+        """Get training summary.
+
+        This method expects to find a single `*events.out.tfevents*` in the
+        result directory. All scalar events are extracted and written to a
+        single `meta.npz` file.
+
+        Args:
+            create: whether to create the `meta.npz` summary if not present,
+                or update if the `tfevents` file is newer.
+
+        Returns:
+            `npz` file, if `meta.npz` already exists or is up to date, or
+            newly created summary.
+
+        Raises:
+            FileNotFoundError: missing file, e.g. events file, `meta.json` if
+                `create=False`.
+            ValueError: no events file or too many events files.
+        """
+        meta_path = os.path.join(self.path, "meta.npz")
+
+        # Early exit 1: creating is not allowed
+        if not create:
+            if not os.path.exists(meta_path):
+                raise FileNotFoundError(
+                    "Summarized metadata `meta.npz` does not exist, and "
+                    "`create=False`.")
+            else:
+                return np.load(meta_path)
+
+        events_candidates = [
+            x for x in os.listdir(self.path)
+            if x.startswith("events.out.tfevents")]
+        if len(events_candidates) > 1:
+            raise ValueError(f"More than one events file: {events_candidates}")
+        if len(events_candidates) == 0:
+            raise ValueError("No events files found.")
+        events_file = os.path.join(self.path, events_candidates[0])
+
+        # Early exit 2: file exists and is up to date
+        t_event = os.path.getmtime(events_file)
+        t_meta = os.path.getmtime(meta_path)
+        if os.path.exists(meta_path) and t_meta > t_event:
+            return np.load(meta_path)
+
+        ea = event_accumulator.EventAccumulator(events_file, size_guidance={
+            event_accumulator.SCALARS: 0, event_accumulator.IMAGES: 1,
+            event_accumulator.TENSORS: 1})
+        ea.Reload()
+
+        out = {}
+        for tag in ea.Tags()['scalars']:
+            if not tag.startswith("debug"):
+                scalar_events = ea.Scalars(tag)
+                out[f"{tag}_i"] = np.array(
+                    [x.step for x in scalar_events], dtype=np.int32)
+                out[tag] = np.array([x.value for x in scalar_events])
+        np.savez(meta_path, **out)
+        return out

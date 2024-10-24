@@ -20,7 +20,7 @@ def _parse(p):
     p.add_argument(
         "-p", "--path", default="results", help="Results directory.")
     p.add_argument(
-        "-s", "--schema", default="schema/report.yaml",
+        "-s", "--schema", default="schema/base.yaml",
         help="Report schema file.")
     p.add_argument(
         "-o", "--out", default="reports", help="Output directory.")

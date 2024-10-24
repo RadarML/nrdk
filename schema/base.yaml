@@ -16,8 +16,8 @@ methods:
 
   inputs:
     name: Input Representation
-    methods: ["small/base", "small/shuffle"]
-    descriptions: ["Base", "Shuffled"]
+    methods: ["small/base", "small/shuffle", "small/rawdoppler"]
+    descriptions: ["Base", "Time Shuffled", "No Doppler FFT"]
 
   patch:
     name: Encoder Patch Axes
@@ -48,8 +48,8 @@ methods:
 
   medium:
     name: Data Scaling (Medium)
-    methods: ["medium/p10", "medium/p20"]
-    descriptions: ["10%", "20%"]
+    methods: ["medium/p10", "medium/p20", "medium/p50", "medium/base"]
+    descriptions: ["10%", "20%", "50%", "100%"]
 
   p10:
     name: Model Scaling (10%)
@@ -63,10 +63,10 @@ methods:
 
   p50:
     name: Model Scaling (50%)
-    methods: ["tiny/p50", "small/p50"]
-    descriptions: ["Tiny", "Small"]
+    methods: ["tiny/p50", "small/p50", "medium/p50"]
+    descriptions: ["Tiny", "Small", "Medium"]
 
   p100:
     name: Model Scaling (100%)
-    methods: ["tiny/base", "small/base"]
-    descriptions: ["Tiny", "Small"]
+    methods: ["tiny/base", "small/base", "medium/base"]
+    descriptions: ["Tiny", "Small", "Medium"]

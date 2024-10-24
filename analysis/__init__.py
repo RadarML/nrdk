@@ -86,7 +86,8 @@ We can also get statistics related to the underlying absolute
 
 
 from .plot import comparison_grid, comparison_matrix
-from .result import ComparativeStats, Result, Results
+from .result import ComparativeStats, Result
+from .results import Results
 from .stats import NDStats, autocorrelation, effective_sample_size
 
 __all__ = [
