@@ -14,6 +14,11 @@ methods:
     methods: ["small/base", "small/indoor", "small/outdoor", "small/bike"]
     descriptions: ["all*", "indoor", "outdoor", "bike"]
 
+  inputs:
+    name: Input Representation
+    methods: ["small/base", "small/shuffle"]
+    descriptions: ["Base", "Shuffled"]
+
   patch:
     name: Encoder Patch Axes
     methods: [
@@ -33,15 +38,35 @@ methods:
 
   tiny:
     name: Data Scaling (Tiny)
-    methods: ["tiny/p10", "tiny/p20", "tiny/p50"]
-    descriptions: ["10%", "20%", "50%"]
+    methods: ["tiny/p10", "tiny/p20", "tiny/p50", "tiny/base"]
+    descriptions: ["10%", "20%", "50%", "100%"]
 
   small:
     name: Data Scaling (Small)
     methods: ["small/p10", "small/p20", "small/p50", "small/base"]
     descriptions: ["10%", "20%", "50%", "100%"]
 
+  medium:
+    name: Data Scaling (Medium)
+    methods: ["medium/p10", "medium/p20"]
+    descriptions: ["10%", "20%"]
+
   p10:
     name: Model Scaling (10%)
-    methods: ["tiny/p10", "small/p10"]
+    methods: ["tiny/p10", "small/p10", "medium/p10"]
+    descriptions: ["Tiny", "Small", "Medium"]
+
+  p20:
+    name: Model Scaling (20%)
+    methods: ["tiny/p20", "small/p20", "medium/p20"]
+    descriptions: ["Tiny", "Small", "Medium"]
+
+  p50:
+    name: Model Scaling (50%)
+    methods: ["tiny/p50", "small/p50"]
+    descriptions: ["Tiny", "Small"]
+
+  p100:
+    name: Model Scaling (100%)
+    methods: ["tiny/base", "small/base"]
     descriptions: ["Tiny", "Small"]
