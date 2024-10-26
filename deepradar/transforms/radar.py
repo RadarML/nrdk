@@ -116,6 +116,9 @@ class Representation(Transform):
 class ComplexParts(Representation):
     """Convert complex numbers to (real, imag) along a new axis.
 
+    To boost numerical stability, the parts are transformed by
+    `sqrt(real(x)), sqrt(imag(x))` instead of being returned "raw".
+
     Augmentations:
 
         - `radar_scale`: radar magnitude scale factor.
@@ -134,9 +137,12 @@ class ComplexParts(Representation):
         if aug.get("radar_phase"):
             data *= np.exp(-1j * aug["radar_phase"])
 
+        real = np.sqrt(np.real(data))
+        imag = np.sqrt(np.imag(data))
+
         stretched = [
-            self._augment(np.real(data), aug) * aug.get("radar_scale", 1.0),
-            self._augment(np.imag(data), aug) * aug.get("radar_scale", 1.0)]
+            self._augment(real, aug) * aug.get("radar_scale", 1.0),
+            self._augment(imag, aug) * aug.get("radar_scale", 1.0)]
         return np.stack(stretched, axis=-1)
 
 
@@ -210,7 +216,7 @@ class AmplitudeAOA(Representation):
 
     Requires the input to be a 4D radar cube with elevation. A pre-computed
     AOA calculation is loaded, and concatenated to the norm of the amplitude
-    across the azimuth axis.
+    across the azimuth axis. The AOA is scaled to [-1, 1].
 
     Augmentations:
 
@@ -238,8 +244,11 @@ class AmplitudeAOA(Representation):
         if aug.get("azimuth_flip"):
             aoa_dr = -aoa_dr
 
-        amplitude_der = np.linalg.norm(
-            np.abs(data), axis=1) * aug.get("radar_scale", 1.0)
+        # Need to divide by the azimuth axis length to maintain the same
+        # magnitudes (for numerical stability)
+        amplitude_der = np.sqrt(
+            np.linalg.norm(np.abs(data) / data.shape[1], axis=1)
+        ) * aug.get("radar_scale", 1.0)
 
         # Add singleton azimuth and elevation axes back.
         stretched = np.stack([

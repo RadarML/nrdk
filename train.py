@@ -120,7 +120,7 @@ def _main(args):
         if args.freeze:
             model.encoder.freeze()
 
-    # Bypass save_hyperparameters
+    # Metadata/logging-related config bypasses save_hyperparameters
     model.configure(log_interval=args.log_example_interval, num_examples=16)
 
     data = model.get_dataset(args.path, n_workers=args.workers)

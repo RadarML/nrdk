@@ -33,8 +33,8 @@ methods:
 
   aug:
     name: Augmentations
-    methods: ["small/base", "small/aug.none"]
-    descriptions: ["Full", "None"]
+    methods: ["small/base", "small/aug.lite", "small/aug.none"]
+    descriptions: ["Full", "Partial", "None"]
 
   tiny:
     name: Data Scaling (Tiny)
@@ -68,5 +68,5 @@ methods:
 
   p100:
     name: Model Scaling (100%)
-    methods: ["tiny/base", "small/base", "medium/base"]
-    descriptions: ["Tiny", "Small", "Medium"]
+    methods: ["tiny/base", "small/base", "medium/base", "large/base"]
+    descriptions: ["Tiny", "Small", "Medium", "Large"]

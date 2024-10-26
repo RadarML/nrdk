@@ -20,7 +20,9 @@ def _parse(p):
     p.add_argument(
         "-p", "--path", default="results", help="Results directory.")
     p.add_argument(
-        "-s", "--schema", default="schema/base.yaml",
+        "--schema_dir", default="schema", help="Schema base directory.")
+    p.add_argument(
+        "-s", "--schema", default="base.yaml",
         help="Report schema file.")
     p.add_argument(
         "-o", "--out", default="reports", help="Output directory.")
@@ -56,13 +58,17 @@ def _compare(
 
 def _main(args):
     results = analysis.Results(args.path)
-    with open(args.schema) as f:
+
+    if not args.schema.endswith(".yaml"):
+        args.schema = args.schema + ".yaml"
+    with open(os.path.join(args.schema_dir, args.schema)) as f:
         cfg = yaml.load(f, Loader=yaml.FullLoader)
 
     if args.methods is None:
         args.methods = list(cfg["methods"].keys())
 
-    for set in tqdm(args.methods):
+    desc = args.schema.replace('.yaml', '') + ":" + ",".join(args.methods)
+    for set in tqdm(args.methods, desc=desc):
         spec = cfg["methods"][set]
         with PdfPages(os.path.join(args.out, set + ".pdf")) as document:
             for metric, metric_name in  cfg["metrics"].items():
@@ -75,6 +81,7 @@ def _main(args):
                     title=f"{spec['name']} / {metric_name}",
                     cmap="coolwarm")
                 document.savefig(fig)
+                plt.close(fig)
 
 
 if __name__ == "__main__":

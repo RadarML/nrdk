@@ -1,7 +1,7 @@
 metrics:
   vel_loss: Velocity
-  vel_speedp: Speed (%)
-  vel_angle: Angle
+  vel_speedp: Speed (Doppler Bins)
+  vel_angle: Angle (Degrees)
 
 splits:
   indoor: ^indoor

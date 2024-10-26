@@ -1,0 +1,16 @@
+metrics:
+  seg_loss: Loss (CE)
+  seg_acc: Accuracy
+  seg_top2: Top-2 Accuracy
+  seg_miou: mIOU
+
+splits:
+  indoor: ^indoor
+  outdoor: ^outdoor
+  bike: ^bike
+
+methods:
+  seg.trained:
+    name: Segmentation / Independently Trained
+    methods: ["seg.s/p10", "seg.s/p20", "seg.s/p50"] 
+    descriptions: ["10%", "20%", "50%"]

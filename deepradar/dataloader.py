@@ -173,10 +173,9 @@ class RoverDataModule(L.LightningDataModule):
         augmentations: data augmentation spec generators; see
             :py:mod:`deepradar.augmentations`.
         n_workers: number of workers to use; uses the number of cpus
-            (i.e. `nproc`) by default. Note that when `n_workers = 0`,
-            the dataloader is run in the main thread to allow debuggers
-            to work properly.
-
+            (i.e. `nproc`) by default (up to 32). Note that when
+            `n_workers = 0`, the dataloader is run in the main thread to allow
+            debuggers to work properly.
     """
 
     def __init__(self,
@@ -201,7 +200,7 @@ class RoverDataModule(L.LightningDataModule):
         self.batch_size = batch_size // torch.cuda.device_count()
 
         if n_workers is None:
-            self.nproc = multiprocessing.cpu_count()
+            self.nproc = min(32, multiprocessing.cpu_count())
         else:
             self.nproc = n_workers
 

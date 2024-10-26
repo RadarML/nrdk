@@ -72,7 +72,7 @@ class Segmentation(Objective):
                 "seg_top2": torch.mean((
                     (top2[:, 0] == y_true_idx) | (top2[:, 1] == y_true_idx)
                 ).to(torch.float32), dim=(1, 2)),
-                "seg_moiu": self.miou(y_true_idx, top2[:, 0], nc=nc)
+                "seg_miou": self.miou(y_true_idx, top2[:, 0], nc=nc)
             }
 
             if reduce:

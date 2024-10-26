@@ -24,4 +24,4 @@ dataset:
     layers: [512, 512, 512]
     dropout: 0.1
     activation: GELU
-    out_dim: 3
+    out_dim: 4
