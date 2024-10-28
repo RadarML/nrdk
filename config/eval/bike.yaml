@@ -1,6 +1,7 @@
-traces: !expand
-  bike:
-  - edgewood.back
-  - edgewood.out
-  - ptbreeze.back
-  - ptbreeze.out
+dataset:
+  traces: !expand
+    bike:
+    - edgewood.back
+    - edgewood.out
+    - ptbreeze.back
+    - ptbreeze.out

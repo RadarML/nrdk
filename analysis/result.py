@@ -4,7 +4,7 @@ import os
 import re
 
 import numpy as np
-from beartype.typing import Mapping, NamedTuple, Optional, cast
+from beartype.typing import Iterator, Mapping, NamedTuple, Optional, cast
 from jaxtyping import Float, Shaped
 from scipy.stats import norm
 from tensorboard.backend.event_processing import event_accumulator
@@ -111,13 +111,29 @@ class Result:
                         os.path.relpath(os.path.join(root, file), base))
         return manifest
 
-    def __getitem__(self, eval: str):
+    def __getitem__(self, eval: str) -> Mapping[str, np.ndarray]:
         """Load a trace (as a NpzFile).
 
         NOTE: don't cache here to release the loaded NpzFile. The OS should
         handle caching here if we hit the same file repeatedly.
         """
         return np.load(os.path.join(self.path, "eval", eval))
+
+    def __iter__(self) -> Iterator[str]:
+        """Dict keys-like iterator; alias for `.keys()`"""
+        return self.keys()
+
+    def keys(self) -> Iterator[str]:
+        """Dict keys-like iterator."""
+        return iter(self.eval)
+
+    def items(self) -> Iterator[tuple[str, Mapping[str, np.ndarray]]]:
+        """Dict key/value-like iterator."""
+        return ((k, self[k]) for k in self)
+
+    def values(self) -> Iterator[Mapping[str, np.ndarray]]:
+        """Dict values-like iterator."""
+        return (self[k] for k in self)
 
     def load_all(self, pattern: Optional[str] = None):
         """Load all traces (as NpzFiles).

@@ -3,6 +3,7 @@
 import numpy as np
 from beartype.typing import NamedTuple
 from jaxtyping import Float, Num, Shaped, UInt
+from scipy.signal import correlate
 
 
 def _pmean(x: Shaped[np.ndarray, "N"], n: int = 0) -> Float[np.ndarray, "N2"]:
@@ -32,9 +33,13 @@ def autocorrelation(x: Num[np.ndarray, "N"], ) -> Float[np.ndarray, "N2"]:
     n = np.arange(x.shape[0] - 1, x.shape[0] - half, -1)
     std_left = np.sqrt((m2_left - m1_left**2) * n / (n - 1))
     std_right = np.sqrt((m2_right - m1_right**2) * n / (n - 1))
-    # --> this is the only unfactorable O(n^2) step <--
-    mcross = np.array([
-        np.sum(x[i:] * x[:-i]) for i in range(1, half)]) / (n - 1)
+
+    # Use scipy.signal.correlate -- fft based -- to accelerate this step.
+    # You can verify this line matches the naive code:
+    # mcross = np.array([
+    #     np.sum(x[i:] * x[:-i]) for i in range(1, half)]) / (n - 1)
+    mcross = correlate(x, x, mode='same')[-half + 1:] / (n - 1)
+
     cov = (mcross - m1_left * m1_right) * n / (n - 1)
 
     # Estimated autocorrelation
@@ -59,10 +64,8 @@ def effective_sample_size(x: Num[np.ndarray, "t"]) -> float:
         return x.shape[0] / (1 + 2 * np.sum(np.maximum(0.0, rho)))
 
     Our implementation is optimized to reuse moment calculations and
-    partial sums within moment calculations, and yields a performance
-    improvement of ~20x for `N` around 2000. However, the implementation is
-    still `O(N^2)` due to the autocorrelation estimate, which requires
-    calculating `(x[i] * x[j])` for all `0 < i - j < N/2`.
+    partial sums within moment calculations, as well as scipy's FFT-based
+    `correlate` for calculating `x[i:] * x[-i:]` for `i = 1, 2, ... N / 2`.
 
     Args:
         x: time series data.

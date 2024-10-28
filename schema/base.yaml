@@ -4,6 +4,7 @@ metrics:
   map_chamfer: Chamfer
 
 splits:
+  all: ""
   indoor: ^indoor
   outdoor: ^outdoor
   bike: ^bike
@@ -16,8 +17,12 @@ methods:
 
   inputs:
     name: Input Representation
-    methods: ["small/base", "small/shuffle", "small/rawdoppler"]
-    descriptions: ["Base", "Time Shuffled", "No Doppler FFT"]
+    methods: [
+      "small/base", "small/pad", "small/amplitude", "small/shuffle",
+      "small/rawdoppler", "small/cfar", "small/aoa"]
+    descriptions: [
+      "Base", "Padded", "Amplitude", "Shuffled",
+      "Raw", "CFAR", "AOA"]
 
   patch:
     name: Encoder Patch Axes

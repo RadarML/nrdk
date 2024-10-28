@@ -2,6 +2,7 @@
 
 import os
 import queue
+import time
 from argparse import ArgumentParser
 
 import numpy as np
@@ -73,11 +74,14 @@ def _main(args):
     if len(args.traces) == 0:
         raise ValueError("Passed empty `-t [--traces]`.")
 
+    _start = time.time()
     traces = config.load_config(
-        [os.path.join(args.cfg_dir, t) for t in args.traces])["traces"]
+        [os.path.join(args.cfg_dir, t) for t in args.traces]
+    )["dataset"]["traces"]
     for i, trace in enumerate(traces):
         evaluate(
             model, datamodule, trace, args, f"[{i + 1}/{len(traces)}] {trace}")
+    print("Finished evaluating: {:.01f}s".format(time.time() - _start))
 
 
 if __name__ == '__main__':

@@ -23,6 +23,7 @@ class Velocity(Objective):
         loss_order: loss type (l1/l2).
         speed_eps: minimum speed (in range bins) to calculate normalized
             metrics such as percent or angle error.
+        eps: epsilon for numerical stability in angle calculations.
 
     Metrics:
 
@@ -34,11 +35,12 @@ class Velocity(Objective):
 
     def __init__(
         self, weight: float = 1.0, loss_order: int = 1,
-        speed_eps: float = 2.0
+        speed_eps: float = 2.0, eps: float = 1e-5
     ) -> None:
         self.weight = weight
         self.loss_order = loss_order
         self.speed_eps = speed_eps
+        self.eps = eps
 
     @staticmethod
     def activation(
@@ -54,15 +56,28 @@ class Velocity(Objective):
 
         return v_hat, v_dir, s_hat
 
+    def angle(
+        self, v1: Float[Tensor, "batch d"], v2: Float[Tensor, "batch d"]
+    ) -> Float[Tensor, "batch"]:
+        """Angle between two orthonormal tensors of vectors, in degrees."""
+        cosine = torch.sum(v1 * v2, dim=1)
+        angle = torch.arccos(torch.clip(cosine, -1 + self.eps, 1 - self.eps))
+        return torch.abs(angle) * (180 / torch.pi)
+
     def metrics(
         self, y_true: dict[str, Shaped[Tensor, "..."]],
         y_hat: dict[str, Shaped[Tensor, "..."]],
         reduce: bool = True, train: bool = True
     ) -> Metrics:
         """Get training metrics."""
-        v_hat, v_dir, s_hat = self.activation(y_hat['vel'])
+        out = y_hat['vel']
+        v_true = y_true['vel']
+        if "mask" in y_true:
+            out = out[y_true["mask"]]
+            v_true = v_true[y_true["mask"]]
+        v_hat, v_dir, s_hat = self.activation(out)
 
-        diff: Float[Tensor, "batch 3"] = v_hat - y_true['vel']
+        diff: Float[Tensor, "batch 3"] = v_hat - v_true
         if self.loss_order == 1:
             diff = torch.abs(diff)
         elif self.loss_order == 2:
@@ -75,8 +90,7 @@ class Velocity(Objective):
             loss = torch.mean(loss)
 
         with torch.no_grad():
-            speed_true = torch.linalg.norm(y_true['vel'], dim=1)
-            cosine = torch.sum(v_dir * y_true['vel'], dim=1) / speed_true
+            speed_true = torch.linalg.norm(v_true, dim=1)
             metrics = {
                 "vel_speed": torch.abs(s_hat - speed_true),
                 "vel_speedp": torch.where(
@@ -84,7 +98,7 @@ class Velocity(Objective):
                     torch.abs((s_hat - speed_true) / speed_true), 0.0),
                 "vel_angle": torch.where(
                     speed_true > self.speed_eps,
-                    torch.abs(torch.arccos(cosine) * 180 / torch.pi), 0.0)}
+                    self.angle(v_dir, v_true / speed_true[:, None]), 0.0)}
 
             if reduce:
                 metrics = {k: torch.nanmean(v) for k, v in metrics.items()}

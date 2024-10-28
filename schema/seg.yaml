@@ -5,12 +5,19 @@ metrics:
   seg_miou: mIOU
 
 splits:
+  all: ""
   indoor: ^indoor
   outdoor: ^outdoor
   bike: ^bike
 
 methods:
-  seg.trained:
-    name: Segmentation / Independently Trained
-    methods: ["seg.s/p10", "seg.s/p20", "seg.s/p50"] 
-    descriptions: ["10%", "20%", "50%"]
+  segment:
+    name: Segmentation
+    methods: [
+      "seg.s/p10", "seg.s/p20", "seg.s/p50", "seg.s/base",
+      "seg.s/t10", "seg.s/t20", "seg.s/t50", "seg.s/t100"
+    ] 
+    descriptions: [
+      "10% Trained", "20% Trained", "50% Trained", "100% Trained",
+      "10% Tuned", "20% Tuned", "50% Tuned", "100% Tuned",
+    ]

@@ -42,10 +42,6 @@ def _parse():
         "--patience", default=3, type=int,
         help="Stop after this many validation checks with no improvement.")
     g.add_argument(
-        "--workers", default=None, type=int,
-        help="Number of dataloader workers. By default, the dataloader will "
-        "use the number of (virtual) cores in the system.")
-    g.add_argument(
         "--find_unused", default=False, action='store_true',
         help="Find unused parameters during training; only necessary for some "
         "models with some underlying library bugs.")
@@ -53,9 +49,12 @@ def _parse():
     g = p.add_argument_group("Fine tuning")
     g.add_argument(
         "-b", "--base_model", default=None,
-        help="Encoder base model to load, if specified. Should be a "
+        help="Base model to load, if specified. Should be a "
         "experiment directory containing a `hparams.yaml` file and "
         "`checkpoints` directory.")
+    g.add_argument(
+        "-d", "--load_decoder", default=False, action='store_true',
+        help="Load decoder weights (skipping `unpatch.*`) as well.")
     g.add_argument(
         "-f", "--freeze", action='store_true', default=False,
         help="Freeze encoder (i.e. don't allow tuning the encoder).")
@@ -85,6 +84,10 @@ def _parse():
         "-e", "--environment", default="local",
         help="Current system environment. Known options: local (generic "
         "system with possibly multiple GPUs), psc (bridges-2 @ PSC).")
+    g.add_argument(
+        "--workers", default=None, type=int,
+        help="Number of dataloader workers. By default, the dataloader will "
+        "use the number of (virtual) cores in the system.")
 
     return p
 
@@ -119,6 +122,12 @@ def _main(args):
         model.encoder.load_state_dict(base.encoder.state_dict())
         if args.freeze:
             model.encoder.freeze()
+
+        if args.load_decoder:
+            decoder_params = {
+                k: v for k, v in base.decoder.state_dict().items()
+                if not k.startswith("unpatch")}
+            model.decoder.load_state_dict(decoder_params, strict=False)
 
     # Metadata/logging-related config bypasses save_hyperparameters
     model.configure(log_interval=args.log_example_interval, num_examples=16)

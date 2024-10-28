@@ -44,8 +44,14 @@ Radar deep learning toolkit.
 
 ## Current Training Command
 
+Base model:
 ```
 nq python train.py -c rxf[small] obj[map] aug[full] data[indoor,outdoor,bike]
+```
+
+Fine tune:
+```
+nq python train.py -c rxf[small] obj[segment] aug[full] data[indoor,outdoor,bike] -b results/small/base -df
 ```
 
 ## Approximate data processing time

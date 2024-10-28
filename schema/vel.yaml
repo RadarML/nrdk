@@ -4,12 +4,13 @@ metrics:
   vel_angle: Angle (Degrees)
 
 splits:
+  all: ""
   indoor: ^indoor
   outdoor: ^outdoor
   bike: ^bike
 
 methods:
-  vel.trained:
-    name: Velocity / Independently Trained
+  vel:
+    name: Velocity
     methods: ["vel.s/p10", "vel.s/p20", "vel.s/p50", "vel.s/base"] 
     descriptions: ["10%", "20%", "50%", "100%"]

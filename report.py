@@ -44,7 +44,8 @@ def _compare(
     axs = axs.reshape(3, len(compared))
 
     analysis.comparison_grid(
-        axs, compared, method_names, aspect='auto', shortnames=True, cmap=cmap)
+        axs, compared, method_names, aspect='auto', cmap=cmap,
+        shortnames=all(len(n) <= 10 for n in method_names))
 
     for k, row in zip(compared, axs.T):
         row[-1].set_xlabel(k)
@@ -58,6 +59,8 @@ def _compare(
 
 def _main(args):
     results = analysis.Results(args.path)
+
+    plt.switch_backend('pdf')
 
     if not args.schema.endswith(".yaml"):
         args.schema = args.schema + ".yaml"
