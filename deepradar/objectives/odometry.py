@@ -12,6 +12,11 @@ from .base import Metrics, Objective
 class Velocity(Objective):
     """Radar -> relative velocity.
 
+    As a loss function, we use a l2 distance loss, with an added epsilon for
+    numerical stability::
+
+        l(v*, v^) = sqrt(||v* - v^||_2^2 + eps)
+
     Note that the model does not output the velocity directly, but rather a
     speed (`y[0]`) and direction vector (`y[1:4]`). The speed is also squared
     to ensure that it is always positive::
@@ -20,10 +25,9 @@ class Velocity(Objective):
 
     Args:
         weight: objective weight
-        loss_order: loss type (l1/l2).
         speed_eps: minimum speed (in range bins) to calculate normalized
             metrics such as percent or angle error.
-        eps: epsilon for numerical stability in angle calculations.
+        eps_angle: epsilon for numerical stability in angle calculations.
 
     Metrics:
 
@@ -34,13 +38,13 @@ class Velocity(Objective):
     """
 
     def __init__(
-        self, weight: float = 1.0, loss_order: int = 1,
-        speed_eps: float = 2.0, eps: float = 1e-5
+        self, weight: float = 1.0, speed_eps: float = 2.0,
+        eps: float = 1.0, eps_angle: float = 1e-5
     ) -> None:
         self.weight = weight
-        self.loss_order = loss_order
         self.speed_eps = speed_eps
         self.eps = eps
+        self.eps_angle = eps_angle
 
     @staticmethod
     def activation(
@@ -61,7 +65,8 @@ class Velocity(Objective):
     ) -> Float[Tensor, "batch"]:
         """Angle between two orthonormal tensors of vectors, in degrees."""
         cosine = torch.sum(v1 * v2, dim=1)
-        angle = torch.arccos(torch.clip(cosine, -1 + self.eps, 1 - self.eps))
+        angle = torch.arccos(torch.clip(
+            cosine, -1 + self.eps_angle, 1 - self.eps_angle))
         return torch.abs(angle) * (180 / torch.pi)
 
     def metrics(
@@ -70,22 +75,11 @@ class Velocity(Objective):
         reduce: bool = True, train: bool = True
     ) -> Metrics:
         """Get training metrics."""
-        out = y_hat['vel']
         v_true = y_true['vel']
-        if "mask" in y_true:
-            out = out[y_true["mask"]]
-            v_true = v_true[y_true["mask"]]
-        v_hat, v_dir, s_hat = self.activation(out)
+        v_hat, v_dir, s_hat = self.activation(y_hat['vel'])
 
         diff: Float[Tensor, "batch 3"] = v_hat - v_true
-        if self.loss_order == 1:
-            diff = torch.abs(diff)
-        elif self.loss_order == 2:
-            diff = diff * diff
-        else:
-            raise NotImplementedError("Only L1 and L2 losses are implemented.")
-
-        loss = torch.sum(diff, dim=1)
+        loss = torch.sqrt(torch.sum(diff * diff, dim=1) + self.eps)
         if reduce:
             loss = torch.mean(loss)
 

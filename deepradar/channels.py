@@ -26,12 +26,13 @@ class Channel(ABC):
 
     Args:
         dataset: path to dataset.
+        indices: index transformation from trace to channel index; if `None`,
+            no transformation is applied.
         transform: list of :py:class:`Transform` to apply to the data.
-        indices: index transformation from trace to channel index.
     """
 
     def __init__(
-        self, dataset: str, indices: UInt[np.ndarray, "N"],
+        self, dataset: str, indices: Optional[UInt[np.ndarray, "N"]] = None,
         transform: list[Callable[[str], transforms.Transform]] = [],
     ) -> None:
         self._transforms = [tf(dataset) for tf in transform]
@@ -54,14 +55,18 @@ class Channel(ABC):
         Returns:
             Loaded and transformed data corresponding to the global `idx`.
         """
-        data = self._index(self._indices[idx])
+        if self._indices is None:
+            data = self._index(idx)
+        else:
+            data = self._index(self._indices[idx])
+
         for tf in self._transforms:
             data = tf(data, aug=aug, idx=int(idx))
         return data
 
     @classmethod
     def from_config(
-        cls, dataset: str, indices: Num[np.ndarray, "N"],
+        cls, dataset: str, indices: Optional[Num[np.ndarray, "N"]],
         transform: list[dict] = [], **kwargs
     ) -> "Channel":
         """Create channel from config.
@@ -90,7 +95,7 @@ class RawChannel(Channel):
     """
 
     def __init__(
-        self, dataset: str, indices: UInt[np.ndarray, "N"],
+        self, dataset: str, indices: Optional[UInt[np.ndarray, "N"]],
         sensor: str, channel: str,
         transform: list[Callable[[str], transforms.Transform]] = []
     ) -> None:
@@ -113,18 +118,23 @@ class NPChannel(Channel):
     Args:
         dataset: dataset path.
         path: path of file within dataset.
-        keys: keys to load from the `.npz` archive.
+        keys: keys to load from the `.npz` archive. If `keys` is a str, single
+            arrays are yielded instead of dicts of arrays.
         transform: list of :class:`Transform` to apply to the data.
     """
 
     def __init__(
-        self, dataset: str, indices: UInt[np.ndarray, "N"], path: str,
-        keys: list[str] = [],
+        self, dataset: str, indices: Optional[UInt[np.ndarray, "N"]],
+        path: str, keys: list[str] | str = [],
         transform: list[Callable[[str], transforms.Transform]] = []
     ) -> None:
         super().__init__(dataset=dataset, indices=indices, transform=transform)
         npz = np.load(os.path.join(dataset, path))
-        self.arr = {k: npz[k] for k in keys}
+
+        if isinstance(keys, str):
+            self.arr = npz[keys]
+        else:
+            self.arr = {k: npz[k] for k in keys}
 
         self.index_map: Optional[UInt[np.ndarray, "N2"]] = None
         if "mask" in npz:
@@ -135,7 +145,11 @@ class NPChannel(Channel):
     def _index(self, idx: Index) -> Any:
         if self.index_map is not None:
             idx = self.index_map[idx]
-        return {k: v[idx] for k, v in self.arr.items()}
+
+        if isinstance(self.arr, dict):
+            return {k: v[idx] for k, v in self.arr.items()}
+        else:
+            return self.arr[idx]
 
 
 class MetaChannel(Channel):

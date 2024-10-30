@@ -1,6 +1,7 @@
 metrics:
   vel_loss: Velocity
-  vel_speedp: Speed (Doppler Bins)
+  vel_speed: Speed (Doppler Bins)
+  vel_speedp: Speed (%)
   vel_angle: Angle (Degrees)
 
 splits:
@@ -12,5 +13,5 @@ splits:
 methods:
   vel:
     name: Velocity
-    methods: ["vel.s/p10", "vel.s/p20", "vel.s/p50", "vel.s/base"] 
-    descriptions: ["10%", "20%", "50%", "100%"]
+    methods: ["vel/p10", "vel/p20", "vel/p50", "vel/base"] 
+    descriptions: ["10% Trained", "20% Trained", "50% Trained", "100% Trained"]

@@ -1,10 +1,12 @@
 objectives:
 - name: Velocity
   args:
-    weight: 1.0
-    loss_order: 2
+    weight: 0.1
+    speed_eps: 2.0
+    eps: 1.0
 
 dataset:
+  mask: _fusion/valid.npz
   channels:
     vel:
       name: "NPChannel"
@@ -15,13 +17,6 @@ dataset:
         transform:
         - name: RelativeVelocity
           args: {}
-    # mask:
-    #   name: "NPChannel"
-    #   indices: lidar
-    #   args:
-    #     path: "_lidar/validpose.npz"
-    #     keys: ["mask"]
-    #     transform: []
 
 # Override all args since this isn't a standard transform layer
 :decoder:

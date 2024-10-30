@@ -117,7 +117,6 @@ class BEVOccupancy(Objective):
 
     - `bev_chamfer`: chamfer distance (mean point cloud distance), in radar
       range bins.
-    - `bev_hausdorff`: modified hausdorff distance (median), in range bins.
     - `bev_(tpr|fpr|tnr|fnr)`: true/false positive/negative rate.
     - `bev_(precision|recall)`: precision and recall.
     - `bev_acc`: accuracy (`tnr + tnr`).

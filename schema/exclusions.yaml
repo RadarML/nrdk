@@ -37,7 +37,7 @@ bike/greenfield.back:
 - [15500, 15650]  # tunnel
 bike/greenfield.out:
 - [0, 50]         # warmup
-- [3080, 5280]    # bridge
+- [3080, 3280]    # bridge
 - [3520, 3580]    # tunnel
 - [7180, 7380]    # bridge
 bike/highland2.back:
@@ -104,7 +104,7 @@ outdoor/forbes.east:
 - [2150, 2500]    # empty
 outdoor/forbes.west:
 - [6400, 6850]    # empty
-- [1600, 16350]   # bridge
+- [16000, 16350]   # bridge
 outdoor/oakland.schf:
 - [450, 700]      # empty
 - [5900, 6300]    # unknown
