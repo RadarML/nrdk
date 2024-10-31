@@ -3,7 +3,7 @@
 import os
 import re
 from functools import cache
-from multiprocessing import Pool
+from multiprocessing.pool import ThreadPool
 
 import numpy as np
 from beartype.typing import Iterator, Optional
@@ -109,11 +109,11 @@ class Results:
             arr: Shaped[np.ndarray, "Nr N"] = np.stack([
                 self[r][trace][key] for r in results])
 
-            with Pool(processes=arr.shape[0]) as p:
+            with ThreadPool(processes=arr.shape[0]) as p:
                 mean_ess = np.array(p.map(effective_sample_size, arr))
 
             diff_raw = arr[i] - arr[j]
-            with Pool(processes=diff_raw.shape[0]) as p:
+            with ThreadPool(processes=diff_raw.shape[0]) as p:
                 diff_ess_flat = p.map(effective_sample_size, diff_raw)
 
             return ComparativeStats(

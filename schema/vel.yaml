@@ -12,6 +12,18 @@ splits:
 
 methods:
   vel:
-    name: Velocity
-    methods: ["vel/p10", "vel/p20", "vel/p50", "vel/base"] 
-    descriptions: ["10% Trained", "20% Trained", "50% Trained", "100% Trained"]
+    name: Velocity (Decoder Only)
+    methods: [
+      "vel/p10", "vel/p20", "vel/p50", "vel/base",
+      "vel/t10", "vel/t20", "vel/t50", "vel/t100"]
+    descriptions: [
+      "10% Trained", "20% Trained", "50% Trained", "100% Trained",
+      "10% Tuned", "20% Tuned", "50% Tuned", "100% Tuned"]
+  vel2:
+    name: Velocity (Full Tuning)
+    methods: [
+      "vel/p10", "vel/p20", "vel/p50", "vel/base",
+      "vel/f10", "vel/f20", "vel/f50", "vel/f100"]
+    descriptions: [
+      "10% Trained", "20% Trained", "50% Trained", "100% Trained",
+      "10% Tuned", "20% Tuned", "50% Tuned", "100% Tuned"]

@@ -39,6 +39,9 @@ def _parse():
     g.add_argument(
         "--epochs", default=-1, type=int, help="Maximum number of epochs.")
     g.add_argument(
+        "--metric", default="loss/val",
+        help="Metric to watch for convergence (e.g. `loss/val`).")
+    g.add_argument(
         "--patience", default=3, type=int,
         help="Stop after this many validation checks with no improvement.")
     g.add_argument(
@@ -134,11 +137,10 @@ def _main(args):
 
     data = model.get_dataset(args.path, n_workers=args.workers)
     checkpoint = ModelCheckpoint(
-        save_top_k=args.num_checkpoints, monitor="loss/val",
+        save_top_k=args.num_checkpoints, monitor=args.metric,
         save_last=True, dirpath=None)
     stopping = EarlyStopping(
-        monitor="loss/val", min_delta=0.0,
-        patience=args.patience, mode="min")
+        monitor=args.metric, min_delta=0.0, patience=args.patience, mode="min")
     logger = TensorBoardLogger(
         args.out, name=args.name, version=args.version,
         default_hp_metric=False)

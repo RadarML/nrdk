@@ -56,20 +56,25 @@ methods:
     methods: ["medium/p10", "medium/p20", "medium/p50", "medium/base"]
     descriptions: ["10%", "20%", "50%", "100%"]
 
+  large:
+    name: Data Scaling (Medium)
+    methods: ["large/p10", "large/p20", "large/p50", "large/base"]
+    descriptions: ["10%", "20%", "50%", "100%"] 
+
   p10:
     name: Model Scaling (10%)
-    methods: ["tiny/p10", "small/p10", "medium/p10"]
-    descriptions: ["Tiny", "Small", "Medium"]
+    methods: ["tiny/p10", "small/p10", "medium/p10", "large/p10"]
+    descriptions: ["Tiny", "Small", "Medium", "Large"]
 
   p20:
     name: Model Scaling (20%)
-    methods: ["tiny/p20", "small/p20", "medium/p20"]
-    descriptions: ["Tiny", "Small", "Medium"]
+    methods: ["tiny/p20", "small/p20", "medium/p20", "large/p20"]
+    descriptions: ["Tiny", "Small", "Medium", "Large"]
 
   p50:
     name: Model Scaling (50%)
-    methods: ["tiny/p50", "small/p50", "medium/p50"]
-    descriptions: ["Tiny", "Small", "Medium"]
+    methods: ["tiny/p50", "small/p50", "medium/p50", "large/p50"]
+    descriptions: ["Tiny", "Small", "Medium", "Large"]
 
   p100:
     name: Model Scaling (100%)

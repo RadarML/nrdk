@@ -157,6 +157,9 @@ class ComplexAmplitude(Representation):
         - `speed_scale`: apply random speed scale. Excess doppler bins are
           wrapped (causing ambiguous doppler velocities); missing doppler
           velocities are zero-filled.
+
+    Args:
+        cfar: if `True`, apply a pre-computed CFAR mask to the data.
     """
 
     def __init__(self, path: str, cfar: bool = False) -> None:
