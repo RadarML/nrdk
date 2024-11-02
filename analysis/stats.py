@@ -19,7 +19,9 @@ def _pmean(x: Shaped[np.ndarray, "N"], n: int = 0) -> Float[np.ndarray, "N2"]:
     return (left + right) / nc
 
 
-def autocorrelation(x: Num[np.ndarray, "N"], ) -> Float[np.ndarray, "N2"]:
+def autocorrelation(
+    x: Num[np.ndarray, "N"]
+) -> Float[np.ndarray, "N2"] | None:
     """Calculate autocorrelation for time delays up to N/2."""
     half = x.shape[0] // 2
 
@@ -43,7 +45,11 @@ def autocorrelation(x: Num[np.ndarray, "N"], ) -> Float[np.ndarray, "N2"]:
     cov = (mcross - m1_left * m1_right) * n / (n - 1)
 
     # Estimated autocorrelation
-    return cov / std_left / std_right
+    std = std_left * std_right
+    if np.any(std == 0):
+        return None
+    else:
+        return cov / std
 
 
 def effective_sample_size(x: Num[np.ndarray, "t"]) -> float:
@@ -71,11 +77,15 @@ def effective_sample_size(x: Num[np.ndarray, "t"]) -> float:
         x: time series data.
 
     Returns:
-        ESS estimate.
+        ESS estimate. In the edge case that `x` is all zeros, the ESS is
+        reported as 0.0.
     """
     rho = autocorrelation(x)
-    rho_sum = np.sum(np.maximum(0.0, rho))
-    return x.shape[0] / (1 + 2 * rho_sum)
+    if rho is None:
+        return 0.0
+    else:
+        rho_sum = np.sum(np.maximum(0.0, rho))
+        return x.shape[0] / (1 + 2 * rho_sum)
 
 
 class NDStats(NamedTuple):

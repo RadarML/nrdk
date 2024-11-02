@@ -7,10 +7,11 @@ batched frames per second with a sweep over (1, 2, 4, ... 32) frames per batch.
 
 | Size    | Layers | Dimension      | Params | Peak Throughput |
 | ------- | ------ | -------------- | ------ | --------------- |
-| Tiny    | 3 + 3  | 384 (6 heads)  | 12.7M  | 316.1 fps       |
-| Small   | 4 + 4  | 512 (8 heads)  | 28.9M  | 168.6 fps       |
-| Medium  | 6 + 6  | 640 (10 heads) | 69.4M  | 83.9 fps        |
-| Large   | 9 + 9  | 768 (12 heads) | 149M   | 44.3 fps        |
+| Pico    | 2 + 2  | 256 (4 heads)  |        | 747 fps         |
+| Tiny    | 3 + 3  | 384 (6 heads)  | 12.7M  | 316 fps         |
+| Small   | 4 + 4  | 512 (8 heads)  | 28.9M  | 169 fps         |
+| Medium  | 6 + 6  | 640 (10 heads) | 69.4M  | 84 fps          |
+| Large   | 9 + 9  | 768 (12 heads) | 149M   | 44 fps          |
 
 ## Ablations
 

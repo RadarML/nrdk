@@ -10,14 +10,41 @@ splits:
   outdoor: ^outdoor
   bike: ^bike
 
-methods:
+reports:
   segment:
-    name: Segmentation
+    name: Segmentation (Decoder Only)
     methods: [
-      "seg.s/p10", "seg.s/p20", "seg.s/p50", "seg.s/base",
-      "seg.s/t10", "seg.s/t20", "seg.s/t50", "seg.s/t100"
+      "seg/p10", "seg/p20", "seg/p50", "seg/base",
+      "seg/t10", "seg/t20", "seg/t50", "seg/t100"
     ] 
     descriptions: [
       "10% Trained", "20% Trained", "50% Trained", "100% Trained",
       "10% Tuned", "20% Tuned", "50% Tuned", "100% Tuned",
     ]
+  segment2:
+    name: Segmentation (Full Tuning)
+    methods: [
+      "seg/p10", "seg/p20", "seg/p50", "seg/base",
+      "seg/f10", "seg/f20", "seg/f50", "seg/f100"
+    ] 
+    descriptions: [
+      "10% Trained", "20% Trained", "50% Trained", "100% Trained",
+      "10% Tuned", "20% Tuned", "50% Tuned", "100% Tuned",
+    ]
+
+comparisons:
+  seg:
+    baseline: seg/p10
+    methods:
+      seg/p10: {"mode": "train", "data": 10}
+      seg/p20: {"mode": "train", "data": 20}
+      seg/p50: {"mode": "train", "data": 50}
+      seg/base: {"mode": "train", "data": 100}
+      seg/t10: {"mode": "decoder", "data": 10}
+      seg/t20: {"mode": "decoder", "data": 20}
+      seg/t50: {"mode": "decoder", "data": 50}
+      seg/t100: {"mode": "decoder", "data": 100}
+      seg/f10: {"mode": "full", "data": 10}
+      seg/f20: {"mode": "full", "data": 20}
+      seg/f50: {"mode": "full", "data": 50}
+      seg/f100: {"mode": "full", "data": 100}

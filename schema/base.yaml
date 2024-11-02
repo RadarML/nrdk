@@ -9,7 +9,7 @@ splits:
   outdoor: ^outdoor
   bike: ^bike
 
-methods:
+reports:
   separate:
     name: Separate Splits
     methods: ["small/base", "small/indoor", "small/outdoor", "small/bike"]
@@ -80,3 +80,61 @@ methods:
     name: Model Scaling (100%)
     methods: ["tiny/base", "small/base", "medium/base", "large/base"]
     descriptions: ["Tiny", "Small", "Medium", "Large"]
+
+comparisons:
+  balance:
+    baseline: small/base
+    methods:
+      small/weight8: {"weight": 8}
+      small/base: {"weight": 16}
+      small/weight32: {"weight": 32}
+      small/weight64: {"weight": 64}
+  separate:
+    baseline: small/base
+    methods:
+      small/indoor: {"split": "indoor"}
+      small/outdoor: {"split": "outdoor"}
+      small/bike: {"split": "bike"}
+      small/base: {"split": "all"}
+  patch:
+    baseline: small/base
+    methods:
+      small/patch.rdae: {"patch": "rdae"}
+      small/patch.rae: {"patch": "rae"}
+      small/patch.dae: {"patch": "dae"}
+      small/base: {"patch": "rd"}
+  augmentations:
+    baseline: small/base
+    methods:
+      small/aug.none: {"aug": "full"}
+      small/aug.lite: {"aug": "partial"}
+      small/base: {"aug": "all"}
+  input:
+    baseline: small/base
+    methods:
+      small/pad: {"repr": "pad"}
+      small/shuffle: {"repr": "shuffle"}
+      small/rawdoppler: {"repr": "rawdoppler"}
+      small/amplitude: {"repr": "amplitude"}
+      small/cfar: {"repr": "cfar"}
+      small/aoa: {"repr": "aoa"}
+      small/base: {"repr": "complex"}
+  scale:
+    baseline: small/p10
+    methods:
+      tiny/p10: {"size": "t", "data": 10}
+      tiny/p20: {"size": "t", "data": 20}
+      tiny/p50: {"size": "t", "data": 50}
+      tiny/base: {"size": "t", "data": 100}
+      small/p10: {"size": "s", "data": 10}
+      small/p20: {"size": "s", "data": 20}
+      small/p50: {"size": "s", "data": 50}
+      small/base: {"size": "s", "data": 100}
+      medium/p10: {"size": "m", "data": 10}
+      medium/p20: {"size": "m", "data": 20}
+      medium/p50: {"size": "m", "data": 50}
+      medium/base: {"size": "m", "data": 100}
+      large/p10: {"size": "l", "data": 10}
+      large/p20: {"size": "l", "data": 20}
+      large/p50: {"size": "l", "data": 50}
+      large/base: {"size": "l", "data": 100}

@@ -54,6 +54,11 @@ Fine tune:
 nq python train.py -c rxf[small] obj[segment] aug[full] data[indoor,outdoor,bike] -b results/small/base -df
 ```
 
+Resume:
+```
+nq python train.py -k results/small/base/checkpoints/last.ckpt -n small -v convergence --metric loss/train
+```
+
 ## Approximate data processing time
 
 - Cartographer Slam: 1:1 (7950X)

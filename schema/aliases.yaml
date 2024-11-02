@@ -1,0 +1,10 @@
+# Common aliases for ablation names
+small/weight16: small/base
+small/patch.rd: small/base
+tiny/p100: tiny/base
+small/p100: small/base
+medium/p100: medium/base
+large/p100: large/base
+seg/p100: seg/base
+vel/p100: vel/base
+bev/p100: vel/base

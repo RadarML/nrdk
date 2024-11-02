@@ -6,7 +6,7 @@ from beartype.typing import Optional, Sequence
 from jaxtyping import Num
 from scipy.stats import norm
 
-from .result import ComparativeStats
+from .compared import ComparativeStats
 
 
 def comparison_matrix(

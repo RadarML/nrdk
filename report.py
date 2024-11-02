@@ -68,11 +68,11 @@ def _main(args):
         cfg = yaml.load(f, Loader=yaml.FullLoader)
 
     if args.methods is None:
-        args.methods = list(cfg["methods"].keys())
+        args.methods = list(cfg["reports"].keys())
 
     desc = args.schema.replace('.yaml', '') + ":" + ",".join(args.methods)
     for set in tqdm(args.methods, desc=desc):
-        spec = cfg["methods"][set]
+        spec = cfg["reports"][set]
         with PdfPages(os.path.join(args.out, set + ".pdf")) as document:
             for metric, metric_name in  cfg["metrics"].items():
                 fig = _compare(

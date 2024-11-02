@@ -8,12 +8,37 @@ splits:
   outdoor: ^outdoor
   bike: ^bike
 
-methods:
+reports:
   bev:
-    name: BEV
+    name: BEV (Decoder Only)
     methods: [
       "bev/p10", "bev/p20", "bev/p50", "bev/base",
       "bev/t10", "bev/t20", "bev/t50", "bev/t100"]
     descriptions: [
       "10% Trained", "20% Trained", "50% Trained", "100% Trained",
       "10% Tuned", "20% Tuned", "50% Tuned", "100% Tuned"]
+  bev:
+    name: BEV (Full Tuning)
+    methods: [
+      "bev/p10", "bev/p20", "bev/p50", "bev/base",
+      "bev/f10", "bev/f20", "bev/f50"]
+    descriptions: [
+      "10% Trained", "20% Trained", "50% Trained", "100% Trained",
+      "10% Tuned", "20% Tuned", "50% Tuned", "100% Tuned"]
+
+comparisons:
+  bev:
+    baseline: bev/p10
+    methods:
+      bev/p10: {"mode": "train", "data": 10}
+      bev/p20: {"mode": "train", "data": 20}
+      bev/p50: {"mode": "train", "data": 50}
+      bev/base: {"mode": "train", "data": 100}
+      bev/t10: {"mode": "decoder", "data": 10}
+      bev/t20: {"mode": "decoder", "data": 20}
+      bev/t50: {"mode": "decoder", "data": 50}
+      bev/t100: {"mode": "decoder", "data": 100}
+      bev/f10: {"mode": "full", "data": 10}
+      bev/f20: {"mode": "full", "data": 20}
+      bev/f50: {"mode": "full", "data": 50}
+      bev/f100: {"mode": "full", "data": 100}
