@@ -92,10 +92,10 @@ comparisons:
   separate:
     baseline: small/base
     methods:
-      small/indoor: {"split": "indoor"}
-      small/outdoor: {"split": "outdoor"}
-      small/bike: {"split": "bike"}
-      small/base: {"split": "all"}
+      small/indoor: {"tsplit": "indoor"}
+      small/outdoor: {"tsplit": "outdoor"}
+      small/bike: {"tsplit": "bike"}
+      small/base: {"tsplit": "all"}
   patch:
     baseline: small/base
     methods:
@@ -122,6 +122,10 @@ comparisons:
   scale:
     baseline: small/p10
     methods:
+      pico/p10: {"size": "p", "data": 10}
+      pico/p20: {"size": "p", "data": 20}
+      pico/p50: {"size": "p", "data": 50}
+      pico/base: {"size": "p", "data": 100}
       tiny/p10: {"size": "t", "data": 10}
       tiny/p20: {"size": "t", "data": 20}
       tiny/p50: {"size": "t", "data": 50}

@@ -89,6 +89,32 @@ class Results:
 
         return common
 
+    def stats(
+        self, result: str, key: str = "loss", pattern: Optional[str] = None
+    ) -> NDStats:
+        """Get statistics for a single result.
+
+        Args:
+            result: target experiment.
+            key: metric name to compare on.
+            pattern: regex filter to apply to traces.
+
+        Returns:
+            Statistics for the specified experiment, key, and traces.
+        """
+        traces = self[result].eval
+        if pattern is not None:
+            traces = [c for c in traces if re.match(pattern, c)]
+
+        def stats(trace: str) -> NDStats:
+            arr = self[result][trace][key]
+            return NDStats(
+                n=np.array(arr.shape[0]),
+                ess=np.array(effective_sample_size(arr)),
+                m1=np.sum(arr), m2=np.sum(np.square(arr)))
+
+        return NDStats.stack(*[stats(t) for t in traces])
+
     def compare(
         self, results: Optional[list[str]] = None, key: str = "loss",
         pattern: Optional[str] = None

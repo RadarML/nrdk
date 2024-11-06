@@ -118,10 +118,11 @@ class Result:
         events_file = os.path.join(self.path, events_candidates[0])
 
         # Early exit 2: file exists and is up to date
-        t_event = os.path.getmtime(events_file)
-        t_meta = os.path.getmtime(meta_path)
-        if os.path.exists(meta_path) and t_meta > t_event:
-            return np.load(meta_path)
+        if os.path.exists(meta_path):
+            t_event = os.path.getmtime(events_file)
+            t_meta = os.path.getmtime(meta_path)
+            if t_meta > t_event:
+                return np.load(meta_path)
 
         ea = event_accumulator.EventAccumulator(events_file, size_guidance={
             event_accumulator.SCALARS: 0, event_accumulator.IMAGES: 1,
