@@ -6,5 +6,5 @@ colors:
 - [251, 188, 4]    # object -- yellow
 - [200, 23, 200]   # person -- magenta
 - [66, 133, 244]   # sky -- blue
-- [255, 109, 1]    # structure -- red
+- [255, 109, 1]    # structure -- orange
 - [138, 18, 216]   # vehicle -- purple
