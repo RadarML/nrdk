@@ -276,6 +276,9 @@ class DeepRadar(L.LightningModule):
             Dictionary with metric names as keys and raw metric results as
             values.
         """
+        # Don't forget this step!
+        self.eval()
+
         device = torch.device(device)
         results = []
         for batch in tqdm(trace, desc=desc):

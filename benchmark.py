@@ -50,6 +50,7 @@ def _benchmark(
         start = time.perf_counter()
         with torch.no_grad():
             _ = model(batch)
+        torch.cuda.current_stream().synchronize()
         t.append(time.perf_counter() - start)
     return 1 / (np.array(t) / batch_size)
 
@@ -62,7 +63,7 @@ def _main(args):
     dataloader = dataset.eval_dataloader(args.trace, batch_size=1)
     batch_cpu = next(iter(dataloader))
     batch_gpu = {k: v.to('cuda') for k, v in batch_cpu.items()}
-    model_gpu = model.to("cuda")
+    model_gpu = model.to("cuda").eval()
 
     batch_size = 1
     throughput = []
