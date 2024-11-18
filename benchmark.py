@@ -57,7 +57,7 @@ def _benchmark(
 
 def _main(args):
     cfg = [os.path.join(args.cfg_dir, c) for c in args.cfg]
-    model = DeepRadar(**config.load_config(cfg))
+    model = DeepRadar(**config.load_config(*cfg))
 
     dataset = model.get_dataset(args.path)
     dataloader = dataset.eval_dataloader(args.trace, batch_size=1)

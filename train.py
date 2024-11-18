@@ -112,7 +112,7 @@ def _main(args):
         args.cfg = [os.path.join(args.cfg_dir, c) for c in args.cfg]
 
     # Resume training
-    model_cfg = config.load_config(args.cfg)
+    model_cfg = config.load_config(*args.cfg)
     if args.checkpoint is None:
         model = DeepRadar(**model_cfg)
     else:

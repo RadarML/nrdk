@@ -76,7 +76,7 @@ def _main(args):
 
     _start = time.time()
     traces = config.load_config(
-        [os.path.join(args.cfg_dir, t) for t in args.traces]
+        *[os.path.join(args.cfg_dir, t) for t in args.traces]
     )["dataset"]["traces"]
     for i, trace in enumerate(traces):
         evaluate(

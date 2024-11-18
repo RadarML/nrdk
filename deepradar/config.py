@@ -56,6 +56,9 @@ shorthand can be used, which is automatically expanded by `load_config`.
   options, `load_config` searches for the options inside that path, and loads
   them in order. If a default config `file/path/path.yaml` is present, its
   contents are also loaded first.
+- `file/path[*]`: as a special case of `[options]`, `*` indicates that all
+  options (files) inside that path should be loaded. Note that in this case,
+  the directory must not contain any non-yaml-loadable files.
 
 For example::
 
@@ -114,7 +117,7 @@ import os
 import re
 
 import yaml
-from beartype.typing import cast
+from beartype.typing import Sequence, cast
 
 
 class Loader(yaml.SafeLoader):
@@ -205,7 +208,7 @@ def merge_config(x: dict, y: dict) -> None:
                 x[k] = v
 
 
-def parse_paths(configs: list[str]) -> list[str]:
+def parse_paths(configs: Sequence[str]) -> list[str]:
     """Expand shorthand for configuration files."""
 
     def _add_ext(s: str) -> str:
@@ -219,19 +222,26 @@ def parse_paths(configs: list[str]) -> list[str]:
         expandable = re.match(r"^(.*)\[(.*)\]$", c)
         if expandable:
             base = expandable.group(1)
+            modifier = expandable.group(2)
 
-            default = os.path.join(base, os.path.basename(base))
-            if os.path.exists(default + ".yaml"):
-                res.append(default)
-            for modifier in expandable.group(2).split(','):
-                res.append(os.path.join(base, modifier))
+            if modifier == "*":
+                res += [os.path.join(base, m) for m in os.listdir(base)]
+            else:
+                default = os.path.join(base, os.path.basename(base))
+                if os.path.exists(default + ".yaml"):
+                    res.append(default)
+                for m in modifier.split(','):
+                    res.append(os.path.join(base, m))
         else:
             res.append(c)
     return [_add_ext(s) for s in res]
 
 
-def load_config(configs: list[str]) -> dict:
-    """Load a list of configuration files."""
+def load_config(*configs: str) -> dict:
+    """Load a list of configuration files.
+
+    See :py:mod:`.config` for parsing rules.
+    """
     res: dict = {}
     for path in parse_paths(configs):
         with open(path) as f:
