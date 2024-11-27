@@ -147,7 +147,7 @@ class FFTArray(BaseFFT):
         assert tx == 3, "Only 3-tx mode is supported."
         assert rx == 4, "Only 4-rx mode is supported."
         iq_daer = np.zeros((d, 8, 2, r), dtype=np.complex64)
-        iq_daer[:, :4, 0, :] = data[:, 0, :, :]
+        iq_daer[:, 0:4, 0, :] = data[:, 0, :, :]
         iq_daer[:, 4:8, 0, :] = data[:, 2, :, :]
         iq_daer[:, 2:6, 1, :] = data[:, 1, :, :]
 
