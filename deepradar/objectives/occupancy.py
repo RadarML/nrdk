@@ -180,22 +180,24 @@ class BEVOccupancy(Objective):
 
     def render(
         self, y_true: dict[str, Shaped[Tensor, "batch ..."]],
-        y_hat: dict[str, Shaped[Tensor, "batch ..."]]
+        y_hat: dict[str, Shaped[Tensor, "batch ..."]], gt: bool = True
     ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
         """Summarize predictions to visualize later.
 
         Args:
             y_true, y_hat: see :py:meth:`Objective.metrics`.
+            gt: whether to render ground truth.
 
         Returns:
             A dict, where each key is the name of a visualization or output
             data, and the value is a quantized or packed format if possible.
         """
         bev_hat = y_hat['bev'][:, 0]
-
         bev = polar2_to_bev(sigmoid(bev_hat), height=256) * 255
-        bev_gt = polar2_to_bev(y_true['bev'], height=256) * 255
-        return {
-            "bev": bev.to(torch.uint8).cpu().numpy(),
-            "bev_gt": bev_gt.to(torch.uint8).cpu().numpy()
-        }
+        res = {"bev": bev.to(torch.uint8).cpu().numpy()}
+
+        if gt:
+            bev_gt = polar2_to_bev(y_true['bev'], height=256) * 255
+            res["bev_gt"] = bev_gt.to(torch.uint8).cpu().numpy()
+
+        return res

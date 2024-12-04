@@ -75,7 +75,7 @@ class Depth(Objective):
 
     def visualizations(
         self, y_true: dict[str, Shaped[Tensor, "..."]],
-        y_hat: dict[str, Shaped[Tensor, "..."]]
+        y_hat: dict[str, Shaped[Tensor, "..."]], gt: bool = True
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         """Generate visualizations."""
         # Canonical elevation-azimuth-range -> elevation-azimuth
