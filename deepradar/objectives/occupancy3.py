@@ -195,12 +195,13 @@ class PolarOccupancy(Objective):
 
     def render(
         self, y_true: dict[str, Shaped[Tensor, "batch ..."]],
-        y_hat: dict[str, Shaped[Tensor, "batch ..."]]
+        y_hat: dict[str, Shaped[Tensor, "batch ..."]], gt: bool = True
     ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
         """Summarize predictions to visualize later.
 
         Args:
             y_true, y_hat: see :py:meth:`Objective.metrics`.
+            gt: render ground truth.
 
         Returns:
             A dict, where each key is the name of a visualization or output
@@ -208,9 +209,13 @@ class PolarOccupancy(Objective):
         """
         map_pred = y_hat['map'] > 0
         raw = {
-            "bev_gt": 255 - polar3_to_bev(y_true['map'], mode='highest'),
-            "depth_gt": torch.argmax(y_true['map'].to(torch.uint8), dim=-1),
             "bev": 255 - polar3_to_bev(map_pred, mode="highest"),
             "depth": torch.argmax(map_pred.to(torch.uint8), dim=-1)
         }
+
+        if gt:
+            raw['bev_gt'] = 255 - polar3_to_bev(y_true['map'], mode='highest')
+            raw['depth_gt'] = torch.argmax(
+                y_true['map'].to(torch.uint8), dim=-1)
+
         return {k: v.to(torch.uint8).cpu().numpy() for k, v in raw.items()}

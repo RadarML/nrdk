@@ -77,12 +77,13 @@ class Objective(ABC):
 
     def render(
         self, y_true: dict[str, Shaped[Tensor, "batch ..."]],
-        y_hat: dict[str, Shaped[Tensor, "batch ..."]]
+        y_hat: dict[str, Shaped[Tensor, "batch ..."]], gt: bool = True
     ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
         """Summarize predictions to visualize later.
 
         Args:
             y_true, y_hat: see :py:meth:`Objective.metrics`.
+            gt: whether to render ground truth.
 
         Returns:
             A dict, where each key is the name of a visualization or output

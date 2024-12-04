@@ -30,6 +30,12 @@ reports:
       "small/base", "small/patch.dae", "small/patch.rae", "small/patch.rdae"]
     descriptions: ["RD*", "DAE", "RAE", "RDAE"]
 
+  patchsize:
+    name: Encoder Patch Size
+    methods: [
+      "small/base", "small/patch.rd2x", "small/patch.rd4x"]
+    descriptions: ["128*", "256", "512"]
+
   balance:
     name: Balancing Coefficient
     methods: [
@@ -119,6 +125,12 @@ comparisons:
       small/cfar: {"repr": "cfar"}
       small/aoa: {"repr": "aoa"}
       small/base: {"repr": "complex"}
+  patchsize:
+    baseline: small/base
+    methods:
+      small/patch.rd2x: {"patch": 256}
+      small/patch.rd4x: {"patch": 512}
+      small/base: {"patch": 128}
   scale:
     baseline: small/p10
     methods:
