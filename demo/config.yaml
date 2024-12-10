@@ -1,5 +1,5 @@
 radar:
-  port: /dev/ttyACM0
+  port: /dev/ttyACM1
   frequency: 77.0
   idle_time: 200.0
   adc_start_time: 5.7

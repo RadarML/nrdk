@@ -24,6 +24,7 @@ def _parse():
         help="Override the default selected checkpoint; should be a file in "
         "{model}/checkpoints/.")
     p.add_argument("-c", "--config", help="Radar configuration (yaml).")
+    p.add_argument("-s", "--scale", default=1.0, type=float, help="Colormap scale.")
 
     return p
 
@@ -51,7 +52,7 @@ def _main(args):
         cmap = (np.array(colormaps['inferno'].colors) * 255).astype(np.uint8)
     elif args.type == 'seg':
         with open("schema/colors.yaml") as f:
-            cmap = np.array(yaml.load(f, Loader=yaml.SafeLoader)["colors"])
+            cmap = np.array(yaml.load(f, Loader=yaml.SafeLoader)["colors"], dtype=np.uint8)
     else:
         raise ValueError(
             f"Unknown model type: {args.type} "
@@ -70,18 +71,18 @@ def _main(args):
         else:
             if args.type == 'depth':
                 quant = (
-                    np.clip(frame['depth'] / 63, 0, 1) * 255).astype(np.uint8)
+                    np.clip(frame['depth'] / 63 * args.scale, 0, 1) * 255).astype(np.uint8)
             elif args.type == 'bev':
                 quant = frame['bev']
             else:
                 quant = frame['seg']
 
-            quant = frame['bev']
+            # quant = frame['bev']
             img = np.take(cmap, quant, axis=0)
             img = cv2.resize(
-                img, (1920, 1920 // 2), interpolation=cv2.INTER_NEAREST)
+                img, (1920, 1080), interpolation=cv2.INTER_NEAREST)
 
-            cv2.imshow(args.type, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            cv2.imshow(window_name, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
             cv2.waitKey(10)
 
         ii += 1
