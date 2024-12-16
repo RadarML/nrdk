@@ -34,11 +34,21 @@ class Destagger(Transform):
         os.close(stdout)
 
     def __call__(
-        self, data: UInt[np.ndarray, "El Az"], aug: dict[str, Any] = {},
+        self, data: UInt[np.ndarray, "T El Az"], aug: dict[str, Any] = {},
         idx: int = 0
-    ) -> UInt[np.ndarray, "El Az"]:
-        return client.destagger(self.metadata, data)  # type: ignore
+    ) -> UInt[np.ndarray, "T El Az"]:
+        """Destagger data.
 
+        Args:
+            data: input frames; note that the axis order is in memory order,
+                which is opposite to ouster order.
+
+        Returns:
+            Destaggered data, rearranged back to memory order.
+        """
+        raw_os = rearrange(data, "t el az -> el az t")
+        out_os = client.destagger(self.metadata, raw_os)  # type: ignore
+        return rearrange(out_os, "el az t -> t el az")
 
 class Map2D(Transform):
     """2D azimuth-range lidar map.
@@ -103,19 +113,19 @@ class Map2D(Transform):
         self.crop_az = crop_az
 
     def __call__(
-        self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {},
+        self, data: UInt16[np.ndarray, "T El Az"], aug: dict[str, Any] = {},
         idx: int = 0
-    ) -> Bool[np.ndarray, "Az2 Nr"]:
+    ) -> Bool[np.ndarray, "T Az2 Nr"]:
         # Crop, convert mm -> m
-        el, az = data.shape
+        t, el, az = data.shape
         crop_el = int(self.crop_el * el)
         crop_az = int(self.crop_az * az)
-        x_crop = data[crop_el:-crop_el, crop_az:-crop_az] / 1000
+        x_crop = data[:, crop_el:-crop_el, crop_az:-crop_az] / 1000
 
         # Project to polar
         angles = self.beam_angles[crop_el:-crop_el]
-        z = np.sin(angles)[:, None] * x_crop
-        r = np.cos(angles)[:, None] * x_crop
+        z = np.sin(angles)[None, :, None] * x_crop
+        r = np.cos(angles)[None, :, None] * x_crop
 
         # Crop to ex
         r[(z > self.z_max) | (z < self.z_min)] = 0
@@ -123,15 +133,19 @@ class Map2D(Transform):
         if "range_scale" in aug:
             r = r * aug["range_scale"]
         if aug.get("azimuth_flip"):
-            r = np.flip(r, axis=1)
+            r = np.flip(r, axis=2)
 
         # Create map
-        bin = (r // (self.resolution)).astype(np.uint16)
+        bin: UInt16[np.ndarray, "T El Az"] = (
+            r // (self.resolution)).astype(np.uint16)
         bin[bin >= self.bins] = 0
-        res = np.zeros((bin.shape[1], self.bins), dtype=bool)
-        for i in range(bin.shape[1]):
-            res[i][bin[:, i]] = True
-        res[:, 0] = False
+
+
+        t, el2, az2 = bin.shape
+        res = np.zeros((t, az2, self.bins), dtype=bool)
+        i_t, i_az = np.meshgrid(np.arange(t), np.arange(az2), indexing='ij')
+        res[i_t[:, :, None], i_az[:, :, None], bin.transpose(0, 2, 1)] = True
+        res[:, :, 0] = False
         return res
 
 
@@ -168,13 +182,13 @@ class Map3D(Transform):
         self.crop_az = crop_az
 
     def __call__(
-        self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {},
+        self, data: UInt16[np.ndarray, "T El Az"], aug: dict[str, Any] = {},
         idx: int = 0
-    ) -> Bool[np.ndarray, "El2 Az2 Nr"]:
+    ) -> Bool[np.ndarray, "T El2 Az2 Nr"]:
         # Crop, convert mm -> m
-        _, az = data.shape
+        t, el, az = data.shape
         crop_az = int(self.crop_az * az)
-        rng = data[:, crop_az:-crop_az] / 1000
+        rng = data[:, :, crop_az:-crop_az] / 1000
 
         if "range_scale" in aug:
             rng = rng * aug["range_scale"]
@@ -185,18 +199,23 @@ class Map3D(Transform):
         bin = (rng // (self.resolution)).astype(np.uint16)
         bin[bin >= self.bins] = 0
 
-        n_el = bin.shape[0] // self.d_el
-        n_az = bin.shape[1] // self.d_az
+        t, el2, az2 = bin.shape
+        n_el = el2 // self.d_el
+        n_az = az2 // self.d_az
 
         bin = rearrange(
-            bin, "(el d_el) (az d_az) -> el d_el az d_az",
+            bin, "t (el d_el) (az d_az) -> t el d_el az d_az",
             el=n_el, d_el=self.d_el, az=n_az, d_az=self.d_az)
-        res = np.zeros((n_el, n_az, self.bins), dtype=bool)
+        res = np.zeros((t, n_el, n_az, self.bins), dtype=bool)
 
-        i_el = np.broadcast_to(np.arange(n_el)[:, None, None, None], bin.shape)
-        i_az = np.broadcast_to(np.arange(n_az)[None, None, :, None], bin.shape)
-        res[i_el.flatten(), i_az.flatten(), bin.flatten()] = True
-        res[:, :, 0] = False
+        i_t = np.broadcast_to(
+            np.arange(t)[:, None, None, None, None], bin.shape).flatten()
+        i_el = np.broadcast_to(
+            np.arange(n_el)[None, :, None, None, None], bin.shape).flatten()
+        i_az = np.broadcast_to(
+            np.arange(n_az)[None, None, None, :, None], bin.shape).flatten()
+        res[i_t, i_el, i_az, bin.flatten()] = True
+        res[:, :, :, 0] = False
 
         return res
 
@@ -239,17 +258,17 @@ class Depth(Transform):
         self.crop_az = crop_az
 
     def __call__(
-        self, data: UInt16[np.ndarray, "El Az"], aug: dict[str, Any] = {},
+        self, data: UInt16[np.ndarray, "T El Az"], aug: dict[str, Any] = {},
         idx: int = 0
-    ) -> Float32[np.ndarray, "El2 Az2"]:
-        el, az = data.shape
+    ) -> Float32[np.ndarray, "T El2 Az2"]:
+        t, el, az = data.shape
         crop_el = int(el * self.crop_el)
         crop_az = int(az * self.crop_az)
 
         if crop_el > 0:
-            data = data[crop_el:-crop_el]
+            data = data[:, crop_el:-crop_el, :]
         if crop_az > 0:
-            data = data[:, crop_az:-crop_az]
+            data = data[:, :, crop_az:-crop_az]
 
         if "range_scale" in aug:
             data = (

@@ -21,7 +21,19 @@ class Transform(ABC):
     def __call__(
         self, data: Any, aug: dict[str, Any] = {}, idx: int = 0
     ) -> Any:
-        """Apply transform."""
+        """Apply transform.
+
+        Args:
+            data: input data.
+            aug: data augmentation specifications; these augmentations are
+                nominally applied uniformly to all input data.
+            idx: source index of the data; can be used to fetch auxiliary
+                information if required.
+
+        Returns:
+            Transformed data. No particular type, axis, or dimension
+            requirements are imposed.
+        """
         raise NotImplementedError()
 
 
@@ -32,4 +44,5 @@ class ToFloat16(Transform):
         self, data: Float[np.ndarray, "..."], aug: dict[str, Any] = {},
         idx: int = 0
     ) -> Float16[np.ndarray, "..."]:
+        """Convert generic floating point to 16-bit floating point."""
         return data.astype(np.float16)

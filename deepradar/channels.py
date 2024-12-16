@@ -22,6 +22,14 @@ class Channel(ABC):
     native index; index alignments and data transformations are handled by the
     base class, and data transformations.
 
+    Data can also be loaded as a time window relative to the target index with
+    a `(past, future)` offset, where `past` and `future` indicate additional
+    samples to include relative to the specified index::
+
+        transform(data[idx - left, idx + right + 1])
+
+    Note that this results in `past + future + 1` samples being read.
+
     NOTE: random accesses (e.g. `idx` in arbitrary order) must be supported.
 
     Args:
@@ -29,14 +37,20 @@ class Channel(ABC):
         indices: index transformation from trace to channel index; if `None`,
             no transformation is applied.
         transform: list of :py:class:`Transform` to apply to the data.
+        window: past and future samples to include as a `(past, future)` offset
+            relative to the current index; if `None`, single samples are
+            loaded with the time dimension collapsed.
     """
 
     def __init__(
         self, dataset: str, indices: Optional[UInt[np.ndarray, "N"]] = None,
         transform: list[Callable[[str], transforms.Transform]] = [],
+        window: Optional[tuple[int, int]] = None
     ) -> None:
         self._transforms = [tf(dataset) for tf in transform]
         self._indices = indices
+        self._window = (0, 0) if window is None else window
+        self._squeeze = window is None
 
     @abstractmethod
     def _index(self, idx: Index) -> Any:
@@ -62,7 +76,8 @@ class Channel(ABC):
 
         for tf in self._transforms:
             data = tf(data, aug=aug, idx=int(idx))
-        return data
+
+        return data[0] if self._squeeze else data
 
     @classmethod
     def from_config(
@@ -92,21 +107,28 @@ class RawChannel(Channel):
         sensor: sensor name.
         channel: channel within sensor.
         transform: list of :class:`Transform` to apply to the data.
+        window: past and future samples to include as a `(past, future)` offset
+            relative to the current index; see :py:class:`.Channel`.
     """
 
     def __init__(
         self, dataset: str, indices: Optional[UInt[np.ndarray, "N"]],
         sensor: str, channel: str,
-        transform: list[Callable[[str], transforms.Transform]] = []
+        transform: list[Callable[[str], transforms.Transform]] = [],
+        window: Optional[tuple[int, int]] = None
     ) -> None:
-        super().__init__(dataset=dataset, indices=indices, transform=transform)
+        super().__init__(
+            dataset=dataset, indices=indices,
+            transform=transform, window=window)
         self.channel = Dataset(dataset)[sensor][channel]
 
-    def _index(self, idx: Index) -> Num[np.ndarray, "..."]:
+    def _index(self, idx: Index) -> Num[np.ndarray, "T ..."]:
         try:
-            return self.channel.read(int(idx), samples=1)[0]
+            past, future = self._window
+            return self.channel.read(
+                int(idx) - past, samples=future + past + 1)
         except IndexError as e:
-            print(self.channel, idx)
+            print(self.channel, idx, self._window)
             raise(e)
 
 
@@ -121,14 +143,19 @@ class NPChannel(Channel):
         keys: keys to load from the `.npz` archive. If `keys` is a str, single
             arrays are yielded instead of dicts of arrays.
         transform: list of :class:`Transform` to apply to the data.
+        window: past and future samples to include as a `(past, future)` offset
+            relative to the current index; see :py:class:`.Channel`.
     """
 
     def __init__(
         self, dataset: str, indices: Optional[UInt[np.ndarray, "N"]],
         path: str, keys: list[str] | str = [],
-        transform: list[Callable[[str], transforms.Transform]] = []
+        transform: list[Callable[[str], transforms.Transform]] = [],
+        window: Optional[tuple[int, int]] = None
     ) -> None:
-        super().__init__(dataset=dataset, indices=indices, transform=transform)
+        super().__init__(
+            dataset=dataset, indices=indices,
+            transform=transform, window=window)
         npz = np.load(os.path.join(dataset, path))
 
         if isinstance(keys, str):
@@ -146,10 +173,12 @@ class NPChannel(Channel):
         if self.index_map is not None:
             idx = self.index_map[idx]
 
+        past, future = self._window
+        ii = slice(idx - past, idx + future + 1, None)
         if isinstance(self.arr, dict):
-            return {k: v[idx] for k, v in self.arr.items()}
+            return {k: v[ii] for k, v in self.arr.items()}
         else:
-            return self.arr[idx]
+            return self.arr[ii]
 
 
 class MetaChannel(Channel):

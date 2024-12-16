@@ -33,15 +33,17 @@ class RelativeVelocity(Transform):
             self.resolution: float = json.load(f)["doppler_resolution"]
 
     def __call__(
-        self, data: dict[str, Float[np.ndarray, "..."]],
+        self, data: dict[str, Float[np.ndarray, "t 3 *rot_3"]],
         aug: dict[str, Any] = {}, idx: int = 0
-    ) -> Float[np.ndarray, "3"]:
+    ) -> Float[np.ndarray, "t 3"]:
         scale = aug.get("speed_scale", 1.0) / self.resolution
-        vel = np.matmul(np.linalg.inv(data["rot"]), data["vel"]) * scale
+        vel = np.matmul(
+            np.linalg.inv(data["rot"]), data["vel"][:, :, None]
+        ).squeeze(-1) * scale
 
         if aug.get("doppler_flip"):
             vel *= -1
         if aug.get("azimuth_flip"):
-            vel[1] = vel[1] * -1
+            vel[2] = vel[2] * -1
 
         return vel
