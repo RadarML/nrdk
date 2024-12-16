@@ -70,14 +70,31 @@ class BaseFFT(Transform):
 
     @staticmethod
     def _augment(
-        data: Complex64[np.ndarray, "D A ... R"], aug: dict[str, Any] = {}
+        data: Complex64[np.ndarray, "*batch D A ... R"],
+        aug: dict[str, Any] = {}, elevation: bool = True
     ) -> Complex64[np.ndarray, "D A ... R"]:
         """Apply radar representation-agnostic data augmentations."""
         if aug.get("azimuth_flip"):
-            data = np.flip(data, axis=1)
+            data = np.flip(data, axis=-3 if elevation else -2)
         if aug.get("doppler_flip"):
-            data = np.flip(data, axis=0)
+            data = np.flip(data, axis=-4 if elevation else -3)
         return data
+
+
+class FFTPrecomputed(BaseFFT):
+    """Pre-computed 4D FFT (only handling augmentations).
+
+    Augmentations:
+
+    - `azimuth_flip`: flip along azimuth axis.
+    - `doppler_flip`: flip along doppler axis.
+    """
+
+    def __call__(
+        self, data: Complex64[np.ndarray, "*batch D A E R"],
+        aug: dict[str, Any] = {}, idx: int = 0
+    ) -> Complex64[np.ndarray, "*batch D A E R"]:
+        return self._augment(data, aug=aug, elevation=True)
 
 
 class FFTLinear(BaseFFT):
@@ -115,7 +132,7 @@ class FFTLinear(BaseFFT):
         dar = fft.fftn(iq_dar, axes=self.axes)
         dar_shf = fft.fftshift(dar, axes=[x for x in self.axes if x in (0, 1)])
 
-        return self._augment(dar_shf, aug=aug)
+        return self._augment(dar_shf, aug=aug, elevation=False)
 
 
 class FFTArray(BaseFFT):
@@ -159,7 +176,7 @@ class FFTArray(BaseFFT):
         daer_shf = fft.fftshift(
             daer, axes=[x for x in self.axes if x in (0, 1, 2)])
 
-        return self._augment(daer_shf, aug=aug)
+        return self._augment(daer_shf, aug=aug, elevation=True)
 
 
 class DopplerShuffle(Transform):

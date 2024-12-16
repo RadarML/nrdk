@@ -77,7 +77,6 @@ def _main(args):
             else:
                 quant = frame['seg']
 
-            # quant = frame['bev']
             img = np.take(cmap, quant, axis=0)
             img = cv2.resize(
                 img, (1920, 1080), interpolation=cv2.INTER_NEAREST)
