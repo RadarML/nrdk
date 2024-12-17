@@ -9,7 +9,7 @@
 """
 
 from .axial import AxialEncoder
-from .rxf import TransformerDecoder, TransformerEncoder, VectorDecoder
+from .grt import TransformerDecoder, TransformerEncoder, VectorDecoder
 from .swin import SwinDPT2DDecoder, SwinTransformerEncoder
 from .unet import UNetBEVDecoder, UNetEncoder
 from .unext import UNeXTBEVDecoder, UNeXTEncoder

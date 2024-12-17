@@ -57,8 +57,8 @@ class Representation(Transform):
         center = x[:, i_left:i_right]
         right = x[:, i_right:]
 
-        center[:, :right.shape[0]] += right
-        center[:, -left.shape[0]:] += left
+        center[:, :right.shape[1]] += right
+        center[:, -left.shape[1]:] += left
 
         return center
 

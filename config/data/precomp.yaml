@@ -1,0 +1,12 @@
+# Precomputed FFT
+dataset:
+  channels:
+    radar:
+      args:
+        sensor: _radar
+        channel: cube
+        :transform:
+        - name: FFTPrecomputed
+          args: {}
+        - name: ComplexPhase
+          args: {}

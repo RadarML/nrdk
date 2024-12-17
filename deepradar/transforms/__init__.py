@@ -40,6 +40,7 @@ from .fft import (
     DopplerShuffle,
     FFTArray,
     FFTLinear,
+    FFTPrecomputed,
     IIQQtoIQ,
 )
 from .lidar import Depth, Destagger, Map2D, Map3D
@@ -57,7 +58,7 @@ __all__ = [
     "Transform", "ToFloat16",
     "CameraAugmentations",
     "AssertTx2", "DiscardTx2", "DopplerShuffle", "FFTLinear", "FFTArray",
-    "IIQQtoIQ",
+    "FFTPrecomputed", "IIQQtoIQ",
     "Destagger", "Map2D", "Map3D", "Depth",
     "RelativeVelocity",
     "AmplitudeAOA", "ComplexAmplitude", "ComplexParts", "ComplexPhase",

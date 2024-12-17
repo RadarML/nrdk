@@ -1,4 +1,4 @@
-"""Radar Transformer."""
+"""Generalizable Radar Transformer."""
 
 import lightning as L
 import numpy as np
@@ -12,7 +12,7 @@ from deepradar import modules
 
 
 class TransformerEncoder(L.LightningModule):
-    """Radar Doppler Transformer.
+    """Radar 4D Doppler Transformer.
 
     Only a selected subset of hidden layers are passed to the decoder, and
     are specified by `dec_layers` as follows:
@@ -52,12 +52,12 @@ class TransformerEncoder(L.LightningModule):
         patch: Sequence[int] = (16, 1, 1, 16),
         pos_scale: Optional[Sequence[float]] = None, global_scale: float = 1.0,
         input_channels: int = 2,
-        positions: Literal["flat", "nd"] = "flat",
+        positions: Literal["flat", "nd"] = "nd",
     ) -> None:
         super().__init__()
 
-        if len(patch) != 4:
-            raise ValueError("Must specify a 4D patch size.")
+        if len(patch) not in {4, 5}:
+            raise ValueError(f"Must specify a 4D or 5D patch size ({patch}).")
 
         self.patch = modules.PatchMerge(
             d_in=input_channels, d_out=dim, scale=patch, norm=False)
@@ -75,13 +75,13 @@ class TransformerEncoder(L.LightningModule):
             for _ in range(layers)])
 
     def forward(
-        self, x: Float[Tensor, "n d a e r c"]
+        self, x: Float[Tensor, "n *t d a e r c"]
     ) -> Float[Tensor, "n s c"] | list[Float[Tensor, "n s c"]]:
         """Apply radar transformer.
 
         Args:
-            x: input batch, with batch-doppler-azimuth-elevation-range-iq axis
-                order.
+            x: input batch, with batch-doppler-azimuth-elevation-range-iq (or
+                batch-time-... if 5D) axis order.
 
         Returns:
             Encoding output.
@@ -90,7 +90,7 @@ class TransformerEncoder(L.LightningModule):
 
         if self.positions == "nd":
             embedded = self.pos(embedded)
-        flat = rearrange(embedded, "n d r a e c -> n (d r a e) c")
+        flat = embedded.reshape(embedded.shape[0], -1, embedded.shape[-1])
         if self.positions == "flat":
             flat = self.pos(flat)
 

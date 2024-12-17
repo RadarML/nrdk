@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from functools import partial
 
 import numpy as np
-from beartype.typing import Any, Callable, Optional, Union
+from beartype.typing import Any, Callable, Optional, Sequence, Union, cast
 from jaxtyping import Num, UInt
 from roverd import Dataset
 
@@ -45,12 +45,18 @@ class Channel(ABC):
     def __init__(
         self, dataset: str, indices: Optional[UInt[np.ndarray, "N"]] = None,
         transform: list[Callable[[str], transforms.Transform]] = [],
-        window: Optional[tuple[int, int]] = None
+        window: Optional[Sequence[int]] = None
     ) -> None:
         self._transforms = [tf(dataset) for tf in transform]
         self._indices = indices
-        self._window = (0, 0) if window is None else window
-        self._squeeze = window is None
+
+        if window is None:
+            self._window = (0, 0)
+            self._squeeze = True
+        else:
+            assert len(window) == 2
+            self._window = cast(tuple[int, int], tuple(window))
+            self._squeeze = False
 
     @abstractmethod
     def _index(self, idx: Index) -> Any:
@@ -115,7 +121,7 @@ class RawChannel(Channel):
         self, dataset: str, indices: Optional[UInt[np.ndarray, "N"]],
         sensor: str, channel: str,
         transform: list[Callable[[str], transforms.Transform]] = [],
-        window: Optional[tuple[int, int]] = None
+        window: Optional[Sequence[int]] = None
     ) -> None:
         super().__init__(
             dataset=dataset, indices=indices,
