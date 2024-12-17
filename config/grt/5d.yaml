@@ -3,7 +3,7 @@ encoder:
     :patch: [1, 2, 8, 2, 4]
 
 dataset:
-  channels:
+   channels:
     radar:
       args:
-        window: [1, 0]
+        window: [3, 0]

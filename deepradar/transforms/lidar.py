@@ -193,7 +193,7 @@ class Map3D(Transform):
         if "range_scale" in aug:
             rng = rng * aug["range_scale"]
         if aug.get("azimuth_flip"):
-            rng = np.flip(rng, axis=1)
+            rng = np.flip(rng, axis=2)
 
         # Create map
         bin = (rng // (self.resolution)).astype(np.uint16)
@@ -274,7 +274,7 @@ class Depth(Transform):
             data = (
                 data.astype(np.float32) * aug["range_scale"]).astype(np.uint16)
         if aug.get("azimuth_flip"):
-            data = np.flip(data, axis=1)
+            data = np.flip(data, axis=2)
 
         # Note: the Ouster lidar natively uses mm as a unit, while we use m.
         depth_m = data.astype(np.float32) / 1000
