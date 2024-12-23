@@ -115,9 +115,24 @@ class Results:
 
         return NDStats.stack(*[stats(t) for t in traces])
 
+    def _load_stack(
+        self, results: list[str], trace: str, key: str,
+        allow_truncation: bool = False
+    ) -> Shaped[np.ndarray, "Nr N"]:
+        """Load a stack of evaluation metrics.
+
+        If `allow_truncation` is `True`, traces are truncated to their minimum
+        length, keeping only values at the end.
+        """
+        traces = [self[r][trace][key] for r in results]
+        if allow_truncation:
+            n = min(x.shape[0] for x in traces)
+            traces = [x[-n:] for x in traces]
+        return np.stack(traces)
+
     def compare(
         self, results: Optional[list[str]] = None, key: str = "loss",
-        pattern: Optional[str] = None
+        pattern: Optional[str] = None, allow_truncation: bool = False
     ) -> ComparativeStats:
         """Get comparison statistics between a list of experiments.
 
@@ -126,6 +141,10 @@ class Results:
                 relative to the base path of this container.
             key: metric name to compare on.
             pattern: regex filter to apply to traces.
+            allow_truncation: allow operating on evaluation traces of multiple
+                lengths, in the case that some evaluations are left-truncated
+                (e.g. due to history requirements). In these cases, longer
+                traces are truncated to match the shortest evaluation trace.
 
         Returns:
             Comparison statistics between the specified experiments. Only
@@ -161,8 +180,8 @@ class Results:
 
         def stats(trace: str) -> ComparativeStats:
             """Calculate statistics."""
-            arr: Shaped[np.ndarray, "Nr N"] = np.stack([
-                self[r][trace][key] for r in results])
+            arr = self._load_stack(
+                results, trace, key, allow_truncation=allow_truncation)
 
             with ThreadPool(processes=arr.shape[0]) as p:
                 mean_ess = np.array(p.map(effective_sample_size, arr))
@@ -186,7 +205,8 @@ class Results:
 
     def compare_to(
         self, baseline: str = "base", results: Optional[list[str]] = None,
-        key: str = "loss", pattern: Optional[str] = None
+        key: str = "loss", pattern: Optional[str] = None,
+        allow_truncation: bool = False
     ) -> BaselineStats:
         """Get comparison statistics relative to a set experiment.
 
@@ -196,6 +216,10 @@ class Results:
                 relative to the base path of this container.
             key: metric name to compare on.
             pattern: regex filter to apply to traces.
+            allow_truncation: allow operating on evaluation traces of multiple
+                lengths, in the case that some evaluations are left-truncated
+                (e.g. due to history requirements). In these cases, longer
+                traces are truncated to match the shortest evaluation trace.
 
         Returns:
             Comparison statistics relative to the specified experiment.
@@ -219,9 +243,12 @@ class Results:
 
         def stats(trace: str) -> BaselineStats:
             """Calculate statistics."""
-            arr: Shaped[np.ndarray, "Nr N"] = np.stack([
-                self[r][trace][key] for r in results])
-            diff = arr - baseline_data[trace][None, :]
+            arr = self._load_stack(
+                results, trace, key, allow_truncation=allow_truncation)
+            base = baseline_data[trace]
+            if allow_truncation:
+                base = base[-arr.shape[1]:]
+            diff = arr - base[None, :]
 
             with ThreadPool(processes=arr.shape[0]) as p:
                 mean_ess = p.map(effective_sample_size, arr)
