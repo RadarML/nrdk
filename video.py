@@ -43,9 +43,12 @@ def _load(args):
     ds = Dataset(os.path.join(args.data, args.path))
 
     models = {
-        "base": ("small/base", "depth"),
-        "seg": ("seg/f100", "seg"),
-        "bev": ("bev/f100", "bev")
+        # "base": ("small/base", "depth"),
+        "base": ("history/t4x1", "depth"),
+        # "seg": ("seg/f100", "seg"),
+        "seg": ("history/t4x1.seg", "seg"),
+        # "bev": ("bev/f100", "bev")
+        "bev": ("history/t4x1.bev", "bev")
     }
 
     align = np.load(os.path.join(
@@ -70,10 +73,10 @@ def _load(args):
             os.path.join(args.results, path, "eval", args.path))[key].read())
         timestamps[k] = ts_model
     streams["bev_gt"] = iter(sensors.SensorData(
-        os.path.join(args.results, "bev/f100", "eval", args.path)
+        os.path.join(args.results, "history/t4x1.bev", "eval", args.path)
     )["bev_gt"].read())
     streams["seg_gt"] = iter(sensors.SensorData(
-        os.path.join(args.results, "seg/f100", "eval", args.path)
+        os.path.join(args.results, "history/t4x1.seg", "eval", args.path)
     )["seg_gt"].read())
     timestamps["bev_gt"] = ts_model
     timestamps["seg_gt"] = ts_model

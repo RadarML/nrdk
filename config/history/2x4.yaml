@@ -1,0 +1,9 @@
+encoder:
+  args:
+    :patch: [4, 2, 8, 2, 4]
+
+dataset:
+   channels:
+    radar:
+      args:
+        window: [7, 0]

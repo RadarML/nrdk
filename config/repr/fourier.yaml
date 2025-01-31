@@ -1,0 +1,19 @@
+encoder:
+  name: TransformerFourierEncoder
+  args:
+    :patch: [2, 12, 4]
+    shape: [64, 3, 4, 256]
+
+dataset:
+  channels:
+    radar:
+      args:
+        :transform:
+        - name: AssertTx2
+          args: {}
+        - name: IIQQtoIQ
+          args:
+            scale: 0.001
+        - name: ComplexParts
+          args:
+            do_sqrt: false

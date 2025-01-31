@@ -4,7 +4,6 @@ import lightning as L
 import numpy as np
 import torch
 from beartype.typing import Literal, Optional, Sequence
-from einops import rearrange
 from jaxtyping import Float
 from torch import Tensor, nn
 

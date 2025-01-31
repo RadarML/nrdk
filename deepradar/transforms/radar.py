@@ -131,7 +131,13 @@ class ComplexParts(Representation):
         - `speed_scale`: apply random speed scale. Excess doppler bins are
           wrapped (causing ambiguous doppler velocities); missing doppler
           velocities are zero-filled.
+
+    Args:
+        do_sqrt: whether to do `sqrt()` transform on input magnitudes.
     """
+
+    def __init__(self, path: str, do_sqrt: bool = True) -> None:
+        self.do_sqrt = do_sqrt
 
     def __call__(
         self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {},
@@ -140,8 +146,12 @@ class ComplexParts(Representation):
         if aug.get("radar_phase"):
             data *= np.exp(-1j * aug["radar_phase"])
 
-        real = np.sqrt(np.abs(np.real(data))) * np.sign(np.real(data))
-        imag = np.sqrt(np.abs(np.imag(data))) * np.sign(np.imag(data))
+        if self.do_sqrt:
+            real = np.sqrt(np.abs(np.real(data))) * np.sign(np.real(data))
+            imag = np.sqrt(np.abs(np.imag(data))) * np.sign(np.imag(data))
+        else:
+            real = np.real(data)
+            imag = np.imag(data)
 
         stretched = [
             self._augment(real, aug) * aug.get("radar_scale", 1.0),

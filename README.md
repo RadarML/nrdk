@@ -9,6 +9,7 @@ Radar deep learning toolkit.
     ```sh
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
     pip install -r requirements.txt
+    pip install "roverd[video,ouster]@git+ssh://git@github.com/WiseLabCMU/red-rover.git#subdirectory=format"
     ```
 
 2. Get data:
@@ -58,33 +59,3 @@ Resume:
 ```
 nq python train.py -k results/small/base/checkpoints/last.ckpt -n small -v convergence --metric loss/train
 ```
-
-## Approximate data processing time
-
-- Cartographer Slam: 1:1 (7950X)
-- Segmentation: 1:1 (4090)
-- FFT/AOA: ???
-
-## Dataset Breakdown
-
-Raw Data: 2.91T
-- Camera (`video.avi`): 860G
-- Radar (`iq`): 1.5T
-- Lidar:
-    - Depth (`rng`): 174G
-    - Reflectance (`rfl`): 102G
-    - Infrared (`nir`): 274G
-- IMU:
-    - Acceleration (`acc`): 121M
-    - Rotation (`rot`): 121M
-    - Angular Acceleration (`avel`): 121M
-
-Metadata: 224M
-- Timestamps (`ts`): 154M
-- Indices (`*_i.npz`): 70M
-
-Processed Data: 4.13G
-- Poses (`pose.npz`): 910M
-- Segmentation Maps: 2.1G
-- CFAR mask: 1.1G
-- AOA estimates: 18G

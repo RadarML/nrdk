@@ -37,7 +37,8 @@ def _main(args):
         for split, regex in schema["splits"].items():
             for metric in schema["metrics"]:
                 compared = results.compare_to(
-                    cfg["baseline"], methods, pattern=regex, key=metric).sum()
+                    cfg["baseline"], methods, pattern=regex, key=metric,
+                    allow_truncation=True).sum()
 
                 z = zip(methods, compared.abs.mean, compared.diff.stderr)
                 for method, mean, stderr in z:
