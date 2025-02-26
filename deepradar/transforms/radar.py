@@ -173,10 +173,15 @@ class ComplexAmplitude(Representation):
 
     Args:
         cfar: if `True`, apply a pre-computed CFAR mask to the data.
+        keepdim: keep the trailing axis created after converting
+            `(real, complex) -> amplitude`.
     """
 
-    def __init__(self, path: str, cfar: bool = False) -> None:
+    def __init__(
+        self, path: str, cfar: bool = False, keepdim: bool = True
+    ) -> None:
         self.cfar: Optional[roverd.channels.Channel] = None
+        self.keepdim = keepdim
         if cfar:
             _radar = roverd.sensors.RadarData(os.path.join(path, "_radar"))
             self.cfar = _radar["cfar"]
@@ -184,7 +189,7 @@ class ComplexAmplitude(Representation):
     def __call__(
         self, data: Complex64[np.ndarray, "..."], aug: dict[str, Any] = {},
         idx: int = 0
-    ) -> Float32[np.ndarray, "... 1"]:
+    ) -> Float32[np.ndarray, "... 1"] | Float32[np.ndarray, "..."]:
         data = np.sqrt(np.abs(data))
 
         if self.cfar is not None:
@@ -193,8 +198,8 @@ class ComplexAmplitude(Representation):
             reshape = [Nd] + [1] * (len(data.shape) - 2) + [Nr]
             data = data * mask.reshape(reshape)
 
-        stretched = self._augment(data, aug)
-        return (stretched * aug.get("radar_scale", 1.0))[..., None]
+        stretched = self._augment(data, aug) * aug.get("radar_scale", 1.0)
+        return stretched[..., None] if self.keepdim else stretched
 
 
 class ComplexPhase(Representation):

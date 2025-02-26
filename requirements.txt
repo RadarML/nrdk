@@ -10,11 +10,13 @@ lightning==2.3.3
 
 torch
 torchvision
-jaxtyping
 matplotlib
 tensorboard
 einops
 pyyaml
-beartype
 scikit-image
 tqdm
+jaxtyping
+beartype
+types-PyYAML
+tqdm-stubs

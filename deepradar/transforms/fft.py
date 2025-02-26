@@ -177,7 +177,7 @@ class FFTLinear(BaseFFT):
 
         if self.pad > 0:
             zeros = np.zeros([t, d, self.pad, r], dtype=np.complex64)
-            iq_dar = np.concatenate([iq_dar, zeros], axis=1)
+            iq_dar = np.concatenate([iq_dar, zeros], axis=2)
 
         dar = fft.fftn(iq_dar, axes=[x + 1 for x in self.axes])
         dar_shf = fft.fftshift(

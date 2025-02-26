@@ -151,4 +151,4 @@ class UNetBEVDecoder(nn.Module):
         x = self.up7(x)
         x = self.up8(x)
 
-        return {self.key: self.out(x)[:, 0]}
+        return {self.key: self.out(x)}
