@@ -32,8 +32,9 @@ new transformations:
     https://akarsh-prabhakara.github.io/research/radarhd/
 """
 
-from .base import ToFloat16, Transform
+from .base import Reshape, ToFloat16, Transform
 from .camera import CameraAugmentations
+from .coloradar import ColoradarMap2d
 from .fft import (
     AssertTx2,
     DiscardTx2,
@@ -55,7 +56,7 @@ from .radar import (
 )
 
 __all__ = [
-    "Transform", "ToFloat16",
+    "Transform", "ToFloat16", "Reshape",
     "CameraAugmentations",
     "AssertTx2", "DiscardTx2", "DopplerShuffle", "FFTLinear", "FFTArray",
     "FFTPrecomputed", "IIQQtoIQ",
@@ -63,4 +64,5 @@ __all__ = [
     "RelativeVelocity",
     "AmplitudeAOA", "ComplexAmplitude", "ComplexParts", "ComplexPhase",
     "RadarResolution", "Representation",
+    "ColoradarMap2d"
 ]

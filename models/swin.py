@@ -52,15 +52,15 @@ class SwinTransformerEncoder(nn.Module):
     """
 
     def __init__(
-        self, stages: list[int] = [2, 2, 2], fa_layers: int = 2,
+        self, stages: list[int] = [2, 2, 6, 2], fa_layers: int = 2,
         dec_layers: Optional[Sequence[int]] = None,
-        size: Sequence[int] = (64, 8, 2, 256),
-        patch: Sequence[int] = (4, 1, 1, 8),
+        size: Sequence[int] = (64, 256),
+        patch: Sequence[int] = (2, 2),
         window: Sequence[int] = (4, 4, 2, 4),
         shift: Sequence[int] = (2, 2, 0, 2),
         mask: Sequence[bool] = (False, True, True, True),
         merge: Sequence[int] = (2, 1, 1, 2),
-        dim: int = 128, head_dim: int = 64, ff_ratio: float = 4.0,
+        dim: int = 64, head_dim: int = 32, ff_ratio: float = 4.0,
         dropout: float = 0.1, activation: str = 'GELU',
     ) -> None:
         super().__init__()

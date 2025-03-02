@@ -3,3 +3,7 @@ dataset:
     winter:
     - homewood.back
     - homewood.out
+    - stanton.back
+    - stanton.out
+    - morningside.back
+    - morningside.out

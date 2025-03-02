@@ -4,7 +4,8 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 from beartype.typing import Any
-from jaxtyping import Float, Float16
+from jaxtyping import Float, Float16, Shaped
+from einops import rearrange
 
 
 class Transform(ABC):
@@ -46,3 +47,16 @@ class ToFloat16(Transform):
     ) -> Float16[np.ndarray, "..."]:
         """Convert generic floating point to 16-bit floating point."""
         return data.astype(np.float16)
+
+
+class Reshape(Transform):
+    """Reshape array using an `einops` pattern."""
+
+    def __init__(self, path: str, pattern: str) -> None:
+        self.pattern = pattern
+
+    def __call__(
+        self, data: Shaped[np.ndarray, "..."], aug: dict[str, Any] = {},
+        idx: int = 0
+    ) -> Shaped[np.ndarray, "..."]:
+        return rearrange(data, self.pattern)

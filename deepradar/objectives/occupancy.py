@@ -101,6 +101,36 @@ class Chamfer2D(PointCloudObjective):
         return torch.stack([x, y], dim=-1)
 
 
+class Chamfer2DPointCloud(PointCloudObjective):
+    """Chamfer metric for 2D polar occupancy grids.
+
+    See :py:class:`.PointCloudObjective`.
+    """
+
+    @staticmethod
+    def as_points(
+        data: Bool[Tensor, "azimuth range"] | Float[Tensor, "N 3"]
+    ) -> Float[Tensor, "n 2"]:
+        """Convert (azimuth, range) occupancy grid to points."""
+        if data.shape[1] == 3:
+            x = data[:, 0]
+            rng = torch.linalg.norm(data[:, :2], dim=1)
+            el = torch.arcsin(data[:, 2] / rng) * 180 / np.pi
+            mask = (
+                (rng > 0.12490571660051171)
+                & (x > 0)
+                & (rng < 0.12490571660051171 * 128)
+                & (torch.abs(el) < 20.0))
+            return data[mask, :2]
+        else:
+            Na, Nr = data.shape
+            bin, r = torch.where(data)
+            phi = (bin - Na // 2) / Na * np.pi
+            x = torch.cos(phi) * r
+            y = torch.sin(phi) * r
+            return torch.stack([x, y], dim=-1) * 0.12490571660051171
+
+
 class BEVOccupancy(Objective):
     """Radar -> lidar as bird's eye view (BEV) occupancy.
 
@@ -131,6 +161,7 @@ class BEVOccupancy(Objective):
         self.loss = CombinedDiceBCE(
             bce_weight=bce_weight, range_weighted=range_weighted)
         self.chamfer = Chamfer2D(mode="chamfer", on_empty=128.0)
+        # self.chamfer2 = Chamfer2DPointCloud(mode="chamfer", on_empty=0.0)
         self.cmap = cmap
 
     def metrics(
@@ -146,11 +177,14 @@ class BEVOccupancy(Objective):
         if train:
             return Metrics(loss=self.weight * loss, metrics={"bev_loss": loss})
         else:
-            occ = bev_hat > 0
+            occ = bev_hat > -3
             chamfer = self.chamfer(occ, y_true['bev'], reduce=reduce)
+            # chamfer2 = self.chamfer2(occ, y_true['bev_raw'], reduce=reduce)
+
             return Metrics(loss=loss, metrics={
                 "bev_loss": loss,
                 "bev_chamfer": chamfer,
+                # "bev_chamfer2": chamfer2,
                 **accuracy_metrics(
                     occ, y_true['bev'], prefix="bev_", reduce=reduce)
             })
@@ -175,7 +209,7 @@ class BEVOccupancy(Objective):
             "desc": "BEV in cartesian coordinates and quantized to 0-255."},
         "bev_gt": {
             "format": "lzma", "type": "u1", "shape": [256, 512],
-            "desc": "Ground truth BEV view."}
+            "desc": "Ground truth BEV view."},
     }
 
     def render(

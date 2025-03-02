@@ -1,0 +1,62 @@
+objectives:
+- name: PolarOccupancy
+  args:
+    weight: 1.0
+    positive_weight: 16.0
+    max_range: 64.0
+    el_span: 0.7853981633974483
+    az_span: 1.5707963267948966
+    range_weighted: True
+
+
+encoder:
+  name: UNet3DEncoder
+  args:
+    n_doppler: 64
+    dim: 64
+
+decoder:
+  name: UNet3DDecoder
+  args:
+    key: map
+
+dataset:
+  batch_size: 32
+  val_samples: 16
+  channels:
+    radar:
+      name: RawChannel
+      indices: radar
+      args:
+        sensor: radar
+        channel: iq
+        transform:
+        - name: AssertTx2
+          args: {}
+        - name: IIQQtoIQ
+          args:
+            scale: 0.001
+        - name: FFTArray
+          args:
+            pad: 24
+            axes: [1, 2, 3]
+        - name: ComplexAmplitude
+          args:
+            keepdim: false
+    map:
+      name: RawChannel
+      indices: lidar
+      args:
+        sensor: lidar
+        channel: rng
+        transform:
+        - name: Destagger
+          args: {}
+        - name: Map3D
+          args:
+            # (elevation, azimuth, range): (128, 2048, 256)
+            # -> crop(0, 0.25, 0) -> (128, 1024, 256)
+            # -> decimate(2, 8, 4) -> (64, 128, 64) ~ 0.52MP
+            # Comparable to radar input, which is 64 * 8 * 2 * 256 ~ 0.26MP
+            decimate: [2, 8, 4]
+            crop_az: 0.25

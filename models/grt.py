@@ -35,7 +35,10 @@ class TransformerEncoder(L.LightningModule):
         patch: input (doppler, azimuth, elevation, range) patch size.
         pos_scale: position embedding scale (i.e. the spatial range that this
             axis corresponds to). If `None`, only the global scale is used.
-        global_scale: scalar constant to multiply scale by for convenience of
+            Note that the frequencies are automatically scaled based on the
+            dimension length, so changing resolution does not require any
+            modification to `pos_scale` or `global_scale`.
+            global_scale: scalar constant to multiply scale by for convenience of
             representation; yields a net scale of `scale * global_scale`.
         input_channels: number of input channels.
         positions: type of positional embedding. `flat`: flattened positional
@@ -122,6 +125,9 @@ class TransformerDecoder(L.LightningModule):
         shape: output shape; should be a 2 element list or tuple.
         pos_scale: position embedding scale (i.e. the spatial range that this
             axis corresponds to). If `None`, only the global scale is used.
+            Note that the frequencies are automatically scaled based on the
+            dimension length, so changing resolution does not require any
+            modification to `pos_scale` or `global_scale`.
         global_scale: scalar constant to multiply scale by for convenience of
             representation; yields a net scale of `scale * global_scale`.
         patch: patch size to use for unpatching. Must evenly divide `shape`.

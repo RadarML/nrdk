@@ -230,7 +230,7 @@ class FFTArray(BaseFFT):
 
         if self.pad > 0:
             zeros = np.zeros([t, d, self.pad, 2, r], dtype=np.complex64)
-            iq_daer = np.concatenate([iq_daer, zeros], axis=1)
+            iq_daer = np.concatenate([iq_daer, zeros], axis=2)
 
         daer = fft.fftn(iq_daer, axes=[x + 1 for x in self.axes])
         daer_shf = fft.fftshift(

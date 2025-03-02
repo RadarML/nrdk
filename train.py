@@ -59,6 +59,9 @@ def _parse():
         "-d", "--load_decoder", default=False, action='store_true',
         help="Load decoder weights (skipping `unpatch.*`) as well.")
     g.add_argument(
+        "--load_full_decoder", default=False, action='store_true',
+        help="Load decoder weights (including unpatch.*).")
+    g.add_argument(
         "-f", "--freeze", action='store_true', default=False,
         help="Freeze encoder (i.e. don't allow tuning the encoder).")
 
@@ -131,6 +134,10 @@ def _main(args):
                 k: v for k, v in base.decoder.state_dict().items()
                 if not k.startswith("unpatch")}
             model.decoder.load_state_dict(decoder_params, strict=False)
+
+        if args.load_full_decoder:
+            model.decoder.load_state_dict(
+                base.decoder.state_dict(), strict=False)
 
     # Metadata/logging-related config bypasses save_hyperparameters
     model.configure(log_interval=args.log_example_interval, num_examples=16)
