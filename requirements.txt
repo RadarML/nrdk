@@ -20,3 +20,4 @@ jaxtyping
 beartype
 types-PyYAML
 tqdm-stubs
+pandas

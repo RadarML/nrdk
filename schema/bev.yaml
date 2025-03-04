@@ -9,7 +9,7 @@ splits:
   bike: ^bike
 
 reports:
-  bev:
+  bev_decoder:
     name: BEV (Decoder Only)
     methods: [
       "bev/p10", "bev/p20", "bev/p50", "bev/base",
@@ -21,10 +21,18 @@ reports:
     name: BEV (Full Tuning)
     methods: [
       "bev/p10", "bev/p20", "bev/p50", "bev/base",
-      "bev/f10", "bev/f20", "bev/f50"]
+      "bev/f10", "bev/f20", "bev/f50", "bev/f100"]
     descriptions: [
       "10% Trained", "20% Trained", "50% Trained", "100% Trained",
       "10% Tuned", "20% Tuned", "50% Tuned", "100% Tuned"]
+  bev_baselines:
+    name: BEV Baselines
+    methods: [
+      "bev/p10", "bev/p20", "bev/p50", "bev/base",
+      "bev/f10", "bev/f20", "bev/f50", "bev/f100",
+      "radarhd/p10", "radarhd/p20", "radarhd/p50", "radarhd/base",
+      "tfftradnet/p10", "tfftradnet/p20", "tfftradnet/p50", "tfftradnet/base"
+    ]
 
 comparisons:
   bev:
@@ -42,3 +50,11 @@ comparisons:
       bev/f20: {"mode": "full", "data": 20}
       bev/f50: {"mode": "full", "data": 50}
       bev/f100: {"mode": "full", "data": 100}
+      radarhd/p10: {"mode": "radarhd", "data": 10}
+      radarhd/p20: {"mode": "radarhd", "data": 20}
+      radarhd/p50: {"mode": "radarhd", "data": 50}
+      radarhd/base: {"mode": "radarhd", "data": 100}
+      tfftradnet/p10: {"mode": "tfftradnet", "data": 10}
+      tfftradnet/p20: {"mode": "tfftradnet", "data": 20}
+      tfftradnet/p50: {"mode": "tfftradnet", "data": 50}
+      tfftradnet/base: {"mode": "tfftradnet", "data": 100}

@@ -3,7 +3,8 @@ objectives:
   args:
     weight: 1.0
     bce_weight: 0.9
-    range_weighted: True
+    range_weighted: true
+    use_raw_pointclouds: true
 
 dataset:
   channels:

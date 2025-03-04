@@ -142,6 +142,10 @@ class BEVOccupancy(Objective):
             each bin is weighted according to the area which it represents
             (i.e. multiplying the weight by its range).
         cmap: colors to use for visualization.
+        cutoff_boundary: hard cutoff applied to prediction logits used for
+            pointcloud extraction.
+        use_raw_pointclouds: use raw pointclouds for chamfer loss calculation
+            instead of "de-duplicated" 2D pointclouds.
 
     Metrics:
 
@@ -155,14 +159,21 @@ class BEVOccupancy(Objective):
 
     def __init__(
         self, weight: float = 1.0, bce_weight: float = 0.9,
-        range_weighted: bool = True, cmap: str = 'inferno'
+        range_weighted: bool = True, cmap: str = 'inferno',
+        cutoff_boundary: float = -3.0, use_raw_pointclouds: bool = False
     ) -> None:
         self.weight = weight
         self.loss = CombinedDiceBCE(
             bce_weight=bce_weight, range_weighted=range_weighted)
-        self.chamfer = Chamfer2D(mode="chamfer", on_empty=128.0)
-        # self.chamfer2 = Chamfer2DPointCloud(mode="chamfer", on_empty=0.0)
+
+        self.chamfer: PointCloudObjective
+        if use_raw_pointclouds:
+            self.chamfer = Chamfer2DPointCloud(mode="chamfer", on_empty=0.0)
+        else:
+            self.chamfer = Chamfer2D(mode="chamfer", on_empty=128.0)
+
         self.cmap = cmap
+        self.cutoff_boundary = cutoff_boundary
 
     def metrics(
         self, y_true: dict[str, Shaped[Tensor, "..."]],
@@ -177,14 +188,11 @@ class BEVOccupancy(Objective):
         if train:
             return Metrics(loss=self.weight * loss, metrics={"bev_loss": loss})
         else:
-            occ = bev_hat > -3
+            occ = bev_hat > self.cutoff_boundary
             chamfer = self.chamfer(occ, y_true['bev'], reduce=reduce)
-            # chamfer2 = self.chamfer2(occ, y_true['bev_raw'], reduce=reduce)
-
             return Metrics(loss=loss, metrics={
                 "bev_loss": loss,
                 "bev_chamfer": chamfer,
-                # "bev_chamfer2": chamfer2,
                 **accuracy_metrics(
                     occ, y_true['bev'], prefix="bev_", reduce=reduce)
             })
