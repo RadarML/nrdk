@@ -1,8 +1,0 @@
-encoder:
-  args:
-    layers: 2
-    dim: 256
-
-decoder:
-  args:
-    layers: 2

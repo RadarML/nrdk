@@ -1,5 +1,0 @@
-# Doppler is treated as features.
-# Range is patched by (2,) to hit the target patch size (128).
-encoder:
-  args:
-    :patch: [64, 1, 1, 2]

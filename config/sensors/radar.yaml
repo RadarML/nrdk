@@ -1,0 +1,30 @@
+# @package _global_
+datamodule:
+  dataset:
+    sensors:
+      radar:
+        _partial_: true
+        _target_: roverd.sensors.XWRRadar
+        correction: auto
+        past: 3
+
+  datamodule:
+    transforms:
+      sample:
+        outputs:
+          spectrum: spectrum
+        rsp:
+          inputs:
+            iq: radar
+            aug: aug
+          output: spectrum
+          transform:
+            _target_: grt.transforms.Spectrum
+            rsp:
+              _target_: xwr.rsp.numpy.AWR1843Boost
+              window: False  # no windowing
+              # no padding
+            rep:
+              _target_: xwr.nn.PhaseVec
+              scale: 1e-6
+              transform: sqrt          

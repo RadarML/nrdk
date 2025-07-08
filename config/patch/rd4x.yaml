@@ -1,4 +1,0 @@
-# Large (range-doppler) patches with size 512 instead of 128.
-encoder:
-  args:
-    :patch: [4, 8, 2, 8]

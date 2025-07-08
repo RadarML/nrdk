@@ -1,6 +1,0 @@
-dataset:
-  traces: !expand
-    outdoor:
-    - fifth
-    - shadyside.central
-    - shadyside.west

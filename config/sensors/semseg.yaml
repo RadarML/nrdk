@@ -1,0 +1,21 @@
+# @package _global_
+datamodule:
+  dataset:
+    sensors:
+      _camera:
+        _partial_: true
+        _target_: roverd.sensors.Semseg
+        correction: auto
+
+  datamodule:
+    transforms:
+      sample:
+        outputs:
+          semseg: semseg
+        semseg:
+          inputs:
+            semseg: _camera
+            aug: aug
+          output: semseg
+          transform:
+            _target_: grt.transforms.Semseg

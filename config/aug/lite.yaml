@@ -1,15 +1,26 @@
-# Subset of augmentationsc (excluding resizing-related augmentations)
-dataset:
-  augmentations:
-    azimuth_flip:
-      name: Bernoulli
-      args: {"p": 0.5}
-    doppler_flip:
-      name: Bernoulli
-      args: {"p": 0.5}
-    radar_scale:
-      name: TruncatedLogNormal
-      args: {"std": 1.0, "clip": 0.0}
-    radar_phase:
-      name: Uniform
-      args: {"lower": -3.14159265, "upper": 3.14159265}
+# @package _global_
+datamodule:
+  datamodule:
+    transforms:
+      sample:
+        augmentations:
+          inputs: {}
+          optional:
+            meta: meta
+          output: aug
+          transform:
+            _target_: abstract_dataloader.ext.augment.Augmentations
+            azimuth_flip:
+              _target_: abstract_dataloader.ext.augment.Bernoulli
+              p: 0.5
+            doppler_flip:
+              _target_: abstract_dataloader.ext.augment.Bernoulli
+              p: 0.5
+            radar_scale:
+              _target_: abstract_dataloader.ext.augment.TruncatedLogNormal
+              std: 0.2
+              clip: 2.0
+            radar_phase:
+              _target_: abstract_dataloader.ext.augment.Uniform
+              lower: -3.14159265
+              upper: 3.14159265

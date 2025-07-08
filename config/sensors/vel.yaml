@@ -1,0 +1,21 @@
+# @package _global_
+datamodule:
+  dataset:
+    sensors:
+      pose:
+        _partial_: true
+        _target_: roverd.sensors.Pose
+        reference: radar
+
+  datamodule:
+    transforms:
+      sample:
+        outputs:
+          vel: vel
+        vel:
+          inputs:
+            pose: pose
+            aug: aug
+          output: vel
+          transform:
+            _target_: grt.transforms.RelativeVelocity

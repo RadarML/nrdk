@@ -1,4 +1,0 @@
-# Balanced patches
-encoder:
-  args:
-    :patch: [8, 1, 1, 16]

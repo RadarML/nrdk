@@ -1,0 +1,35 @@
+datamodule:
+  _target_: grt.dataloader.roverd_datamodule
+  ptrain: 0.8
+  pval: 0.2
+  dataset:
+    _target_: roverd.Dataset.from_config
+    _partial_: true
+    sync:
+      _target_: abstract_dataloader.generic.Next
+      margin: [1.0, 1.0]
+      reference: "radar"
+    sensors: {}  # provided by `sensors/*.yaml`
+  traces:
+    train:
+      _target_: grt.config.expand
+      path: /data/grt
+  datamodule:
+    _target_: abstract_dataloader.ext.lightning.ADLDataModule
+    _partial_: true
+    batch_size: 16
+    samples: 8
+    num_workers: 8
+    prefetch_factor: 2
+    subsample:
+      val: 16384
+    transforms:
+      _target_: abstract_dataloader.abstract.Pipeline
+      sample:
+        _target_: abstract_dataloader.ext.graph.Transform
+        keep_all: false
+        outputs: {}  # provided by `sensors/*.yaml`
+
+      collate:
+        _target_: abstract_dataloader.torch.Collate
+        mode: "concat"

@@ -1,0 +1,25 @@
+# @package _global_
+datamodule:
+  dataset:
+    sensors:
+      lidar:
+        _partial_: true
+        _target_: roverd.sensors.OSLidar
+        correction: auto
+        future: 1
+
+  datamodule:
+    transforms:
+      sample:
+        outputs:
+          occ3d: occ3d
+        occ3d:
+          inputs:
+            lidar: lidar
+            radar: spectrum
+            aug: aug
+          output: occ3d
+          transform:
+            _target_: grt.transforms.LidarOccupancy3D
+            crop_az: 0.25
+            decimate: [1, 1, 1]
