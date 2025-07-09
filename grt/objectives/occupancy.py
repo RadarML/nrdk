@@ -1,11 +1,11 @@
 """Radar training objectives and common building blocks for losses/metrics."""
 
-from functools import partial
 from typing import Any, Literal, Mapping, Protocol
 
 import numpy as np
 import torch
 from abstract_dataloader.ext.objective import Objective, VisualizationConfig
+from einops import rearrange, reduce
 from jaxtyping import Float, Shaped
 from torch import Tensor
 
@@ -16,25 +16,36 @@ from grt.metrics import BCE, PolarChamfer2D, PolarChamfer3D, VoxelDepth
 class Occupancy3DData(Protocol):
     """Protocol type for 3D occupancy data.
 
+    !!! warning
+
+        The data are nominally in "image conventions": increasing elevation
+        is down and increasing azimuth is to the right (increasing range
+        is away).
+
     Attributes:
         occupancy: occupancy grid, with batch-spatial axis order.
     """
 
-    occupancy: Float[Tensor, "batch range azimuth elevation"]
+    occupancy: Float[Tensor, "batch t elevation azimuth range"]
 
 
 class Occupancy2DData(Protocol):
     """Protocol type for 2D occupancy data.
 
+    !!! warning
+
+        The data are nominally in "image conventions": increasing azimuth
+        is to the right (and increasing range is away).
+
     Attributes:
         occupancy: occupancy grid, with batch-range-azimuth axis order.
     """
 
-    occupancy: Float[Tensor, "batch range azimuth"]
+    occupancy: Float[Tensor, "batch t azimuth range"]
 
 
 class Occupancy3D(Objective[
-    Tensor, Occupancy3DData, Float[Tensor, "batch range azimuth elevation"]]
+    Tensor, Occupancy3DData, Float[Tensor, "batch t elevation azimuth range"]]
 ):
     """3D polar/spherical occupancy prediction objective.
 
@@ -93,33 +104,43 @@ class Occupancy3D(Objective[
 
     def __call__(
         self, y_true: Occupancy3DData,
-        y_pred: Float[Tensor, "batch range azimuth elevation"],
+        y_pred: Float[Tensor, "batch t elevation azimuth range"],
         train: bool = True
     ) -> tuple[Float[Tensor, "batch"], dict[str, Float[Tensor, "batch"]]]:
-        occ = y_pred > 0
+        _y_pred = rearrange(y_pred, "b t el az rng -> (b t) el az rng")
+        occ_hat = _y_pred > 0
+        occ_true = rearrange(
+            y_true.occupancy, "b t el az rng -> (b t) el az rng")
+
         metrics = {
-            "bce": self.bce(y_true.occupancy, y_pred),
-            "height": self.height(y_true.occupancy, occ),
-            "depth": self.depth(y_true.occupancy, occ)
+            "bce": self.bce(occ_true, _y_pred),
+            "height": self.height(occ_true, occ_hat),
+            "depth": self.depth(occ_true, occ_hat)
         }
         if not train:
-            depth_true = torch.argmax(y_true.occupancy, dim=1)
-            depth_hat = torch.argmax(occ, dim=1)
+            depth_true = torch.argmax(occ_true, dim=-1)
+            depth_hat = torch.argmax(occ_hat, dim=-1)
             metrics["chamfer"] = self.chamfer(depth_hat, depth_true)
 
+        # Temporal reduction
+        metrics = {
+            k: reduce(
+                v, "(b t) -> b", "mean", b=y_pred.shape[0], t=y_pred.shape[1])
+            for k, v in metrics.items()}
         return metrics["bce"], metrics
 
     def visualizations(
         self, y_true: Occupancy3DData,
-        y_pred: Float[Tensor, "batch range azimuth elevation"]
+        y_pred: Float[Tensor, "batch t elevation azimuth range"]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
-        occ = y_pred > 0
+        occ = y_pred[:, -1] > 0
+        gt = y_true.occupancy[:, -1]
 
         bev_true, bev_hat = (
             vis.bev_height_from_polar_occupancy(
                 y, size=self.vis_config.height, theta_min=self.theta_min,
                 theta_max=self.theta_max, scale=False)
-            for y in (y_true.occupancy, occ))
+            for y in (gt, occ))
         bev_vis = vis.tile_images(
             bev_true, bev_hat, cols=self.vis_config.cols,
             cmap=self.vis_config.cmaps.get("bev", "inferno"), normalize=True)
@@ -127,7 +148,7 @@ class Occupancy3D(Objective[
         depth_true, depth_hat = (
             vis.depth_from_polar_occupancy(
                 y, size=(self.vis_config.height, self.vis_config.width))
-            for y in (y_true.occupancy, occ))
+            for y in (gt, occ))
         depth_vis = vis.tile_images(
             depth_true, depth_hat, cols=self.vis_config.cols,
             cmap=self.vis_config.cmaps.get("depth", "viridis"), normalize=True)
@@ -136,7 +157,7 @@ class Occupancy3D(Objective[
 
     def render(
         self, y_true: Occupancy3DData,
-        y_pred: Float[Tensor, "batch range azimuth elevation"],
+        y_pred: Float[Tensor, "batch t elevation azimuth range"],
         render_gt: bool = False
     ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
         occ = y_pred > 0
@@ -161,7 +182,7 @@ class Occupancy3D(Objective[
 
 
 class Occupancy2D(Objective[
-    Tensor, Occupancy2DData, Float[Tensor, "batch range azimuth"]
+    Tensor, Occupancy2DData, Float[Tensor, "batch t range azimuth"]
 ]):
     """2D polar occupancy prediction objective.
 
@@ -189,7 +210,7 @@ class Occupancy2D(Objective[
 
     def __init__(
         self, range_weighted: bool = True, positive_weight: float = 64.0,
-        az_min: float = -np.pi / 3, az_max: float = np.pi / 3,
+        az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
         vis_config: VisualizationConfig | Mapping = {}
     ) -> None:
         self.az_min = az_min
@@ -206,29 +227,38 @@ class Occupancy2D(Objective[
 
     def __call__(
         self, y_true: Occupancy2DData,
-        y_pred: Float[Tensor, "batch range azimuth"], train: bool = True
+        y_pred: Float[Tensor, "batch t azimuth range"], train: bool = True
     ) -> tuple[Float[Tensor, "batch"], dict[str, Float[Tensor, "batch"]]]:
+        _y_pred = rearrange(y_pred, "b t az rng -> (b t) az rng")
+        occ_true = rearrange(y_true.occupancy, "b t az rng -> (b t) az rng")
+
         metrics = {
-            # bce_loss takes [range y z]
+            # bce_loss takes [* azimuth range]
             "bce": self.bce_loss(
-                y_true.occupancy[..., None], y_pred[..., None])
+                occ_true[:, :, None, :], _y_pred[:, :, None, :])
         }
         if not train:
-            metrics["chamfer"] = self.chamfer(y_pred > 0, y_true.occupancy)
+            metrics["chamfer"] = self.chamfer(_y_pred > 0, occ_true)
 
+        # Temporal reduction
+        metrics = {
+            k: reduce(
+                v, "(b t) -> b", "mean", b=y_pred.shape[0], t=y_pred.shape[1])
+            for k, v in metrics.items()}
         return metrics["bce"], metrics
 
     def visualizations(
-        self, y_true: Occupancy2DData, y_pred: Float[Tensor, "batch range azimuth"]
+        self, y_true: Occupancy2DData,
+        y_pred: Float[Tensor, "batch t azimuth range"]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
-        occ = torch.nn.functional.sigmoid(y_pred)
+        occ = torch.nn.functional.sigmoid(y_pred)[:, -1]
 
         bev_true, bev_hat = (
             # There's an extra channels axis that we bypass
             vis.voxels.bev_from_polar2(
                 y[..., None], size=self.vis_config.height,
                 theta_min=self.az_min, theta_max=self.az_max)[..., 0]
-            for y in (y_true.occupancy, occ))
+            for y in (y_true.occupancy[:, -1], occ))
         bev_vis = vis.tile_images(
             bev_true, bev_hat, cols=self.vis_config.cols,
             cmap=self.vis_config.cmaps.get("bev", "inferno"), normalize=True)
@@ -237,7 +267,7 @@ class Occupancy2D(Objective[
 
     def render(
         self, y_true: Occupancy3DData,
-        y_pred: Float[Tensor, "batch range azimuth elevation"],
+        y_pred: Float[Tensor, "batch t elevation azimuth range"],
         render_gt: bool = False
     ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
         occ_hat = torch.nn.functional.sigmoid(y_pred)

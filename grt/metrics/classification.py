@@ -29,8 +29,8 @@ class BCE:
         self.positive_weight = positive_weight
 
     def __call__(
-        self, y_true: Bool[Tensor, "batch range y z"],
-        y_hat: Float[Tensor, "batch range y z"]
+        self, y_true: Bool[Tensor, "batch y z range"],
+        y_hat: Float[Tensor, "batch y z range"]
     ) -> Float[Tensor, "batch"]:
         """Compute BCE loss.
 
@@ -42,13 +42,13 @@ class BCE:
         Returns:
             BCE loss for each item in the batch.
         """
-        _, nr, _, _ = y_true.shape
+        *_, nr = y_true.shape
 
         with torch.device(y_true.device):
             if self.weighting == "cylindrical":
-                weight = ((torch.arange(nr) + 1))[None, :, None, None]
+                weight = ((torch.arange(nr) + 1))[..., :]
             elif self.weighting == "spherical":
-                weight = ((torch.arange(nr) + 1))[None, :, None, None] ** 2
+                weight = ((torch.arange(nr) + 1))[..., :] ** 2
             else:
                 weight = torch.ones((1, 1, 1, 1), dtype=y_hat.dtype)
 
@@ -56,11 +56,11 @@ class BCE:
             weight = torch.where(y_true, self.positive_weight, 1.0) * weight
 
         weight = weight.expand(y_true.shape)
-        total_weight = einops.reduce(weight, "batch range y z -> batch", "sum")
+        total_weight = einops.reduce(weight, "batch y z range -> batch", "sum")
         loss = einops.reduce(
             weight * binary_cross_entropy_with_logits(
                 y_hat, y_true.to(y_hat.dtype), reduction='none'),
-            "batch range y z -> batch", "sum")
+            "batch y z range -> batch", "sum")
 
         return loss / total_weight
 

@@ -1,14 +1,12 @@
 """Data transforms."""
 
-from typing import Any, Generic, Mapping, Sequence
+from typing import Any, Generic, Mapping
 
 import numpy as np
 from abstract_dataloader.ext.types import TArray, dataclass
 from abstract_dataloader.spec import Transform
-from einops import rearrange
 from jaxtyping import Complex64, Float, Float32, Float64
 from roverd import types
-from roverd.transforms.ouster import ConfigCache, Destagger
 
 from xwr import nn as xwr_nn
 from xwr import rsp as xwr_rsp
@@ -43,19 +41,6 @@ class Velocity(Generic[TArray]):
 
     vel: Float[TArray, "batch t 3"]
     timestamps: Float[TArray, "batch t"]
-
-
-@dataclass
-class Occupancy3D(Generic[TArray]):
-    """3D occupancy data.
-
-    Attributes:
-        data: 3D occupancy map.
-        timestamps: timestamps corresponding to the map data.
-    """
-
-    occ: Float32[TArray, "batch t el az rng"]
-    timestamps: Float64[TArray, "batch t"]
 
 
 class Spectrum(Transform[
@@ -196,75 +181,3 @@ class RelativeVelocity(Transform[
             vel = vel / radar.doppler_resolution[:, None, None]
 
         return Velocity(vel=vel, timestamps=pose.timestamps)
-
-
-class LidarOccupancy3D:
-    """Create 3D occupancy map from Ouster Lidar depth data.
-
-    Augmentations:
-        - `azimuth_flip`: flip along azimuth axis.
-        - `range_scale`: apply random range scale.
-
-    Args:
-        crop_az: fraction of azimuth to crop from both sides of the depth data.
-        decimate: decimation factors for elevation, azimuth, and range axes.
-    """
-
-    def __init__(
-        self, crop_az: float = 0.25, decimate: Sequence[int] = (1, 1, 1)
-    ) -> None:
-        self.config = ConfigCache()
-        self.destagger = Destagger(self.config)
-        self.crop_az = crop_az
-        self.d_el, self.d_az, self.d_rng = decimate
-
-    def __call__(
-        self, lidar: types.OSDepth, radar: RealSpectrum,
-        aug: Mapping[str, Any] = {}
-    ) -> Occupancy3D[np.ndarray]:
-        """Create 3D occupancy map from Lidar depth data.
-
-        Args:
-            lidar: Ouster Lidar depth data with staggered measurements.
-            radar: real-valued spectrum data.
-            aug: augmentations to apply.
-
-        Returns:
-            3D occupancy map.
-        """
-        batch, t, el, az = lidar.rng.shape
-        crop_az = int(self.crop_az * az)
-        rng = lidar.rng[:, :, :, crop_az:-crop_az] / 1000
-
-        range_scale = aug.get("range_scale", None)
-        if range_scale is not None:
-            rng = rng * range_scale
-        if aug.get("azimuth_flip", False):
-            rng = np.flip(rng, axis=2)
-
-        _batch, _t, _doppler, _el, _az, n_rng, _ch = radar.spectrum.shape
-        n_bins = n_rng // self.d_rng
-        bin = (rng // (radar.range_resolution * self.d_rng)).astype(np.uint16)
-        bin[bin >= n_bins] = 0
-
-        _batch, _t, el2, az2 = bin.shape
-        n_el = el2 // self.d_el
-        n_az = az2 // self.d_az
-
-        bin = rearrange(
-            bin, "batch t (el d_el) (az d_az) -> batch t el az (d_el d_az)",
-            el=n_el, d_el=self.d_el, az=n_az, d_az=self.d_az)
-        res = np.zeros((batch, t, n_el, n_az, n_bins), dtype=bool)
-
-        i_batch = np.broadcast_to(
-            np.arange(batch)[:, None, None, None, None], bin.shape).flatten()
-        i_t = np.broadcast_to(
-            np.arange(t)[None, :, None, None, None], bin.shape).flatten()
-        i_el = np.broadcast_to(
-            np.arange(n_el)[None, None, :, None, None], bin.shape).flatten()
-        i_az = np.broadcast_to(
-            np.arange(n_az)[None, None, None, :, None], bin.shape).flatten()
-        res[i_batch, i_t, i_el, i_az, bin.flatten()] = True
-        res[:, :, :, :, 0] = False
-
-        return Occupancy3D(occ=res, timestamps=lidar.timestamps)

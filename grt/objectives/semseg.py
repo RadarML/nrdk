@@ -5,9 +5,10 @@ from typing import Any, Generic, Protocol
 
 import numpy as np
 import torch
+import torchvision
 from abstract_dataloader.ext.objective import Objective, VisualizationConfig
 from abstract_dataloader.ext.types import TArray
-from einops import rearrange
+from einops import rearrange, reduce
 from jaxtyping import Float, Integer, Shaped, UInt8
 from torch import Tensor
 
@@ -21,11 +22,11 @@ class SemsegData(Protocol, Generic[TArray]):
         semseg: semantic segmentation data, with batch-height-width axis order.
     """
 
-    semseg: UInt8[TArray, "batch h w"]
+    semseg: UInt8[TArray, "batch t h w"]
 
 
 class Semseg(
-    Objective[Tensor, SemsegData, Float[Tensor, "batch h w"]]
+    Objective[Tensor, SemsegData, Float[Tensor, "batch t h w"]]
 ):
     """Semantic segmentation.
 
@@ -49,10 +50,8 @@ class Semseg(
     """
 
     def __init__(
-        self, weight: float = 1.0,
-        vis_config: VisualizationConfig | Mapping[str, Any] = {}
+        self, vis_config: VisualizationConfig | Mapping[str, Any] = {}
     ) -> None:
-        self.weight = weight
         self.ce = torch.nn.CrossEntropyLoss(reduction='none')
 
         if not isinstance(vis_config, VisualizationConfig):
@@ -71,12 +70,12 @@ class Semseg(
         return torch.mean(intersection / union, dim=1)
 
     def __call__(
-        self, y_true: SemsegData, y_pred: Float[Tensor, "batch h w cls"],
+        self, y_true: SemsegData, y_pred: Float[Tensor, "batch t h w cls"],
         train: bool = True
     ) -> tuple[Float[Tensor, "batch"], dict[str, Float[Tensor, "batch"]]]:
-        y_hat_logits = rearrange(
-            y_pred, "b h w cls -> b cls h w")
-        y_true_idx: Integer[Tensor, "b h w"] = (y_true.semseg.to(torch.long))
+        y_hat_logits = rearrange(y_pred, "b t h w cls -> (b t) cls h w")
+        y_true_idx = rearrange(
+            y_true.semseg.to(torch.long), "b t h w -> (b t) h w")
 
         loss = torch.mean(self.ce(y_hat_logits, y_true_idx), dim=(1, 2))
 
@@ -94,20 +93,29 @@ class Semseg(
             }
             metrics["bce"] = loss
 
+        metrics = {
+            k: reduce(
+                v, "(b t) -> b", "mean", b=y_pred.shape[0], t=y_pred.shape[1])
+            for k, v in metrics.items()}
         return loss, metrics
 
     def visualizations(
-        self, y_true: SemsegData, y_pred: Float[Tensor, "batch h w cls"]
+        self, y_true: SemsegData, y_pred: Float[Tensor, "batch t h w cls"]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         y_hat_idx = torch.argmax(y_pred, dim=-1)
+        resize = torchvision.transforms.Resize(
+            (self.vis_config.height, self.vis_config.width),
+            interpolation=torchvision.transforms.InterpolationMode.NEAREST)
+
         semseg = vis.tile_images(
-            y_true.semseg, y_hat_idx,
+            resize(y_true.semseg[:, -1]),
+            resize(y_hat_idx[:, -1]),
             cmap=self.vis_config.cmaps.get("semseg", "tab10"),
             cols=self.vis_config.cols)
         return {"semseg": semseg}
 
     def render(
-        self, y_true: SemsegData, y_pred: Float[Tensor, "batch h w cls"],
+        self, y_true: SemsegData, y_pred: Float[Tensor, "batch t h w cls"],
         render_gt: bool = False
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         y_hat_logits = rearrange(

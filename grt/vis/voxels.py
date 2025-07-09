@@ -10,7 +10,7 @@ from torch import Tensor
 
 
 def bev_from_polar2(
-    data: Shaped[Tensor, "batch range azimuth channels"],
+    data: Shaped[Tensor, "batch azimuth range channels"],
     size: int = 512, theta_min: float = -np.pi, theta_max: float = np.pi
 ) -> Shaped[Tensor, "batch height width channels"]:
     """Convert 2D polar image to a birds-eye-view cartesian image.
@@ -18,7 +18,7 @@ def bev_from_polar2(
     Uses nearest-neighbor interpolation for a specified resolution.
 
     Args:
-        data: batched polar grid in batch-range-azimuth-channels order; the
+        data: batched polar grid in batch-azimuth-range-channels order; the
             range and azimuth axes should be in "increasing" order (smallest
             range bin / azimuth angle first). Can be any data type (e.g.
             `float` intensity image or `bool` occupancy grid).
@@ -31,8 +31,8 @@ def bev_from_polar2(
         Nearest-neighbor-interpolated BEV image, with resolution
             `(resolution, resolution * 2)`. The data type is always preserved.
     """
-    rmax = data.shape[1] - 1
-    thetamax = data.shape[2] - 1
+    rmax = data.shape[2] - 1
+    thetamax = data.shape[1] - 1
 
     x, y = torch.meshgrid(
         torch.linspace(-rmax, rmax, size * 2, device=data.device),
@@ -49,7 +49,7 @@ def bev_from_polar2(
     mask = (ir > rmax) | (itheta < 0) | (itheta > thetamax)
     ir[mask] = 0
     itheta[mask] = 0
-    bev = data[:, ir, itheta]
+    bev = data[:, itheta, ir]
     bev[:, mask] = 0
 
     return bev
@@ -57,14 +57,14 @@ def bev_from_polar2(
 
 @overload
 def bev_height_from_polar_occupancy(
-    data: Bool[Tensor, "batch range azimuth elevation"],
+    data: Bool[Tensor, "batch elevation azimuth range"],
     size: int = 512, theta_min: float = -np.pi, theta_max: float = np.pi,
     scale: Literal[True] = True
 ) -> Float[Tensor, "batch height width"]: ...
 
 @overload
 def bev_height_from_polar_occupancy(
-    data: Bool[Tensor, "batch range azimuth elevation"],
+    data: Bool[Tensor, "batch elevation azimuth range"],
     size: int = 512, theta_min: float = -np.pi, theta_max: float = np.pi,
     scale: bool = False
 ) -> (
@@ -72,7 +72,7 @@ def bev_height_from_polar_occupancy(
 ): ...
 
 def bev_height_from_polar_occupancy(
-    data: Bool[Tensor, "batch range azimuth elevation"],
+    data: Bool[Tensor, "batch elevation azimuth range"],
     size: int = 512, theta_min: float = -np.pi, theta_max: float = np.pi,
     scale: bool = False
 ) -> (
@@ -90,6 +90,12 @@ def bev_height_from_polar_occupancy(
         - Otherwise: returns a signed 16-bit height map (pytorch does not
           support unsigned 16-bits).
 
+    !!! warning
+
+        The input data is assumed to already be in an image convention, i.e.
+        increasing elevation bins are down, and increasing azimuth bins to
+        the right.
+
     Args:
         data: azimuth-polar (cylindrical or spherical) occupancy grid.
         size: desired resolution of the BEV image.
@@ -101,11 +107,10 @@ def bev_height_from_polar_occupancy(
     Returns:
         Height map, with resolution `(size, size * 2)`.
     """
+    elev_as_channels = rearrange(data, "b el az rng -> b az rng el")
     cartesian = bev_from_polar2(
-        data, size=size, theta_min=theta_min, theta_max=theta_max)
-    # First occupied cell, going in reverse
-    height = torch.argmax(
-        torch.flip(cartesian, dims=[-1]).to(torch.uint8), dim=-1)
+        elev_as_channels, size=size, theta_min=theta_min, theta_max=theta_max)
+    height = torch.argmax(cartesian.to(torch.uint8), dim=-1)
 
     if scale:
         zmin = reduce(height, "batch height width -> batch", "min")
@@ -119,16 +124,16 @@ def bev_height_from_polar_occupancy(
 
 
 def depth_from_polar_occupancy(
-    data: Bool[Tensor, "batch range azimuth elevation"],
+    data: Bool[Tensor, "batch elevation azimuth range"],
     size: tuple[int, int] | None = None
 ) -> UInt8[Tensor, "batch height width"] | Int16[Tensor, "batch height width"]:
     """Convert azimuth-polar occupancy grid to a depth map.
 
     !!! warning
 
-        This function converts data using a spatial convention
-        (azimuth-elevation order with up/left is a higher index) to an image
-        convention (elevation-azimuth with down/right is a higher index).
+        The input data is assumed to already be in an image convention, i.e.
+        increasing elevation bins are down, and increasing azimuth bins to
+        the right.
 
     !!! bug
 
@@ -146,15 +151,11 @@ def depth_from_polar_occupancy(
         Integer depth map, as `uint8` if `n_range <= 256` and `int16`
             otherwise.
     """
-    depth = torch.argmax(data.to(torch.uint8), dim=1)
+    depth = torch.argmax(data.to(torch.uint8), dim=-1)
     if data.shape[2] <= 256:
         depth = depth.to(torch.uint8)
     else:
         depth = depth.to(torch.int16)
-
-    depth = torch.flip(rearrange(
-        depth, "batch azimuth elevation -> batch elevation azimuth"),
-        dims=[1, 2])
 
     if size is not None:
         depth = torch.nn.functional.interpolate(

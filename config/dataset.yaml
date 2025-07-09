@@ -19,8 +19,8 @@ datamodule:
     _partial_: true
     batch_size: 16
     samples: 8
-    num_workers: 8
-    prefetch_factor: 2
+    num_workers: 0
+    prefetch_factor: null
     subsample:
       val: 16384
     transforms:
@@ -33,3 +33,55 @@ datamodule:
       collate:
         _target_: abstract_dataloader.torch.Collate
         mode: "concat"
+
+objectives:
+  _target_: abstract_dataloader.ext.objective.MultiObjective
+  semseg:
+    weight: 1.0
+    y_true: semseg
+    y_pred: semseg
+    objective:
+      _target_: grt.objectives.Semseg
+      vis_config:
+        cols: 8
+        cmaps:
+          semseg: tab10
+  vel:
+    weight: 1.0
+    y_true: vel
+    y_pred: vel
+    objective:
+      _target_: grt.objectives.Velocity
+      eps: 1.0
+      eps_speed: 2.0
+      eps_angle: 1e-5
+  occupancy3d:
+    weight: 1.0
+    y_true: occ3d
+    y_pred: occ3d
+    objective:
+      _target_: grt.objectives.Occupancy3D
+      range_weighted: True
+      positive_weight: 64.0
+      mode: spherical
+      vis_config:
+        cols: 8
+        width: 512
+        height: 256
+        cmaps:
+          bev: inferno
+          depth: viridis
+  occupancy2d:
+    weight: 1.0
+    y_true: occ2d
+    y_pred: occ2d
+    objective:
+      _target_: grt.objectives.Occupancy2D
+      range_weighted: True
+      positive_weight: 64.0
+      vis_config:
+        cols: 8
+        width: 512
+        height: 256
+        cmaps:
+          bev: inferno
