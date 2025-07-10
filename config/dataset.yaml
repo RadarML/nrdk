@@ -1,5 +1,5 @@
 datamodule:
-  _target_: grt.dataloader.roverd_datamodule
+  _target_: nrdk.roverd.datamodule
   ptrain: 0.8
   pval: 0.2
   dataset:
@@ -12,7 +12,7 @@ datamodule:
     sensors: {}  # provided by `sensors/*.yaml`
   traces:
     train:
-      _target_: grt.config.expand
+      _target_: nrdk.config.expand
       path: /data/grt
   datamodule:
     _target_: abstract_dataloader.ext.lightning.ADLDataModule
@@ -41,7 +41,7 @@ objectives:
     y_true: semseg
     y_pred: semseg
     objective:
-      _target_: grt.objectives.Semseg
+      _target_: nrdk.objectives.Semseg
       vis_config:
         cols: 8
         cmaps:
@@ -51,7 +51,7 @@ objectives:
     y_true: vel
     y_pred: vel
     objective:
-      _target_: grt.objectives.Velocity
+      _target_: nrdk.objectives.Velocity
       eps: 1.0
       eps_speed: 2.0
       eps_angle: 1e-5
@@ -60,7 +60,7 @@ objectives:
     y_true: occ3d
     y_pred: occ3d
     objective:
-      _target_: grt.objectives.Occupancy3D
+      _target_: nrdk.objectives.Occupancy3D
       range_weighted: True
       positive_weight: 64.0
       mode: spherical
@@ -76,7 +76,7 @@ objectives:
     y_true: occ2d
     y_pred: occ2d
     objective:
-      _target_: grt.objectives.Occupancy2D
+      _target_: nrdk.objectives.Occupancy2D
       range_weighted: True
       positive_weight: 64.0
       vis_config:

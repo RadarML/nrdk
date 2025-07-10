@@ -6,6 +6,8 @@ datamodule:
         _partial_: true
         _target_: roverd.sensors.Pose
         reference: radar
+        past: 0
+        future: 0
 
   datamodule:
     transforms:
@@ -18,4 +20,4 @@ datamodule:
             aug: aug
           output: vel
           transform:
-            _target_: grt.transforms.RelativeVelocity
+            _target_: nrdk.roverd.RelativeVelocity

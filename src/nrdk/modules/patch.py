@@ -1,0 +1,95 @@
+"""Patching and unpatching modules."""
+
+import numpy as np
+from beartype.typing import Sequence
+from einops import rearrange
+from jaxtyping import Float
+from torch import Tensor, nn
+
+
+class PatchMerge(nn.Module):
+    """Merge patches with normalization and nominally reduced projection.
+
+    Args:
+        d_in: embedding dimension.
+        d_out: output dimension; nominally less than `d_model * prod(scale)`.
+        scale: downsampling factor to apply in each axis.
+        norm: whether to perform layer normalization.
+    """
+
+    def __init__(
+        self, d_in: int, d_out: int, scale: Sequence[int] = [],
+        norm: bool = True
+    ) -> None:
+        super().__init__()
+
+        self.scale = scale
+        d_merge = d_in * int(np.prod(scale))
+        self.reduction = nn.Linear(d_merge, d_out, bias=False)
+        self.norm = nn.LayerNorm(d_merge) if norm else None
+
+    def _merge(self, x: Float[Tensor, "n *t c"]) -> Float[Tensor, "n *t2 c2"]:
+        """Perform patch merging."""
+        n, *t, c = x.shape
+        dims = sum(([d // s, s] for d, s in zip(t, self.scale)), start=[n])
+        order = (
+            [0] + [2 * i + 1 for i in range(len(self.scale))]
+            + [2 * i + 2 for i in range(len(self.scale))] + [-1])
+        t2 = [d // s for d, s in zip(t, self.scale)]
+        return x.reshape(dims + [c]).permute(order).reshape(n, *t2, -1)
+
+    def forward(self, x: Float[Tensor, "n *t c"]) -> Float[Tensor, "n *t2 c2"]:
+        """Merge and project."""
+        merged = self._merge(x)
+        if self.norm is not None:
+            merged = self.norm(merged)
+        return self.reduction(merged)
+
+
+class Unpatch(nn.Module):
+    """Unpatch data.
+
+    Args:
+        output_size: output 2D shape.
+        features: number of input features; should be `>= size * size`.
+        size: patch size as (width, height, channels).
+    """
+
+    def __init__(
+        self, output_size: Sequence[int],
+        features: int = 512, size: Sequence[int] = (16, 16)
+    ) -> None:
+        super().__init__()
+
+        self.linear = nn.Linear(features, output_size[-1] * int(np.prod(size)))
+        self.size = size
+        self.output_size = output_size
+
+    def forward(
+        self, x: Float[Tensor, "n xin c"]
+    ) -> Float[Tensor, "n *xout c_out"]:
+        """Perform 2D unpatching.
+
+        Operates in batch-spatial-feature order; spatial axes are flattened on
+            the input, and unflattened in the output.
+        """
+        embedding = self.linear(x)
+
+        if len(self.size) == 2:
+            return rearrange(
+                embedding, "n (x1 x2) (s1 s2 c) -> n (x1 s1) (x2 s2) c",
+                x1=self.output_size[0] // self.size[0],
+                x2=self.output_size[1] // self.size[1],
+                s1=self.size[0], s2=self.size[1], c=self.output_size[-1])
+        elif len(self.size) == 3:
+            return rearrange(
+                embedding,
+                "n (x1 x2 x3) (s1 s2 s3 c) -> n (x1 s1) (x2 s2) (x3 s3) c",
+                x1=self.output_size[0] // self.size[0],
+                x2=self.output_size[1] // self.size[1],
+                x3=self.output_size[2] // self.size[2],
+                s1=self.size[0], s2=self.size[1], s3=self.size[2],
+                c=self.output_size[-1])
+        else:
+            raise ValueError(
+                "Unpatch is only implemented for 2D and 3D tensors.")

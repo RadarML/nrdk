@@ -1,9 +1,0 @@
-[submodule "abstract-dataloader"]
-	path = abstract-dataloader
-	url = git@github.com:WiseLabCMU/abstract-dataloader.git
-[submodule "red-rover"]
-	path = red-rover
-	url = git@github.com:WiseLabCMU/red-rover.git
-[submodule "xwr"]
-	path = xwr
-	url = git@github.com:WiseLabCMU/xwr.git

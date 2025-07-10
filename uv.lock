@@ -9,16 +9,16 @@ resolution-markers = [
 
 [[package]]
 name = "abstract-dataloader"
-version = "0.3.2"
+version = "0.3.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jaxtyping" },
     { name = "numpy" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/75/27385e6130258ac3955af00ed5970a21a67af375747368ab162c2c363c57/abstract_dataloader-0.3.2.tar.gz", hash = "sha256:40906d4ebfb8f3dba325dc93b9b346f5e9db10dd03ad4cdd0ccae8c6f95a7116", size = 101983, upload-time = "2025-06-21T16:00:22.11Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/06/90/283615f0db76210e29ffb67a7fcda3391fe8019f78ae752b652aabff1bfe/abstract_dataloader-0.3.4.tar.gz", hash = "sha256:dfb2c2620fbe28a739993e3cbf0c606680d25a42f334c363d4bcf42df82e6629", size = 160816, upload-time = "2025-07-09T02:07:42.474Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/b3/984e5fd72657c78227c1ca6f4d15baa21da371a58fb679e9fe21a60fd4c9/abstract_dataloader-0.3.2-py3-none-any.whl", hash = "sha256:5b6af5463f4fb16801a8af7d57b7f16ce6d3c21267731123602d6c75231c5a80", size = 25448, upload-time = "2025-06-21T16:00:20.958Z" },
+    { url = "https://files.pythonhosted.org/packages/70/88/2e3400813ea9c54f1dfae44b9b93930eee6ce3068eb6f20ce2882f76ddf0/abstract_dataloader-0.3.4-py3-none-any.whl", hash = "sha256:4d3a61c907a52c6ddc5c45ea1b1fda2d5b2b619653255951f016834be0fbc448", size = 40555, upload-time = "2025-07-09T02:07:41.241Z" },
 ]
 
 [[package]]
@@ -572,78 +572,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/a9/3e/5aa9a61f7c3c47b0b
 wheels = [
     { url = "https://files.pythonhosted.org/packages/58/c6/5c20af38c2a57c15d87f7f38bee77d63c1d2a3689f74fefaf35915dd12b2/griffe-1.7.3-py3-none-any.whl", hash = "sha256:c6b3ee30c2f0f17f30bcdef5068d6ab7a2a4f1b8bf1a3e74b56fffd21e1c5f75", size = 129303, upload-time = "2025-04-23T11:29:07.145Z" },
 ]
-
-[[package]]
-name = "grt"
-version = "0.0.0"
-source = { editable = "." }
-dependencies = [
-    { name = "beartype" },
-    { name = "einops" },
-    { name = "hydra-core" },
-    { name = "ipykernel" },
-    { name = "jaxtyping" },
-    { name = "lightning" },
-    { name = "matplotlib" },
-    { name = "numpy" },
-    { name = "roverd", extra = ["ouster", "video", "xwr"] },
-    { name = "torch" },
-    { name = "torchvision" },
-    { name = "tyro" },
-    { name = "xwr" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "beartype" },
-    { name = "coverage" },
-    { name = "optree" },
-    { name = "pre-commit" },
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-docs = [
-    { name = "mkdocs" },
-    { name = "mkdocs-material" },
-    { name = "mkdocstrings" },
-    { name = "mkdocstrings-python" },
-    { name = "mkdocstrings-python-xref" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "beartype", specifier = ">=0.20" },
-    { name = "beartype", marker = "extra == 'dev'", specifier = ">=0.20.0" },
-    { name = "coverage", marker = "extra == 'dev'" },
-    { name = "einops", specifier = ">=0.8.0" },
-    { name = "hydra-core", specifier = ">=1.3.0" },
-    { name = "ipykernel" },
-    { name = "jaxtyping", specifier = ">=0.3.2" },
-    { name = "lightning", specifier = "==2.3.3" },
-    { name = "matplotlib", specifier = ">=3.0.0" },
-    { name = "mkdocs", marker = "extra == 'docs'", specifier = "==1.6.*" },
-    { name = "mkdocs-material", marker = "extra == 'docs'", specifier = "==9.6.*" },
-    { name = "mkdocstrings", marker = "extra == 'docs'", specifier = "==0.29.*" },
-    { name = "mkdocstrings-python", marker = "extra == 'docs'", specifier = "==1.16.6" },
-    { name = "mkdocstrings-python-xref", marker = "extra == 'docs'", specifier = "==1.16.3" },
-    { name = "numpy", specifier = ">=1.19" },
-    { name = "optree", marker = "extra == 'dev'", specifier = ">=0.13" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
-    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "roverd", extras = ["ouster", "video", "xwr"], git = "ssh://git@github.com/WiseLabCMU/red-rover.git?subdirectory=format" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.10.0" },
-    { name = "ruff", marker = "extra == 'docs'", specifier = ">=0.10.0" },
-    { name = "torch", specifier = ">=2.4" },
-    { name = "torchvision" },
-    { name = "tyro", specifier = ">=0.8.0" },
-    { name = "xwr", git = "ssh://git@github.com/WiseLabCMU/xwr.git" },
-]
-provides-extras = ["docs", "dev"]
 
 [[package]]
 name = "hydra-core"
@@ -1345,6 +1273,80 @@ sdist = { url = "https://files.pythonhosted.org/packages/43/16/fc88b08840de0e0a7
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d2/1d/1b658dbd2b9fa9c4c9f32accbfc0205d532c8c6194dc0f2a4c0428e7128a/nodeenv-1.9.1-py2.py3-none-any.whl", hash = "sha256:ba11c9782d29c27c70ffbdda2d7415098754709be8a7056d79a737cd901155c9", size = 22314, upload-time = "2024-06-04T18:44:08.352Z" },
 ]
+
+[[package]]
+name = "nrdk"
+version = "0.0.0"
+source = { editable = "." }
+dependencies = [
+    { name = "abstract-dataloader" },
+    { name = "beartype" },
+    { name = "einops" },
+    { name = "hydra-core" },
+    { name = "ipykernel" },
+    { name = "jaxtyping" },
+    { name = "lightning" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "optree" },
+    { name = "torch" },
+    { name = "torchvision" },
+    { name = "tyro" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "coverage" },
+    { name = "pre-commit" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+docs = [
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+    { name = "mkdocstrings" },
+    { name = "mkdocstrings-python" },
+    { name = "mkdocstrings-python-xref" },
+    { name = "ruff" },
+]
+roverd = [
+    { name = "roverd", extra = ["ouster", "video"] },
+    { name = "xwr" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abstract-dataloader", specifier = "==0.3.4" },
+    { name = "beartype", specifier = ">=0.20" },
+    { name = "coverage", marker = "extra == 'dev'" },
+    { name = "einops", specifier = ">=0.8.0" },
+    { name = "hydra-core", specifier = ">=1.3.0" },
+    { name = "ipykernel" },
+    { name = "jaxtyping", specifier = ">=0.3.2" },
+    { name = "lightning", specifier = "==2.3.3" },
+    { name = "matplotlib", specifier = ">=3.0.0" },
+    { name = "mkdocs", marker = "extra == 'docs'", specifier = "==1.6.*" },
+    { name = "mkdocs-material", marker = "extra == 'docs'", specifier = "==9.6.*" },
+    { name = "mkdocstrings", marker = "extra == 'docs'", specifier = "==0.29.*" },
+    { name = "mkdocstrings-python", marker = "extra == 'docs'", specifier = "==1.16.6" },
+    { name = "mkdocstrings-python-xref", marker = "extra == 'docs'", specifier = "==1.16.3" },
+    { name = "numpy", specifier = ">=1.19" },
+    { name = "optree", specifier = ">=0.13" },
+    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
+    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.0.0" },
+    { name = "pytest", marker = "extra == 'dev'" },
+    { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "roverd", extras = ["ouster", "video"], marker = "extra == 'roverd'", git = "ssh://git@github.com/radarml/red-rover.git?subdirectory=format" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.10.0" },
+    { name = "ruff", marker = "extra == 'docs'", specifier = ">=0.10.0" },
+    { name = "torch", specifier = ">=2.4" },
+    { name = "torchvision" },
+    { name = "tyro", specifier = ">=0.8.0" },
+    { name = "xwr", marker = "extra == 'roverd'", git = "ssh://git@github.com/radarml/xwr.git" },
+]
+provides-extras = ["roverd", "docs", "dev"]
 
 [[package]]
 name = "numpy"
@@ -2249,11 +2251,12 @@ wheels = [
 
 [[package]]
 name = "roverd"
-version = "0.1.0"
-source = { git = "ssh://git@github.com/WiseLabCMU/red-rover.git?subdirectory=format#cee52573942658a7ce33a09d4a941a12e9cce713" }
+version = "0.2.0"
+source = { git = "ssh://git@github.com/radarml/red-rover.git?subdirectory=format#7cd9b4a97c8e1ac6cfd12f5b50c45bfc60dd4ae5" }
 dependencies = [
     { name = "abstract-dataloader" },
     { name = "beartype" },
+    { name = "einops" },
     { name = "jaxtyping" },
     { name = "numpy" },
     { name = "optree" },
@@ -2268,9 +2271,6 @@ ouster = [
 ]
 video = [
     { name = "opencv-python-headless" },
-]
-xwr = [
-    { name = "xwr" },
 ]
 
 [[package]]
@@ -2730,8 +2730,8 @@ wheels = [
 
 [[package]]
 name = "xwr"
-version = "0.3.0"
-source = { git = "ssh://git@github.com/WiseLabCMU/xwr.git#e92f16de3b63350fb14f1d17b4ece392d146d5cc" }
+version = "0.3.1"
+source = { git = "ssh://git@github.com/radarml/xwr.git#d2f9cb658de38927c0f09695cf52e875d637dadd" }
 dependencies = [
     { name = "beartype" },
     { name = "jaxtyping" },

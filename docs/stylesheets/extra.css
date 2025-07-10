@@ -1,0 +1,78 @@
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+    padding: 6px 12px;
+}
+.md-typeset pre > code {
+    padding: 0.3em 1em;
+}
+
+:root {
+    --md-admonition-icon--type-parameters: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.5 11H19V7a2 2 0 0 0-2-2h-4V3.5A2.5 2.5 0 0 0 10.5 1 2.5 2.5 0 0 0 8 3.5V5H4a2 2 0 0 0-2 2v3.8h1.5c1.5 0 2.7 1.2 2.7 2.7S5 16.2 3.5 16.2H2V20a2 2 0 0 0 2 2h3.8v-1.5c0-1.5 1.2-2.7 2.7-2.7s2.7 1.2 2.7 2.7V22H17a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5"/></svg>');
+    --md-admonition-icon--metrics: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>chart-bar</title><path d="M22,21H2V3H4V19H6V10H10V19H12V6H16V19H18V14H22V21Z" /></svg>');
+    --md-admonition-icon--visualizations: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>image-multiple</title><path d="M22,16V4A2,2 0 0,0 20,2H8A2,2 0 0,0 6,4V16A2,2 0 0,0 8,18H20A2,2 0 0,0 22,16M11,12L13.03,14.71L16,11L20,16H8M2,6V20A2,2 0 0,0 4,22H18V20H4V6" /></svg>');
+    --md-admonition-icon--augmentations: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>arrow-decision</title><path d="M11,5H8L12,1L16,5H13V9.43C12.25,9.89 11.58,10.46 11,11.12V5M22,11L18,7V10C14.39,9.85 11.31,12.57 11,16.17C9.44,16.72 8.62,18.44 9.17,20C9.72,21.56 11.44,22.38 13,21.83C14.56,21.27 15.38,19.56 14.83,18C14.53,17.14 13.85,16.47 13,16.17C13.47,12.17 17.47,11.97 17.95,11.97V14.97L22,11M10.63,11.59C9.3,10.57 7.67,10 6,10V7L2,11L6,15V12C7.34,12.03 8.63,12.5 9.64,13.4C9.89,12.76 10.22,12.15 10.63,11.59Z" /></svg>')
+}
+
+.md-typeset .admonition.metrics,
+.md-typeset details.metrics {
+  border-color: rgb(124, 77, 255);
+}
+.md-typeset .metrics > .admonition-title,
+.md-typeset .metrics > summary {
+  background-color: rgba(124, 77, 255, 0.1);
+  border-color: rgb(124, 77, 255);
+}
+.md-typeset .metrics > .admonition-title::before,
+.md-typeset .metrics > summary::before {
+  background-color: rgb(124, 77, 255);
+  -webkit-mask-image: var(--md-admonition-icon--metrics);
+          mask-image: var(--md-admonition-icon--metrics);
+}
+
+.md-typeset .admonition.type-parameters,
+.md-typeset details.type-parameters {
+  border-color: rgb(43, 155, 70);
+}
+.md-typeset .type-parameters > .admonition-title,
+.md-typeset .type-parameters > summary {
+  background-color: rgba(43, 155, 70, 0.1);
+  border-color: rgb(43, 155, 70);
+}
+.md-typeset .type-parameters > .admonition-title::before,
+.md-typeset .type-parameters > summary::before {
+  background-color: rgb(43, 155, 70);
+  -webkit-mask-image: var(--md-admonition-icon--type-parameters);
+          mask-image: var(--md-admonition-icon--type-parameters);
+}
+
+.md-typeset .admonition.visualizations,
+.md-typeset details.visualizations {
+  border-color: rgb(234, 56, 225);
+}
+.md-typeset .visualizations > .admonition-title,
+.md-typeset .visualizations > summary {
+  background-color: rgba(234, 56, 225, 0.1);
+  border-color: rgb(234, 56, 225);
+}
+.md-typeset .visualizations > .admonition-title::before,
+.md-typeset .visualizations > summary::before {
+  background-color: rgb(234, 56, 225);
+  -webkit-mask-image: var(--md-admonition-icon--visualizations);
+          mask-image: var(--md-admonition-icon--visualizations);
+}
+
+.md-typeset .admonition.augmentations,
+.md-typeset details.augmentations {
+  border-color: rgb(124, 77, 255);
+}
+.md-typeset .augmentations > .admonition-title,
+.md-typeset .augmentations > summary {
+  background-color: rgba(124, 77, 255, 0.1);
+  border-color: rgb(124, 77, 255);
+}
+.md-typeset .augmentations > .admonition-title::before,
+.md-typeset .augmentations > summary::before {
+  background-color: rgb(124, 77, 255);
+  -webkit-mask-image: var(--md-admonition-icon--augmentations);
+          mask-image: var(--md-admonition-icon--augmentations);
+}
