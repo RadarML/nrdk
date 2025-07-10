@@ -2,9 +2,9 @@
 
 import threading
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from functools import cache
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Callable, Generic, TypeVar, cast
 
 import lightning
 import numpy as np
@@ -13,7 +13,7 @@ import torch
 from abstract_dataloader import spec
 from abstract_dataloader.ext.objective import Objective
 from jaxtyping import Shaped
-from torch import Tensor
+from torch import Tensor, nn
 
 from .logging import LoggerWithImages
 
@@ -41,6 +41,8 @@ class ADLLightningModule(
     def __init__(
         self, model: TModel,
         objective: Objective[Tensor, YTrue, YPred],
+        optimizer: Callable[
+            [Iterable[nn.parameter.Parameter]], torch.optim.Optimizer],
         transforms:
             spec.Pipeline[Any, Any, YTrueRaw, YTrue]
             | spec.Transform[YTrueRaw, YTrue] | None = None,
@@ -49,6 +51,7 @@ class ADLLightningModule(
         super().__init__()
         self.model = model
         self.objective = objective
+        self.optimizer = optimizer
         self.transforms = transforms
         self.vis_interval = vis_interval
         self.vis_samples = vis_samples
@@ -210,3 +213,7 @@ class ADLLightningModule(
 
                 vis = self.objective.visualizations(transformed, y_hat)
                 yield {k: v.cpu().numpy() for k, v in metrics.items()}, vis
+
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        """Configure optimizers; passthrough to the provided `Optimizer`."""
+        return self.optimizer(self.parameters())

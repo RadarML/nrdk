@@ -1,6 +1,6 @@
 """Odometry objective."""
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 import torch
@@ -10,6 +10,7 @@ from jaxtyping import Float, Shaped
 from torch import Tensor
 
 
+@runtime_checkable
 class VelocityData(Protocol):
     """Protocol type for velocity data.
 
@@ -20,7 +21,7 @@ class VelocityData(Protocol):
     vel: Float[Tensor, "batch t 3"]
 
 
-class Velocity(Objective[Tensor, VelocityData, Float[Tensor, "batch 4"]]):
+class Velocity(Objective[Tensor, VelocityData, Float[Tensor, "batch t 4"]]):
     """Radar -> relative velocity.
 
     !!! info
@@ -109,7 +110,7 @@ class Velocity(Objective[Tensor, VelocityData, Float[Tensor, "batch 4"]]):
         return metrics["loss"], metrics
 
     def visualizations(
-        self, y_true: VelocityData, y_pred: Float[Tensor, "batch 4"]
+        self, y_true: VelocityData, y_pred: Float[Tensor, "batch t 4"]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         return {}
 

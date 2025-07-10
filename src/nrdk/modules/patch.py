@@ -1,6 +1,7 @@
 """Patching and unpatching modules."""
 
 import numpy as np
+import torch
 from beartype.typing import Sequence
 from einops import rearrange
 from jaxtyping import Float
@@ -90,6 +91,57 @@ class Unpatch(nn.Module):
                 x3=self.output_size[2] // self.size[2],
                 s1=self.size[0], s2=self.size[1], s3=self.size[2],
                 c=self.output_size[-1])
+        elif len(self.size) == 4:
+            return rearrange(
+                embedding,
+                "n (x1 x2 x3 x4) (s1 s2 s3 s4 c) -> "
+                "n (x1 s1) (x2 s2) (x3 s3) (x4 s4) c",
+                x1=self.output_size[0] // self.size[0],
+                x2=self.output_size[1] // self.size[1],
+                x3=self.output_size[2] // self.size[2],
+                x4=self.output_size[3] // self.size[3],
+                s1=self.size[0], s2=self.size[1],
+                s3=self.size[2], s4=self.size[3],
+                c=self.output_size[-1])
         else:
             raise ValueError(
-                "Unpatch is only implemented for 2D and 3D tensors.")
+                "Unpatch is only implemented for 2/3/4D tensors.")
+
+
+class Squeeze(nn.Module):
+    """Remove axes by moving them to the channel axis.
+
+    Args:
+        dim: axes to remove, indexed with respect to the spatial dimensions
+            (so the first spatial axis is `0`, and so on).
+        size: optional original spatial axis sizes; used to compute the number
+            of resulting channels.
+    """
+
+    def __init__(
+        self, dim: Sequence[int] = [],
+        size: Sequence[int] | None = None
+    ) -> None:
+        super().__init__()
+        self.dim = sorted(dim, reverse=True)
+        self.size = size
+
+    @property
+    def n_channels(self) -> int:
+        """Get number of channels."""
+        if self.size is None:
+            raise ValueError(
+                "Cannot compute n_channels without a provided `size`.")
+        nc = 1
+        for d in self.dim:
+            nc *= self.size[d]
+        return nc
+
+    def forward(
+        self, data: Float[Tensor, "batch *spatial channels"]
+    ) -> Float[Tensor, "batch *spatial2 channels2"]:
+        """Apply transform."""
+        for dim in self.dim:
+            data = torch.moveaxis(data, dim + 1, -1)
+            data = data.reshape(*data.shape[:-2], -1)
+        return data

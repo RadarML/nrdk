@@ -1,7 +1,7 @@
 """Radar training objectives and common building blocks for losses/metrics."""
 
 from collections.abc import Mapping
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 import torch
@@ -14,6 +14,7 @@ from torch import Tensor
 from nrdk import vis
 
 
+@runtime_checkable
 class SemsegData(Protocol):
     """Protocol type for camera semantic segmentation data.
 

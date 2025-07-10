@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import torch
 from beartype.typing import Literal
-from jaxtyping import Bool, Float, Shaped
+from jaxtyping import Bool, Float, Num, Shaped
 from torch import Tensor
 
 
@@ -149,7 +149,7 @@ class PolarChamfer3D(PointCloudMetric):
         self.el_max = el_max
 
     def as_points(
-        self, data: Bool[Tensor, "elevation azimuth"]
+        self, data: Num[Tensor, "elevation azimuth"]
     ) -> Float[Tensor, "n 3"]:
         """Convert elevation-azimuth depth maps to points."""
         Ne, Na = data.shape

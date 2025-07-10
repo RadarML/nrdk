@@ -5,7 +5,7 @@ from typing import Any, Generic, Mapping, Sequence
 import numpy as np
 from abstract_dataloader.ext.types import TArray, dataclass
 from einops import rearrange
-from jaxtyping import Float, Float32, Float64, UInt16
+from jaxtyping import Bool, Float, Float64, UInt16
 from roverd import types
 from roverd.transforms.ouster import ConfigCache, Destagger
 
@@ -21,7 +21,7 @@ class Occupancy3DData(Generic[TArray]):
         timestamps: timestamps corresponding to the map data.
     """
 
-    occupancy: Float32[TArray, "batch t el az rng"]
+    occupancy: Bool[TArray, "batch t el az rng"]
     timestamps: Float64[TArray, "batch t"]
 
 
@@ -34,7 +34,7 @@ class Occupancy2DData(Generic[TArray]):
         timestamps: timestamps corresponding to the map data.
     """
 
-    occupancy: Float32[TArray, "batch t az rng"]
+    occupancy: Bool[TArray, "batch t az rng"]
     timestamps: Float64[TArray, "batch t"]
 
 

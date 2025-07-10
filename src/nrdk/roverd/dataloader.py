@@ -28,8 +28,12 @@ def datamodule(
     dataset: Callable[[Sequence[str]], roverd.Dataset],
     traces: Mapping[str, Sequence[str]],
     datamodule: Callable[
-        [Mapping[str, Callable[[], spec.Dataset] | spec.Dataset]],
+        [
+            Mapping[str, Callable[[], spec.Dataset] | spec.Dataset],
+            spec.Pipeline | spec.Transform | None
+        ],
         ADLDataModule],
+    transforms: spec.Pipeline | spec.Transform | None = None,
     ptrain: float = 0.8, pval: float = 0.2
 ) -> ADLDataModule:
     """Create a datamodule for a [`roverd` dataset][roverd.Dataset].
@@ -47,7 +51,8 @@ def datamodule(
         dataset: dataset constructor with all but the trace names bound.
         traces: trace names to use for each split.
         datamodule: datamodule constructor with all but the datasets for each
-            split bound.
+            split and the transforms bound.
+        transforms: data transform or pipeline to apply.
         ptrain: proportion of the data to use for the training split; takes
             the first `ptrain` of each trace.
         pval: proportion of the data to use for the validation split; takes the
@@ -81,4 +86,4 @@ def datamodule(
         splits["train"] = train
         splits["val"] = val
 
-    return datamodule(splits)
+    return datamodule(splits, transforms)

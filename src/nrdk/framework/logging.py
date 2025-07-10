@@ -33,8 +33,8 @@ class LoggerWithImages(Protocol):
         ...
 
 
-class TensorflowLogger(loggers.TensorBoardLogger, LoggerWithImages):
-    """Tensorflow logger."""
+class TensorBoardLogger(loggers.TensorBoardLogger, LoggerWithImages):
+    """TensorBoard logger."""
 
     def log_images(
         self, images: Mapping[str, UInt8[np.ndarray, "h w c"]], step: int = 0

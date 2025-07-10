@@ -1,18 +1,19 @@
 """Radar training objectives and common building blocks for losses/metrics."""
 
-from typing import Any, Literal, Mapping, Protocol
+from typing import Any, Literal, Mapping, Protocol, runtime_checkable
 
 import numpy as np
 import torch
 from abstract_dataloader.ext.objective import Objective, VisualizationConfig
 from einops import rearrange, reduce
-from jaxtyping import Float, Shaped
+from jaxtyping import Bool, Float, Shaped
 from torch import Tensor
 
 from nrdk import vis
 from nrdk.metrics import BCE, PolarChamfer2D, PolarChamfer3D, VoxelDepth
 
 
+@runtime_checkable
 class Occupancy3DData(Protocol):
     """Protocol type for 3D occupancy data.
 
@@ -26,9 +27,10 @@ class Occupancy3DData(Protocol):
         occupancy: occupancy grid, with batch-spatial axis order.
     """
 
-    occupancy: Float[Tensor, "batch t elevation azimuth range"]
+    occupancy: Bool[Tensor, "batch t elevation azimuth range"]
 
 
+@runtime_checkable
 class Occupancy2DData(Protocol):
     """Protocol type for 2D occupancy data.
 
@@ -41,7 +43,7 @@ class Occupancy2DData(Protocol):
         occupancy: occupancy grid, with batch-range-azimuth axis order.
     """
 
-    occupancy: Float[Tensor, "batch t azimuth range"]
+    occupancy: Bool[Tensor, "batch t azimuth range"]
 
 
 class Occupancy3D(Objective[
@@ -82,7 +84,7 @@ class Occupancy3D(Objective[
         mode: Literal["spherical", "cylindrical"] = "cylindrical",
         az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
         el_min: float = -np.pi / 4, el_max: float = np.pi / 4,
-        vis_config: VisualizationConfig | Mapping[str, Any] = {}
+        vis_config: VisualizationConfig | Mapping[str, Any] = {},
     ) -> None:
         self.az_min = az_min
         self.az_max = az_max
@@ -118,8 +120,8 @@ class Occupancy3D(Objective[
             "depth": self.depth(occ_true, occ_hat)
         }
         if not train:
-            depth_true = torch.argmax(occ_true, dim=-1)
-            depth_hat = torch.argmax(occ_hat, dim=-1)
+            depth_true = torch.argmax(occ_true.to(torch.uint8), dim=-1)
+            depth_hat = torch.argmax(occ_hat.to(torch.uint8), dim=-1)
             metrics["chamfer"] = self.chamfer(depth_hat, depth_true)
 
         # Temporal reduction
@@ -223,7 +225,8 @@ class Occupancy2D(Objective[
 
     def __call__(
         self, y_true: Occupancy2DData,
-        y_pred: Float[Tensor, "batch t azimuth range"], train: bool = True
+        y_pred: Float[Tensor, "batch t azimuth range"],
+        train: bool = True
     ) -> tuple[Float[Tensor, "batch"], dict[str, Float[Tensor, "batch"]]]:
         _y_pred = rearrange(y_pred, "b t az rng -> (b t) az rng")
         occ_true = rearrange(y_true.occupancy, "b t az rng -> (b t) az rng")

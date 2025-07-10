@@ -3,9 +3,11 @@
 from jaxtyping import install_import_hook
 
 with install_import_hook("nrdk.framework", "beartype.beartype"):
-    from .logging import LoggerWithImages, MLFlowLogger, TensorflowLogger
+    from .architectures import TokenizerEncoderDecoder
+    from .logging import LoggerWithImages, MLFlowLogger, TensorBoardLogger
     from .module import ADLLightningModule
 
 __all__ = [
-    "LoggerWithImages", "MLFlowLogger", "TensorflowLogger",
+    "TokenizerEncoderDecoder",
+    "LoggerWithImages", "MLFlowLogger", "TensorBoardLogger",
     "ADLLightningModule"]
