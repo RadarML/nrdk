@@ -1,3 +1,3 @@
-# GRT
+# NRDK: Neural Radar Development Kit
 
-A modular "industrial-grade" framework for learning on spectrum.
+An "industrial grade" modular framework and comprehensive development kit for multimodal radar spectrum research with a focus on deep learning & foundational model approaches.

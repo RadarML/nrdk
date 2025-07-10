@@ -1,17 +1,3 @@
-# Data / results
-/data
-/results
-/videos
-/figures
-*.mp4
-*.pdf
-
-# Scratch scripts
-*.sh
-
-# Symlinks
-/roverp
-
 # Notebooks
 *.ipynb
 !/notebooks/*.ipynb
