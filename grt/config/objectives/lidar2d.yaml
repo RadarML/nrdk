@@ -1,0 +1,16 @@
+# @package _global_
+objectives:
+  occupancy2d:
+    weight: 1.0
+    y_true: occ2d
+    y_pred: occ2d
+    objective:
+      _target_: nrdk.objectives.Occupancy2D
+      range_weighted: True
+      positive_weight: 64.0
+      vis_config:
+        cols: 8
+        width: 512
+        height: 256
+        cmaps:
+          bev: inferno

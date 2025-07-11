@@ -1,1 +1,0 @@
-# Sample Configurations for Roverd Data

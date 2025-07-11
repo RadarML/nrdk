@@ -1,0 +1,12 @@
+# @package _global_
+model:
+  decoders:
+    vel:
+      _target_: grt.models.VectorDecoder
+      layers: [512, 512, 512]
+      dropout: 0.1
+      activation: gelu
+      dim: 512
+      shape: [1, 4]
+      strategy: last
+      channels_first: false

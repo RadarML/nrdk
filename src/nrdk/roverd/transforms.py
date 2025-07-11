@@ -15,6 +15,16 @@ from xwr import rsp as xwr_rsp
 class SpectrumData(Generic[TArray]):
     """Real 4D spectrum.
 
+    !!! note
+
+        The axes are in ["image conventions"][xwr.rsp]:
+
+        - Increasing azimuth is to the right
+        - Increasing elevation is down
+        - Increasing range is away from the sensor
+        - Increasing doppler bin corresponds to objects moving away from the
+            sensor.
+
     Attributes:
         spectrum: real-valued 4D spectrum with a leading batch axis and
             trailing channel axis.

@@ -1,0 +1,83 @@
+defaults:
+  - aug: none
+  - sensors: radar
+  - traces: ["bike", "indoor", "outdoor"]
+  - _self_
+
+datamodule:
+  _target_: nrdk.roverd.datamodule
+  _partial_: true
+  dataset:
+    _target_: roverd.Dataset.from_config
+    _partial_: true
+    sync:
+      _target_: abstract_dataloader.generic.Next
+      margin: [1.0, 1.0]
+      reference: "radar"
+    sensors: {}  # sensors/*.yaml
+  traces:
+    train:
+      _target_: nrdk.config.expand
+      path: /data/grt
+  datamodule:
+    _target_: abstract_dataloader.ext.lightning.ADLDataModule
+    _partial_: true
+    batch_size: 16
+    samples: 8
+    num_workers: 12
+    prefetch_factor: 2
+    subsample:
+      val: 16384
+  ptrain: 0.8
+  pval: 0.2
+
+transforms:
+  _target_: abstract_dataloader.abstract.Pipeline
+  sample:
+    _target_: abstract_dataloader.ext.graph.Transform
+    keep_all: false
+    outputs: {}  # sensors/*.yaml
+
+  collate:
+    _target_: abstract_dataloader.torch.Collate
+    mode: "concat"
+
+objectives:
+  _target_: abstract_dataloader.ext.objective.MultiObjective
+  # objectives/*.yaml
+
+model:
+  _target_: nrdk.framework.TokenizerEncoderDecoder
+  tokenizer:
+    _target_: grt.models.SpectrumTokenizer
+    d_model: 512
+    patch: [1, 2, 2, 8, 4]  # (time, doppler, elevation, azimuth, range)
+    squeeze: [2, 3]  # elevation + azimuth
+    n_channels: 3
+    pos_scale: [1.0, 1.0, 1.0, 1.0, 1.0]
+    global_scale: 16.0
+    positions: nd
+  encoder:
+    _target_: torch.nn.TransformerEncoder
+    encoder_layer:
+      _target_: torch.nn.TransformerEncoderLayer
+      d_model: 512
+      nhead: 8
+      dim_feedforward: 2048
+      dropout: 0.1
+      activation: gelu
+      layer_norm_eps: 1e-5
+      batch_first: true
+      norm_first: true
+      bias: true
+    num_layers: 4
+    enable_nested_tensor: false
+  # decoders from decoders/*.yaml
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 1e-2
+  betas: [0.9, 0.999]
+  eps: 1e-8

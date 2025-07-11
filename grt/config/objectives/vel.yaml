@@ -1,0 +1,11 @@
+# @package _global_
+objectives:
+  vel:
+    weight: 1.0
+    y_true: vel
+    y_pred: vel
+    objective:
+      _target_: nrdk.objectives.Velocity
+      eps: 1.0
+      eps_speed: 2.0
+      eps_angle: 1e-5

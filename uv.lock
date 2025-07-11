@@ -1282,8 +1282,6 @@ dependencies = [
     { name = "abstract-dataloader" },
     { name = "beartype" },
     { name = "einops" },
-    { name = "hydra-core" },
-    { name = "ipykernel" },
     { name = "jaxtyping" },
     { name = "lightning" },
     { name = "matplotlib" },
@@ -1291,7 +1289,6 @@ dependencies = [
     { name = "optree" },
     { name = "torch" },
     { name = "torchvision" },
-    { name = "tyro" },
 ]
 
 [package.optional-dependencies]
@@ -1311,6 +1308,11 @@ docs = [
     { name = "mkdocstrings-python-xref" },
     { name = "ruff" },
 ]
+grt = [
+    { name = "hydra-core" },
+    { name = "ipykernel" },
+    { name = "tyro" },
+]
 roverd = [
     { name = "roverd", extra = ["ouster", "video"] },
     { name = "xwr" },
@@ -1322,8 +1324,8 @@ requires-dist = [
     { name = "beartype", specifier = ">=0.20" },
     { name = "coverage", marker = "extra == 'dev'" },
     { name = "einops", specifier = ">=0.8.0" },
-    { name = "hydra-core", specifier = ">=1.3.0" },
-    { name = "ipykernel" },
+    { name = "hydra-core", marker = "extra == 'grt'", specifier = ">=1.3.0" },
+    { name = "ipykernel", marker = "extra == 'grt'" },
     { name = "jaxtyping", specifier = ">=0.3.2" },
     { name = "lightning", specifier = "==2.3.3" },
     { name = "matplotlib", specifier = ">=3.0.0" },
@@ -1343,10 +1345,10 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'docs'", specifier = ">=0.10.0" },
     { name = "torch", specifier = ">=2.4" },
     { name = "torchvision" },
-    { name = "tyro", specifier = ">=0.8.0" },
+    { name = "tyro", marker = "extra == 'grt'", specifier = ">=0.8.0" },
     { name = "xwr", marker = "extra == 'roverd'", git = "ssh://git@github.com/radarml/xwr.git" },
 ]
-provides-extras = ["roverd", "docs", "dev"]
+provides-extras = ["roverd", "grt", "docs", "dev"]
 
 [[package]]
 name = "numpy"
