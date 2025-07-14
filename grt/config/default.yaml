@@ -2,11 +2,28 @@ defaults:
   - aug: none
   - sensors: radar
   - traces: ["bike", "indoor", "outdoor"]
+  - training: default
   - _self_
+
+meta:
+  dataset: data/
+  results: results/
+  name: test_model
+  version: test_version
+
+globals:
+  d_model: 512
+  d_feedforward: 2048
+  nhead: 8
+  enc_layers: 4
+  dec_layers: 4
+
+hydra:
+  run:
+    dir: ${meta.results}/${meta.name}/${meta.version}
 
 datamodule:
   _target_: nrdk.roverd.datamodule
-  _partial_: true
   dataset:
     _target_: roverd.Dataset.from_config
     _partial_: true
@@ -18,11 +35,11 @@ datamodule:
   traces:
     train:
       _target_: nrdk.config.expand
-      path: /data/grt
+      path: ${meta.dataset}
   datamodule:
     _target_: abstract_dataloader.ext.lightning.ADLDataModule
     _partial_: true
-    batch_size: 16
+    batch_size: 32
     samples: 8
     num_workers: 12
     prefetch_factor: 2
@@ -37,7 +54,6 @@ transforms:
     _target_: abstract_dataloader.ext.graph.Transform
     keep_all: false
     outputs: {}  # sensors/*.yaml
-
   collate:
     _target_: abstract_dataloader.torch.Collate
     mode: "concat"
@@ -50,10 +66,10 @@ model:
   _target_: nrdk.framework.TokenizerEncoderDecoder
   tokenizer:
     _target_: grt.models.SpectrumTokenizer
-    d_model: 512
+    d_model: ${globals.d_model}
     patch: [1, 2, 2, 8, 4]  # (time, doppler, elevation, azimuth, range)
     squeeze: [2, 3]  # elevation + azimuth
-    n_channels: 3
+    n_channels: 3 
     pos_scale: [1.0, 1.0, 1.0, 1.0, 1.0]
     global_scale: 16.0
     positions: nd
@@ -61,23 +77,15 @@ model:
     _target_: torch.nn.TransformerEncoder
     encoder_layer:
       _target_: torch.nn.TransformerEncoderLayer
-      d_model: 512
-      nhead: 8
-      dim_feedforward: 2048
+      d_model: ${globals.d_model}
+      nhead: ${globals.nhead}
+      dim_feedforward: ${globals.d_feedforward}
       dropout: 0.1
       activation: gelu
       layer_norm_eps: 1e-5
       batch_first: true
       norm_first: true
       bias: true
-    num_layers: 4
+    num_layers: ${globals.enc_layers}
     enable_nested_tensor: false
   # decoders from decoders/*.yaml
-
-optimizer:
-  _target_: torch.optim.AdamW
-  _partial_: true
-  lr: 1e-4
-  weight_decay: 1e-2
-  betas: [0.9, 0.999]
-  eps: 1e-8

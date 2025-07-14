@@ -19,6 +19,12 @@
 
     a multimodal mmWave Radar spectrum ecosystem
 
+- :material-antenna: [`xwr`](https://radarml.github.io/xwr/)
+
+    ---
+
+    python interface for collecting raw time signal data from TI mmWave radars
+
 - :material-cube-outline: [`abstract_dataloader`](https://wiselabcmu.github.io/abstract-dataloader/)
 
     ---

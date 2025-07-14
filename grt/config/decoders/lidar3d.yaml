@@ -5,16 +5,16 @@ model:
       _target_: grt.models.TransformerDecoder
       decoder_layer:
         _target_: torch.nn.TransformerDecoderLayer
-        d_model: 512
-        nhead: 8
-        dim_feedforward: 2048
+        d_model: ${globals.d_model}
+        nhead: ${globals.nhead}
+        dim_feedforward: ${globals.d_feedforward}
         dropout: 0.1
         activation: gelu
         layer_norm_eps: 1e-5
         batch_first: true
         norm_first: true
         bias: true
-      d_model: 512
+      d_model: ${globals.d_model}
       num_layers: 4
       shape: [1, 64, 128, 64]
       pos_scale: [1.0, 1.0, 1.0, 1.0]

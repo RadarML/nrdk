@@ -59,6 +59,9 @@ plugins:
     default_handler: python_xref
     handlers:
       python_xref:
+        paths:
+        - src
+        - grt
         options:
           docstring_style: google
           relative_crossrefs: true

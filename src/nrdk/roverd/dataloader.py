@@ -75,12 +75,12 @@ def datamodule(
 
         def train():
             return _DatasetMeta(
-                roverd.split(train_val(), start=1.0 - pval, end=1.0),
+                roverd.split(train_val(), start=0.0, end=ptrain),
                 meta={"train": True, "split": "train"})
 
         def val():
             return _DatasetMeta(
-                roverd.split(train_val(), start=ptrain, end=1.0),
+                roverd.split(train_val(), start=1 - pval, end=1.0),
                 meta={"train": False, "split": "val"})
 
         splits["train"] = train

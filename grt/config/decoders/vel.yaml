@@ -3,10 +3,13 @@ model:
   decoders:
     vel:
       _target_: grt.models.VectorDecoder
-      layers: [512, 512, 512]
+      layers:
+        - ${globals.d_model}
+        - ${globals.d_model}
+        - ${globals.d_model}
       dropout: 0.1
       activation: gelu
-      dim: 512
+      dim: ${globals.d_model}
       shape: [1, 4]
       strategy: last
       channels_first: false

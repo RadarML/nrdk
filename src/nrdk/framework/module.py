@@ -165,8 +165,8 @@ class ADLLightningModule(
         metrics = {k: torch.mean(v) for k, v in metrics.items()}
 
         self.log_dict(
-            {f"{k}/train": v for k, v in metrics.items()}, sync_dist=True)
-        self.log("loss/train", loss, sync_dist=True)
+            {f"{k}/val": v for k, v in metrics.items()}, sync_dist=True)
+        self.log("loss/val", loss, sync_dist=True)
 
         if batch_idx == 0 and self.global_rank == 0:
             val_samples = self._get_val_samples()
