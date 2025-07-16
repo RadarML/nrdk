@@ -2,8 +2,8 @@ site_name: Neural Radar Development Kit
 repo_url: https://github.com/RadarML/nrdk
 repo_name: RadarML/nrdk
 nav:
-  - Home: index.md
-  - NRDK API:
+  - home: index.md
+  - nrdk:
     - Overview: nrdk/index.md
     - Config: nrdk/config.md
     - Framework: nrdk/framework.md
@@ -12,9 +12,15 @@ nav:
     - Objectives: nrdk/objectives.md
     - Roverd: nrdk/roverd.md
     - Visualization: nrdk/vis.md
-  - GRT Reference Implementation:
+  - nrdk.tss:
+    - About: tss/index.md
+    - High Level API: tss/api.md
+    - Stats: tss/stats.md
+    - Utils: tss/utils.md
+  - grt:
     - Overview: grt/index.md
     - Models: grt/models.md
+
 
 extra_css:
   - stylesheets/extra.css

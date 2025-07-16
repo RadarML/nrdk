@@ -1,15 +1,18 @@
 defaults:
-  - aug: none
+  - aug@transforms.sample.augmentations: none
   - sensors: radar
   - traces: ["bike", "indoor", "outdoor"]
   - training: default
+  - tokenizer@model.tokenizer: grt
+  - encoder@model.encoder: grt
+  - decoder@model.decoder: lidar3d
   - _self_
 
 meta:
   dataset: data/
   results: results/
   name: test_model
-  version: test_version
+  version: null
 
 globals:
   d_model: 512
@@ -64,28 +67,3 @@ objectives:
 
 model:
   _target_: nrdk.framework.TokenizerEncoderDecoder
-  tokenizer:
-    _target_: grt.models.SpectrumTokenizer
-    d_model: ${globals.d_model}
-    patch: [1, 2, 2, 8, 4]  # (time, doppler, elevation, azimuth, range)
-    squeeze: [2, 3]  # elevation + azimuth
-    n_channels: 3 
-    pos_scale: [1.0, 1.0, 1.0, 1.0, 1.0]
-    global_scale: 16.0
-    positions: nd
-  encoder:
-    _target_: torch.nn.TransformerEncoder
-    encoder_layer:
-      _target_: torch.nn.TransformerEncoderLayer
-      d_model: ${globals.d_model}
-      nhead: ${globals.nhead}
-      dim_feedforward: ${globals.d_feedforward}
-      dropout: 0.1
-      activation: gelu
-      layer_norm_eps: 1e-5
-      batch_first: true
-      norm_first: true
-      bias: true
-    num_layers: ${globals.enc_layers}
-    enable_nested_tensor: false
-  # decoders from decoders/*.yaml

@@ -1,10 +1,6 @@
-# @package _global_
-transforms:
-  sample:
-    augmentations:
-      inputs: {}
-      optional:
-        meta: meta
-      output: aug
-      transform:
-        _target_: abstract_dataloader.ext.augment.Augmentations
+inputs: {}
+optional:
+  meta: meta
+output: aug
+transform:
+  _target_: abstract_dataloader.ext.augment.Augmentations

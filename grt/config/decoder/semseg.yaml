@@ -1,0 +1,20 @@
+semseg:
+  _target_: grt.models.TransformerDecoder
+  decoder_layer:
+    _target_: torch.nn.TransformerDecoderLayer
+    d_model: ${globals.d_model}
+    nhead: ${globals.nhead}
+    dim_feedforward: ${globals.d_feedforward}
+    dropout: 0.1
+    activation: gelu
+    layer_norm_eps: 1e-5
+    batch_first: true
+    norm_first: true
+    bias: true
+  d_model: ${globals.d_model}
+  num_layers: 4
+  shape: [1, 160, 160, 1]
+  pos_scale: [1.0, 1.0, 0.666, 1.0]
+  global_scale: 16.0
+  patch: [1, 5, 5, 1]
+  out_dim: 8

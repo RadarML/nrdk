@@ -28,9 +28,39 @@ class ADLLightningModule(
 ):
     """A generic lightning module using ADL objectives.
 
+    - The `objective` should follow the
+        [`abstract_dataloader.ext.objective`][abstract_dataloader.ext.objective]
+        specifications; [`nrdk.objectives`][nrdk.objectives] provides a
+        set of implementations.
+
+    - The `optimizer` should be a pytorch optimizer with all arguments except
+        the model parameter already bound:
+
+        ```python title="train.py"
+        optimizer = partial(torch.optim.AdamW, lr=1e-3, weight_decay=1e-4)
+        ```
+
+        ```yaml title="config.yaml"
+        optimizer:
+            _target_: torch.optim.AdamW
+            _partial_: true
+            lr: 1e-3
+            weight_decay: 1e-4
+        ```
+
+    - The `transforms` should be an [abstract dataloader-compliant](
+        https://wiselabcmu.github.io/abstract-dataloader/)
+        [`Pipeline`][abstract_dataloader.spec] or
+        [`Transform`][abstract_dataloader.spec]. If using a [`roverd`](
+        https://radarml.github.io/red-rover/roverd/) dataset, the
+        [`nrdk.roverd`][nrdk.roverd] module provides a compatible
+        implementation.
+
     Args:
         model: pytorch model to train.
         objective: training objective.
+        optimizer: pytorch optimizer to use, with all arguments except the
+            model parameter already bound.
         transforms: data transform or pipeline to apply; potentially also a
             `nn.Module`; if `None`, no transforms are applied.
         vis_interval: log visualizations (from replica `0` only) every

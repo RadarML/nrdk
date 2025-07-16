@@ -1,4 +1,4 @@
-"""Configuration utilities."""
+"""Configuration-related utilities to simplify hydra configurations."""
 
 from jaxtyping import install_import_hook
 

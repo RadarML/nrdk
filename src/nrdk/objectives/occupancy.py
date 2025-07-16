@@ -64,6 +64,27 @@ class Occupancy3D(Objective[
             coordinates.
         - `depth`: Rendered depth map.
 
+    ??? quote "Sample Hydra Config"
+
+        ```yaml title="objectives/lidar3d.yaml"
+        occupancy3d:
+          weight: 1.0
+          y_true: occ3d
+          y_pred: occ3d
+          objective:
+            _target_: nrdk.objectives.Occupancy3D
+            range_weighted: True
+            positive_weight: 64.0
+            mode: spherical
+            vis_config:
+            cols: 8
+            width: 512
+            height: 256
+            cmaps:
+              bev: inferno
+              depth: viridis
+        ```
+
     Args:
         range_weighted: Whether to apply equal-area "range weighting", where
             the relative weight of bins is adjusted on the range axis so that
@@ -193,6 +214,25 @@ class Occupancy2D(Objective[
 
     Visualizations:
         - `bev`: Bird's Eye View occupancy grid.
+
+    ??? quote "Sample Hydra Config"
+
+        ```yaml title="objectives/lidar2d.yaml"
+        occupancy2d:
+          weight: 1.0
+          y_true: occ2d
+          y_pred: occ2d
+          objective:
+            _target_: nrdk.objectives.Occupancy2D
+            range_weighted: True
+            positive_weight: 64.0
+            vis_config:
+            cols: 8
+            width: 512
+            height: 256
+            cmaps:
+              bev: inferno
+        ```
 
     Args:
         range_weighted: Whether to apply equal-area "range weighting", where

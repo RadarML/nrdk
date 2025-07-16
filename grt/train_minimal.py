@@ -1,13 +1,7 @@
 """GRT Reference implementation training script."""
 
-import os
-from time import perf_counter
-from typing import Any
-
 import hydra
 import torch
-import yaml
-from lightning.pytorch import callbacks
 
 
 @hydra.main(version_base=None, config_path="./config", config_name="default")
@@ -24,22 +18,7 @@ def train(cfg):
         "lightningmodule", model=_inst("model"),
         objective=_inst("objectives"), transforms=transforms)
     trainer = _inst("trainer")
-
-    start = perf_counter()
     trainer.fit(model=lightningmodule, datamodule=datamodule)
-    duration = perf_counter() - start
-
-    meta: dict[str, Any] = {"duration": duration}
-    for callback in trainer.callbacks:
-        if isinstance(callback, callbacks.ModelCheckpoint):
-            meta["best_k"] = {
-                k: v.item() for k, v in callback.best_k_models.items()}
-            meta["best"] = callback.best_model_path
-            break
-
-    meta_path = os.path.join(trainer.logger.log_dir, "checkpoints.yaml")
-    with open(meta_path, 'w') as f:
-        yaml.dump(meta, f, sort_keys=False)
 
 
 if __name__ == "__main__":

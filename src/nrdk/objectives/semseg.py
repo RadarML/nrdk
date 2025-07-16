@@ -43,6 +43,21 @@ class Semseg(
                 okay.
             - Not recommended: colormaps with subtle variations in color.
 
+    ??? quote "Sample Hydra Config"
+
+        ```yaml title="objectives/semseg.yaml"
+        semseg:
+          weight: 1.0
+          y_true: semseg
+          y_pred: semseg
+          objective:
+            _target_: nrdk.objectives.Semseg
+            vis_config:
+            cols: 8
+            cmaps:
+              semseg: tab10
+        ```
+
     Args:
         vis_config: visualization configuration; the `cmaps` should have a
             `semseg` key.

@@ -44,6 +44,20 @@ class Velocity(Objective[Tensor, VelocityData, Float[Tensor, "batch t 4"]]):
         - `vel_angle`: angular difference between the actual and predicted
         velocity vector, in degrees
 
+    ??? quote "Sample Hydra Config"
+
+        ```yaml title="objectives/vel.yaml"
+        vel:
+          weight: 1.0
+          y_true: vel
+          y_pred: vel
+          objective:
+            _target_: nrdk.objectives.Velocity
+            eps: 1.0
+            eps_speed: 2.0
+            eps_angle: 1e-5
+        ```
+
     Args:
         eps: epsilon for numerical stability in sqrt, log, etc.
         eps_speed: minimum speed (in range bins) to calculate normalized

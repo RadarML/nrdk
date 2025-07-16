@@ -2,8 +2,16 @@
 
 Each objective is specified according to the [
 `abstract_dataloader.ext.objective`][abstract_dataloader.ext.objective]
-specifications; for details about how to use objectives, see the
-[`Objective`][abstract_dataloader.ext.objective.] specification.
+specifications. These objectives are designed to be assembled using a
+[`MultiObjective`][abstract_dataloader.ext.objective.], with each objective
+described by a [`MultiObjectiveSpec`][abstract_dataloader.ext.objective.].
+Using a hydra-based system, the specification should follow this format:
+```yaml
+objectives:
+  _target_: abstract_dataloader.ext.objective.MultiObjective
+  objective_name:
+    ... # objective config
+```
 
 !!! metrics
 
@@ -21,18 +29,19 @@ Objectives also have three type parameters:
 - `YTrue`: ground truth data type; each objective class is accompanied by a
     corresponding `ObjectiveData` class which describes the expected input via
     a protocol type.
+
+    !!! info
+
+        Each `*Data` type is described using protocols such that any classes which
+        have the same attributes as the protocol can be used as inputs. For
+        example, `SemsegData` can be replaced by any object (e.g., a dataclass)
+        with a `semseg` attribute with dtype `UInt8` and shape `batch t h w`.
+        ```python
+        class SemsegData(Protocol, Generic[TArray]):
+            semseg: UInt8[TArray, "batch t h w"]
+        ```
+
 - `YPred`: model output type, i.e., tensor shape and dtype.
-
-!!! info
-
-    Each `*Data` type is described using protocols such that any classes which
-    have the same attributes as the protocol can be used as inputs. For
-    example, `SemsegData` can be replaced by any object (e.g., a dataclass)
-    with a `semseg` attribute with dtype `UInt8` and shape `batch t h w`.
-    ```python
-    class SemsegData(Protocol, Generic[TArray]):
-        semseg: UInt8[TArray, "batch t h w"]
-    ```
 """
 
 from jaxtyping import install_import_hook

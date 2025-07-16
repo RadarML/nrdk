@@ -1,32 +1,28 @@
-# @package _global_
-transforms:
-  sample:
-    augmentations:
-      inputs: {}
-      optional:
-        meta: meta
-      output: aug
-      transform:
-        _target_: abstract_dataloader.ext.augment.Augmentations
-        azimuth_flip:
-          _target_: abstract_dataloader.ext.augment.Bernoulli
-          p: 0.5
-        doppler_flip:
-          _target_: abstract_dataloader.ext.augment.Bernoulli
-          p: 0.5
-        radar_scale:
-          _target_: abstract_dataloader.ext.augment.TruncatedLogNormal
-          std: 0.2
-          clip: 2.0
-        radar_phase:
-          _target_: abstract_dataloader.ext.augment.Uniform
-          lower: -3.14159265
-          upper: 3.14159265
-        range_scale:
-          _target_: abstract_dataloader.ext.augment.Uniform
-          lower: 1.0
-          upper: 2.0
-        speed_scale:
-          _target_: abstract_dataloader.ext.augment.TruncatedLogNormal
-          std: 0.2
-          clip: 2.0
+inputs: {}
+optional:
+  meta: meta
+output: aug
+transform:
+  _target_: abstract_dataloader.ext.augment.Augmentations
+  azimuth_flip:
+    _target_: abstract_dataloader.ext.augment.Bernoulli
+    p: 0.5
+  doppler_flip:
+    _target_: abstract_dataloader.ext.augment.Bernoulli
+    p: 0.5
+  radar_scale:
+    _target_: abstract_dataloader.ext.augment.TruncatedLogNormal
+    std: 0.2
+    clip: 2.0
+  radar_phase:
+    _target_: abstract_dataloader.ext.augment.Uniform
+    lower: -3.14159265
+    upper: 3.14159265
+  range_scale:
+    _target_: abstract_dataloader.ext.augment.Uniform
+    lower: 1.0
+    upper: 2.0
+  speed_scale:
+    _target_: abstract_dataloader.ext.augment.TruncatedLogNormal
+    std: 0.2
+    clip: 2.0

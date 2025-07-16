@@ -1,12 +1,10 @@
-# @package _global_
-objectives:
-  semseg:
-    weight: 1.0
-    y_true: semseg
-    y_pred: semseg
-    objective:
-      _target_: nrdk.objectives.Semseg
-      vis_config:
-        cols: 8
-        cmaps:
-          semseg: tab10
+semseg:
+  weight: 1.0
+  y_true: semseg
+  y_pred: semseg
+  objective:
+    _target_: nrdk.objectives.Semseg
+    vis_config:
+      cols: 8
+      cmaps:
+        semseg: tab10

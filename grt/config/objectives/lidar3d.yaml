@@ -1,18 +1,16 @@
-# @package _global_
-objectives:
-  occupancy3d:
-    weight: 1.0
-    y_true: occ3d
-    y_pred: occ3d
-    objective:
-      _target_: nrdk.objectives.Occupancy3D
-      range_weighted: True
-      positive_weight: 64.0
-      mode: spherical
-      vis_config:
-        cols: 8
-        width: 512
-        height: 256
-        cmaps:
-          bev: inferno
-          depth: viridis
+occupancy3d:
+  weight: 1.0
+  y_true: occ3d
+  y_pred: occ3d
+  objective:
+    _target_: nrdk.objectives.Occupancy3D
+    range_weighted: True
+    positive_weight: 64.0
+    mode: spherical
+    vis_config:
+      cols: 8
+      width: 512
+      height: 256
+      cmaps:
+        bev: inferno
+        depth: viridis

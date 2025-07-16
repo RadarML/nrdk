@@ -17,7 +17,7 @@ class TokenizerEncoderDecoder(nn.Module):
     Args:
         tokenizer: tokenizer module.
         encoder: encoder module.
-        decoders: decoder modules; each key corresponds to the output key.
+        decoder: decoder modules; each key corresponds to the output key.
         key: key in the input data to use as the model input.
         squeeze: eliminate non-temporal, non-batch singleton axes in the
             output of each decoder.
@@ -25,13 +25,13 @@ class TokenizerEncoderDecoder(nn.Module):
 
     def __init__(
         self, tokenizer: nn.Module, encoder: nn.Module,
-        decoders: Mapping[str, nn.Module],
+        decoder: Mapping[str, nn.Module],
         key: str = "spectrum", squeeze: bool = True
     ) -> None:
         super().__init__()
         self.tokenizer = tokenizer
         self.encoder = encoder
-        self.decoders = nn.ModuleDict(decoders)
+        self.decoder = nn.ModuleDict(decoder)
         self.key = key
         self.squeeze = squeeze
 
@@ -47,7 +47,7 @@ class TokenizerEncoderDecoder(nn.Module):
         x = data[self.key]
         tokens = self.tokenizer(x)
         encoded = self.encoder(tokens)
-        decoded = {k: v(encoded) for k, v in self.decoders.items()}
+        decoded = {k: v(encoded) for k, v in self.decoder.items()}
 
         # 0 - batch; 1 - temporal
         if self.squeeze:
