@@ -180,3 +180,47 @@ class BasisChange(nn.Module):
         if self.flatten:
             query = query.reshape(x.shape[0], -1, x.shape[-1])
         return query
+
+
+class FourierFeatures(nn.Module):
+    """Sinusoidal positional encodings for scalar data.
+
+    See ["Fourier Features Let Networks Learn High Frequency Functions in Low
+    Dimensional Domains"](https://arxiv.org/abs/2006.10739).
+
+    Args:
+        coef: geometric frequency coefficient / scale.
+        features: number of features to use, evenly split between sin and cos;
+            must be even.
+    """
+
+    def __init__(
+        self, features: int = 16, coef: float = 10000.
+    ) -> None:
+        self.coef = coef
+        self.features = features
+
+        if features % 2 != 0:
+            raise ValueError(f"Number of features must be even: {features}.")
+
+    def forward(
+        self, x: Float[Tensor, "*shape"]
+    ) -> Float[Tensor, "*shape features"]:
+        """Apply Fourier features.
+
+        Args:
+            x: input data; each element should be a scalar value.
+
+        Returns:
+            Data with Fourier features applied, adding a trailing features
+                axis.
+        """
+        nc = self.features // 2
+        w = self.coef ** (-torch.arange(nc, device=x.device) / nc)
+
+        broadcast = [None] * (len(x.shape) - 1) + [slice(None)]
+        wt = (x[..., None] * w[tuple(broadcast)])
+
+        return torch.concatenate(
+            [torch.cos(2 * torch.pi * wt), torch.sin(2 * torch.pi * wt)],
+            dim=-1)

@@ -27,6 +27,8 @@ trainer:
     version: ${meta.version}
   log_every_n_steps: 100
   callbacks:
+  - _target_: nrdk.framework.PerformanceMonitor
+    name: perf
   - _target_: lightning.pytorch.callbacks.ModelCheckpoint
     monitor: loss/val
     save_top_k: -1

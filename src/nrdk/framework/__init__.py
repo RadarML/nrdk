@@ -13,10 +13,12 @@ from jaxtyping import install_import_hook
 
 with install_import_hook("nrdk.framework", "beartype.beartype"):
     from .architectures import TokenizerEncoderDecoder
+    from .callbacks import PerformanceMonitor
     from .lightningmodule import ADLLightningModule
     from .logging import LoggerWithImages, MLFlowLogger, TensorBoardLogger
 
 __all__ = [
     "TokenizerEncoderDecoder",
+    "PerformanceMonitor",
     "LoggerWithImages", "MLFlowLogger", "TensorBoardLogger",
     "ADLLightningModule"]

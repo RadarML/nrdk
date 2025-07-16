@@ -1,9 +1,9 @@
 # Notebooks
 *.ipynb
 !/notebooks/*.ipynb
-build/
-data/
-results/
+build*
+data*
+results*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

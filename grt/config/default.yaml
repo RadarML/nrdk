@@ -12,7 +12,7 @@ meta:
   dataset: data/
   results: results/
   name: test_model
-  version: null
+  version: test_version
 
 globals:
   d_model: 512

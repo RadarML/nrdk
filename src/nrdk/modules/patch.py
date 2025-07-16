@@ -11,9 +11,11 @@ from torch import Tensor, nn
 class PatchMerge(nn.Module):
     """Merge patches with normalization and nominally reduced projection.
 
+    !!! tip "Supports an arbitrary number of spatial dimensions."
+
     Args:
         d_in: embedding dimension.
-        d_out: output dimension; nominally less than `d_model * prod(scale)`.
+        d_out: output dimension; nominally less than `d_in * prod(scale)`.
         scale: downsampling factor to apply in each axis.
         norm: whether to perform layer normalization.
     """
@@ -32,10 +34,13 @@ class PatchMerge(nn.Module):
     def _merge(self, x: Float[Tensor, "n *t c"]) -> Float[Tensor, "n *t2 c2"]:
         """Perform patch merging."""
         n, *t, c = x.shape
+        # n d1//s1 s1 d2//s2 s2 ... dN//sN sN c
         dims = sum(([d // s, s] for d, s in zip(t, self.scale)), start=[n])
+        # new order: 0, [1, 3, 5, ...], -1, [2, 4, 6, ...]
         order = (
             [0] + [2 * i + 1 for i in range(len(self.scale))]
             + [2 * i + 2 for i in range(len(self.scale))] + [-1])
+        # new shape: n d1//s1 d2//s2 ... dN//sN (s1 s2 ... sN c)
         t2 = [d // s for d, s in zip(t, self.scale)]
         return x.reshape(dims + [c]).permute(order).reshape(n, *t2, -1)
 
@@ -50,8 +55,13 @@ class PatchMerge(nn.Module):
 class Unpatch(nn.Module):
     """Unpatch data.
 
+    !!! bug "Todo"
+
+        This module is manually implemented for each `n`, and is currently only
+        implemented for `n=2,3,4` spatial dimensions.
+
     Args:
-        output_size: output 2D shape.
+        output_size: output n-dimensional shape.
         features: number of input features; should be `>= size * size`.
         size: patch size as (width, height, channels).
     """
@@ -69,7 +79,7 @@ class Unpatch(nn.Module):
     def forward(
         self, x: Float[Tensor, "n xin c"]
     ) -> Float[Tensor, "n *xout c_out"]:
-        """Perform 2D unpatching.
+        """Perform n-dimensional unpatching.
 
         Operates in batch-spatial-feature order; spatial axes are flattened on
             the input, and unflattened in the output.

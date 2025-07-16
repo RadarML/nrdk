@@ -85,3 +85,8 @@
     if __name__ == "__main__":
         train()
     ```
+
+Current train command (WIP):
+```sh
+uv run grt/train_minimal.py +objectives@objectives=lidar2d decoder@model.decoder=lidar2d sensors=[radar,lidar2d] aug@transforms.sample.augmentations=full
+```
