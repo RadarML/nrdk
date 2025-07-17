@@ -1,5 +1,6 @@
 """Reusable voxel rendering utilities."""
 
+import warnings
 from typing import Literal, overload
 
 import numpy as np
@@ -152,12 +153,17 @@ def depth_from_polar_occupancy(
             otherwise.
     """
     depth = torch.argmax(data.to(torch.uint8), dim=-1)
-    if data.shape[2] <= 256:
+    if data.shape[-1] <= 256:
         depth = depth.to(torch.uint8)
     else:
         depth = depth.to(torch.int16)
 
     if size is not None:
+        if depth.dtype is not torch.uint8:
+            warnings.warn(
+                "Since there are more than 256 range bins, depth is "
+                "computed as `int16`; however, "
+                "torch.nn.functional.interpolate might not support int16!")
         depth = torch.nn.functional.interpolate(
             depth[:, None, :, :], size=size, mode='nearest')[:, 0, :, :]
 
