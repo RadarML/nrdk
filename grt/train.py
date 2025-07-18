@@ -22,7 +22,7 @@ def train(cfg):
     datamodule = _inst("datamodule", transforms=transforms)
     lightningmodule = _inst(
         "lightningmodule", model=_inst("model"),
-        objective=_inst("objectives"), transforms=transforms)
+        objective=_inst("objective"), transforms=transforms)
     trainer = _inst("trainer")
 
     start = perf_counter()

@@ -1,24 +1,21 @@
-# @package _global_
-datamodule:
-  traces:
-    train:
-      outdoor:
-      - baum
-      - centre
-      - cmu.east
-      - cmu.north
-      - cmu.west
-      - craig.east
-      - craig.west
-      - ellsworth
-      - forbes.east
-      - forbes.west
-      - museum
-      - oakland.central
-      - oakland.east
-      - oakland.north
-      - oakland.schf
-      - oakland.wpsbc
-      - pitt.central
-      - pitt.west
-      - schenley
+train:
+  outdoor:
+  - baum
+  - centre
+  - cmu.east
+  - cmu.north
+  - cmu.west
+  - craig.east
+  - craig.west
+  - ellsworth
+  - forbes.east
+  - forbes.west
+  - museum
+  - oakland.central
+  - oakland.east
+  - oakland.north
+  - oakland.schf
+  - oakland.wpsbc
+  - pitt.central
+  - pitt.west
+  - schenley

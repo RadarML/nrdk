@@ -28,7 +28,7 @@ class PatchMerge(nn.Module):
 
         self.scale = scale
         d_merge = d_in * int(np.prod(scale))
-        self.reduction = nn.Linear(d_merge, d_out, bias=False)
+        self.linear = nn.Linear(d_merge, d_out, bias=False)
         self.norm = nn.LayerNorm(d_merge) if norm else None
 
     def _merge(self, x: Float[Tensor, "n *t c"]) -> Float[Tensor, "n *t2 c2"]:
@@ -49,7 +49,7 @@ class PatchMerge(nn.Module):
         merged = self._merge(x)
         if self.norm is not None:
             merged = self.norm(merged)
-        return self.reduction(merged)
+        return self.linear(merged)
 
 
 class Unpatch(nn.Module):

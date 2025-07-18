@@ -25,18 +25,19 @@ class ConvNextLayer(nn.Module):
         self, channels: int, expansion_ratio: int | float = 4.0
     ) -> None:
         super().__init__()
-        self.conv = nn.Conv2d(
-            channels, channels, kernel_size=7, padding=3, groups=channels)
-        self.norm = nn.LayerNorm(channels)
 
         d = int(channels * expansion_ratio)
-        self.bottleneck = nn.Sequential(
-            nn.Conv2d(channels, d, kernel_size=1), nn.GELU(),
-            nn.Conv2d(d, channels, kernel_size=1))
+
+        self.dw = nn.Conv2d(
+            channels, channels, kernel_size=7, padding=3, groups=channels)
+        self.norm = nn.LayerNorm(channels)
+        self.act = nn.GELU()
+        self.pw1 = nn.Conv2d(channels, d, kernel_size=1)
+        self.pw2 = nn.Conv2d(d, channels, kernel_size=1)
 
     def forward(self, x: Float[Tensor, "b c h w"]) -> Float[Tensor, "b c h w"]:
         """Forward pass through the ConvNext layer."""
-        x1 = self.conv(x)
+        x1 = self.dw(x)
         x1 = self.norm(x1.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
-        x1 = self.bottleneck(x1)
+        x1 = self.pw2(self.act(self.pw1(x1)))
         return x + x1

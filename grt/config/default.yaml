@@ -1,11 +1,10 @@
 defaults:
   - aug@transforms.sample.augmentations: none
   - sensors: radar
-  - traces: ["bike", "indoor", "outdoor"]
-  - training: default
-  - tokenizer@model.tokenizer: grt
-  - encoder@model.encoder: grt
-  - decoder@model.decoder: lidar3d
+  - traces@datamodule.traces: ["bike", "indoor", "outdoor"]
+  - model: default
+  - trainer: default
+  - objective: lidar3d
   - _self_
 
 meta:
@@ -51,6 +50,18 @@ datamodule:
   ptrain: 0.8
   pval: 0.2
 
+lightningmodule:
+  _target_: nrdk.framework.NRDKLightningModule
+  vis_interval: 10
+  vis_samples: 16
+  optimizer:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 1e-4
+    weight_decay: 1e-2
+    betas: [0.9, 0.999]
+    eps: 1e-8
+
 transforms:
   _target_: abstract_dataloader.abstract.Pipeline
   sample:
@@ -60,10 +71,3 @@ transforms:
   collate:
     _target_: abstract_dataloader.torch.Collate
     mode: "concat"
-
-objectives:
-  _target_: abstract_dataloader.ext.objective.MultiObjective
-  # objectives/*.yaml
-
-model:
-  _target_: nrdk.framework.TokenizerEncoderDecoder

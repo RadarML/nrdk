@@ -1,0 +1,27 @@
+_target_: lightning.Trainer
+default_root_dir: ${meta.results}
+max_steps: -1
+max_epochs: -1
+val_check_interval: 0.25
+precision: 16-mixed
+devices: auto
+accelerator: auto
+logger:
+  _target_: nrdk.framework.TensorBoardLogger
+  save_dir: ${meta.results}
+  name: ${meta.name}
+  version: ${meta.version}
+log_every_n_steps: 100
+callbacks:
+- _target_: nrdk.framework.PerformanceMonitor
+  name: perf
+- _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  monitor: loss/val
+  save_top_k: -1
+  save_last: true
+  dirpath: null
+- _target_: lightning.pytorch.callbacks.EarlyStopping
+  monitor: loss/val
+  min_delta: 0.0
+  patience: 3
+  mode: min

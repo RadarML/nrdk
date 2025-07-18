@@ -1,0 +1,6 @@
+defaults:
+  - tokenizer: grt
+  - encoder: grt
+  - decoder: lidar3d
+
+_target_: nrdk.framework.TokenizerEncoderDecoder

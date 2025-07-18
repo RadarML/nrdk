@@ -23,10 +23,10 @@ YTrue = TypeVar("YTrue")
 YPred = TypeVar("YPred")
 
 
-class ADLLightningModule(
+class NRDKLightningModule(
     lightning.LightningModule, Generic[TModel, YTrueRaw, YTrue, YPred]
 ):
-    """A generic lightning module using ADL objectives.
+    """A generic lightning module for the neural radar development kit.
 
     - The `objective` should follow the
         [`abstract_dataloader.ext.objective`][abstract_dataloader.ext.objective]
@@ -66,6 +66,10 @@ class ADLLightningModule(
         vis_interval: log visualizations (from replica `0` only) every
             `vis_interval` steps; if `<=0`, disable altogether.
         vis_samples: maximum number of samples to visualize during training.
+
+    Attributes:
+        model: pytorch model used; note that this will cause all weights in
+            `ADLLightningModule.state_dict()` to be prefixed by `model.`.
     """
 
     def __init__(

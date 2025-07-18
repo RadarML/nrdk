@@ -16,7 +16,7 @@ class LoggerWithImages(Protocol):
 
         Since the different pytorch lightning loggers do not have a unified
         image logging interface, we must define a unified interface; loggers
-        used with [`ADLLightningModule`][^^.] must implement this protocol
+        used with [`NRDKLightningModule`][^^.] must implement this protocol
         in order to support image logging.
     """
 

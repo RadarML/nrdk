@@ -4,7 +4,7 @@ We supply and standardize the following components:
 
 - [`TokenizerEncoderDecoder`][.]: wraps a tokenizer, encoder, and a decoder
     into a single [`nn.Module`][torch.].
-- [`ADLLightningModule`][.]: a standardized lightning module which takes a
+- [`NRDKLightningModule`][.]: a standardized lightning module which takes a
     [`nn.Module`][torch.] (i.e., [`TokenizerEncoderDecoder`][.]) as well
     as the training objectives, dataloader transforms, etc.
 """
@@ -14,11 +14,11 @@ from jaxtyping import install_import_hook
 with install_import_hook("nrdk.framework", "beartype.beartype"):
     from .architectures import TokenizerEncoderDecoder
     from .callbacks import PerformanceMonitor
-    from .lightningmodule import ADLLightningModule
+    from .lightningmodule import NRDKLightningModule
     from .logging import LoggerWithImages, MLFlowLogger, TensorBoardLogger
 
 __all__ = [
     "TokenizerEncoderDecoder",
     "PerformanceMonitor",
     "LoggerWithImages", "MLFlowLogger", "TensorBoardLogger",
-    "ADLLightningModule"]
+    "NRDKLightningModule"]
