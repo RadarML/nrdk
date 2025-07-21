@@ -1,0 +1,13 @@
+outputs:
+  occ3d: occ3d
+
+occ3d:
+  inputs:
+    lidar: lidar
+    radar: spectrum
+    aug: aug
+  output: occ3d
+  transform:
+    _target_: nrdk.roverd.Occupancy3D
+    crop_az: 0.25
+    decimate: [2, 8, 4]

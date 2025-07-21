@@ -21,7 +21,7 @@ license = "MIT"
 license-files = ["LICEN[CS]E*"]
 
 dependencies = [
-    "abstract-dataloader == 0.3.4",
+    # "abstract-dataloader == 0.3.4",
     "torch >= 2.4",
     "numpy >= 1.19",
     "beartype >= 0.20",
@@ -103,3 +103,4 @@ exclude_also = [
 
 [project.scripts]
 tss = "nrdk:tss._cli_main"
+nrdk = "nrdk:_cli.cli_main"

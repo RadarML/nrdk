@@ -1,0 +1,18 @@
+outputs:
+  spectrum: spectrum
+
+rsp:
+  inputs:
+    iq: radar
+    aug: aug
+  output: spectrum
+  transform:
+    _target_: nrdk.roverd.Spectrum
+    rsp:
+      _target_: xwr.rsp.numpy.AWR1843Boost
+      window: False  # no windowing
+      # no padding
+    rep:
+      _target_: xwr.nn.PhaseVec
+      scale: 1e-6
+      transform: sqrt          

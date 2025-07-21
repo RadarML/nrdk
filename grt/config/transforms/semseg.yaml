@@ -1,0 +1,10 @@
+outputs:
+  semseg: semseg
+
+semseg:
+  inputs:
+    semseg: _camera
+    aug: aug
+  output: semseg
+  transform:
+    _target_: nrdk.roverd.Semseg

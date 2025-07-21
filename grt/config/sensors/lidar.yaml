@@ -1,6 +1,6 @@
-radar:
+lidar:
   _partial_: true
-  _target_: roverd.sensors.XWRRadar
+  _target_: roverd.sensors.OSLidarDepth
   correction: auto
   past: 0
   future: 0

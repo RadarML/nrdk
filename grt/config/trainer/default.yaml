@@ -3,7 +3,7 @@ default_root_dir: ${meta.results}
 max_steps: -1
 max_epochs: -1
 val_check_interval: 0.25
-precision: 16-mixed
+precision: bf16-true
 devices: auto
 accelerator: auto
 logger:
@@ -18,7 +18,7 @@ callbacks:
 - _target_: lightning.pytorch.callbacks.ModelCheckpoint
   monitor: loss/val
   save_top_k: -1
-  save_last: true
+  save_last: false
   dirpath: null
 - _target_: lightning.pytorch.callbacks.EarlyStopping
   monitor: loss/val

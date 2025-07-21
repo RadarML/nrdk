@@ -1,0 +1,6 @@
+pose:
+  _partial_: true
+  _target_: roverd.sensors.Pose
+  reference: radar
+  past: 0
+  future: 0

@@ -16,7 +16,8 @@ def train(cfg):
     torch.set_float32_matmul_precision('medium')
 
     def _inst(path, *args, **kwargs):
-        return hydra.utils.instantiate(cfg[path], *args, **kwargs)
+        return hydra.utils.instantiate(
+            cfg[path], _convert_="all", *args, **kwargs)
 
     transforms = _inst("transforms")
     datamodule = _inst("datamodule", transforms=transforms)
@@ -33,8 +34,9 @@ def train(cfg):
     for callback in trainer.callbacks:
         if isinstance(callback, callbacks.ModelCheckpoint):
             meta["best_k"] = {
-                k: v.item() for k, v in callback.best_k_models.items()}
-            meta["best"] = callback.best_model_path
+                os.path.basename(k): v.item()
+                for k, v in callback.best_k_models.items()}
+            meta["best"] = os.path.basename(callback.best_model_path)
             break
 
     meta_path = os.path.join(trainer.logger.log_dir, "checkpoints.yaml")

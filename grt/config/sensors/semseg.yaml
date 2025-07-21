@@ -1,22 +1,6 @@
-# @package _global_
-datamodule:
-  dataset:
-    sensors:
-      _camera:
-        _partial_: true
-        _target_: roverd.sensors.Semseg
-        correction: auto
-        past: 0
-        future: 0
-
-transforms:
-  sample:
-    outputs:
-      semseg: semseg
-    semseg:
-      inputs:
-        semseg: _camera
-        aug: aug
-      output: semseg
-      transform:
-        _target_: nrdk.roverd.Semseg
+_camera:
+  _partial_: true
+  _target_: roverd.sensors.Semseg
+  correction: auto
+  past: 0
+  future: 0

@@ -1,6 +1,7 @@
 defaults:
   - aug@transforms.sample.augmentations: none
-  - sensors: radar
+  - sensors@datamodule.dataset.sensors: ["radar", "lidar"]
+  - transforms@transforms.sample: ["radar", "lidar3d"]
   - traces@datamodule.traces: ["bike", "indoor", "outdoor"]
   - model: default
   - trainer: default

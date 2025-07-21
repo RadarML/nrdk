@@ -1,0 +1,10 @@
+outputs:
+  vel: vel
+
+vel:
+  inputs:
+    pose: pose
+    aug: aug
+  output: vel
+  transform:
+    _target_: nrdk.roverd.Velocity

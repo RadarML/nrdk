@@ -16,6 +16,12 @@ class PerformanceMonitor(Callback):
     - `{allocated|reserved|active|inactive_split}.{global_rank}`: memory usage
         statistics for each GPU, in the specified `units` (default: GB).
 
+    !!! info
+
+        This is equivalent to
+        [`DeviceStatsMonitor`][lightning.pytorch.callbacks.], though with a
+        bit more polish and only recording at the end of each batch.
+
     Args:
         units: memory units to use for logging; defaults to 1e9 (GB).
         name: namespace to log metric under (i.e., `{name}/{metric}`).
