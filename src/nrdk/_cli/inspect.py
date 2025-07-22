@@ -17,6 +17,17 @@ def _pc(tree):
         return str(n)
 
 
+def _collapse_singletons(tree):
+    out = {}
+    for k, v in tree.items():
+        if isinstance(v, dict) and len(v) == 1:
+            out[f"{k}.{next(iter(v.keys()))}"] = next(iter(v.values()))
+        elif isinstance(v, dict):
+            out[k] = _collapse_singletons(v)
+        else:
+            out[k] = v
+    return out
+
 def _print_tree(tree, level: int = 0, max_levels: int = 2):
     if level == 0:
         print(f"{'total':32}{_pc(tree)}")
@@ -54,7 +65,7 @@ def _get_model_path(path: str) -> str:
 
 
 def cli_inspect(
-    path: str, /, depth: int = 3, weights_only: bool = False
+    path: str, /, depth: int = 2, weights_only: bool = False
 ) -> None:
     """Inspect a pytorch / pytorch lightning checkpoint.
 
@@ -83,4 +94,5 @@ def cli_inspect(
         if isinstance(v, torch.Tensor):
             subtree[name[-1]] = np.prod(tuple(v.shape))
 
+    tree = _collapse_singletons(tree)
     _print_tree(tree, 0, depth)
