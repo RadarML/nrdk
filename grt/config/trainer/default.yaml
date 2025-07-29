@@ -3,7 +3,7 @@ default_root_dir: ${meta.results}
 max_steps: -1
 max_epochs: -1
 val_check_interval: 0.25
-precision: bf16-true
+precision: bf16-mixed
 devices: auto
 accelerator: auto
 logger:

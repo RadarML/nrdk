@@ -27,13 +27,10 @@ class _DatasetMeta(spec.Dataset):
 def datamodule(
     dataset: Callable[[Sequence[str]], roverd.Dataset],
     traces: Mapping[str, Sequence[str]],
-    datamodule: Callable[
-        [
-            Mapping[str, Callable[[], spec.Dataset] | spec.Dataset],
-            spec.Pipeline | spec.Transform | None
-        ],
-        ADLDataModule],
-    transforms: spec.Pipeline | spec.Transform | None = None,
+    transforms: spec.Pipeline,
+    batch_size: int = 32, samples: int | Sequence[int] = 0,
+    num_workers: int = 32, prefetch_factor: int = 2,
+    subsample: Mapping[str, int | float | None] = {},
     ptrain: float = 0.8, pval: float = 0.2
 ) -> ADLDataModule:
     """Create a datamodule for a [`roverd` dataset][roverd.Dataset].
@@ -50,9 +47,16 @@ def datamodule(
     Args:
         dataset: dataset constructor with all but the trace names bound.
         traces: trace names to use for each split.
-        datamodule: datamodule constructor with all but the datasets for each
-            split and the transforms bound.
-        transforms: data transform or pipeline to apply.
+        transforms: data preprocessing pipeline to apply.
+        batch_size: dataloader batch size.
+        samples: number of validation-set samples to prefetch for
+            visualizations (or a list of indices to use). Note that these
+            samples are always held in memory! Set `samples=0` to disable.
+        num_workers: number of worker processes during data loading and
+            CPU-side processing.
+        prefetch_factor: number of batches to fetch per worker.
+        subsample: Sample only a (low-discrepancy) subset of samples on each
+            split specified here instead of using all samples.
         ptrain: proportion of the data to use for the training split; takes
             the first `ptrain` of each trace.
         pval: proportion of the data to use for the validation split; takes the
@@ -86,4 +90,7 @@ def datamodule(
         splits["train"] = train
         splits["val"] = val
 
-    return datamodule(splits, transforms)
+    return ADLDataModule(
+        dataset=splits, transforms=transforms, batch_size=batch_size,
+        samples=samples, num_workers=num_workers,
+        prefetch_factor=prefetch_factor, subsample=subsample)

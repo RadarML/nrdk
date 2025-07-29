@@ -69,6 +69,13 @@ def cli_inspect(
 ) -> None:
     """Inspect a pytorch / pytorch lightning checkpoint.
 
+    !!! info "Usage"
+
+        Inspect a representative (most recent) checkpoint:
+        ```sh
+        nrdk inspect results/experiment/version
+        ```
+
     If the `path` points to a file, inspect that checkpoint; if it points to a
     directory, inspect the most recent checkpoint (by modification time).
 

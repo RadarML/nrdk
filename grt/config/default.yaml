@@ -1,9 +1,9 @@
 defaults:
-  - aug@transforms.sample.augmentations: none
+  - aug@transforms.sample.augmentations: full
   - sensors@datamodule.dataset.sensors: ["radar", "lidar"]
   - transforms@transforms.sample: ["radar", "lidar3d"]
   - traces@datamodule.traces: ["bike", "indoor", "outdoor"]
-  - model: default
+  - model@lightningmodule.model: default
   - trainer: default
   - objective: lidar3d
   - _self_
@@ -39,15 +39,12 @@ datamodule:
     train:
       _target_: nrdk.config.expand
       path: ${meta.dataset}
-  datamodule:
-    _target_: abstract_dataloader.ext.lightning.ADLDataModule
-    _partial_: true
-    batch_size: 32
-    samples: 8
-    num_workers: 12
-    prefetch_factor: 2
-    subsample:
-      val: 16384
+  batch_size: 32
+  samples: 8
+  num_workers: 12
+  prefetch_factor: 2
+  subsample:
+    val: 16384
   ptrain: 0.8
   pval: 0.2
 
@@ -55,6 +52,7 @@ lightningmodule:
   _target_: nrdk.framework.NRDKLightningModule
   vis_interval: 10
   vis_samples: 16
+  objective: ${objective}
   optimizer:
     _target_: torch.optim.AdamW
     _partial_: true

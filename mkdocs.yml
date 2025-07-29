@@ -3,7 +3,7 @@ repo_url: https://github.com/RadarML/nrdk
 repo_name: RadarML/nrdk
 nav:
   - nrdk:
-    - About: index.md
+    - Overview: index.md
     - CLI Tools: cli.md
   - nrdk api:
     - Overview: nrdk/index.md
@@ -15,7 +15,7 @@ nav:
     - Roverd: nrdk/roverd.md
     - Visualization: nrdk/vis.md
   - nrdk.tss:
-    - About: tss/index.md
+    - Overview: tss/index.md
     - High Level API: tss/api.md
     - Stats: tss/stats.md
     - Utils: tss/utils.md
@@ -118,3 +118,4 @@ markdown_extensions:
   - admonition
   - pymdownx.details
   - footnotes
+  - pymdownx.snippets

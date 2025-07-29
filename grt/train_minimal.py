@@ -10,16 +10,14 @@ def train(cfg):
     torch.set_float32_matmul_precision('medium')
 
     def _inst(path, *args, **kwargs):
-        return hydra.utils.instantiate(cfg[path], *args, **kwargs)
+        return hydra.utils.instantiate(
+            cfg[path], _convert_="all", *args, **kwargs)
 
     transforms = _inst("transforms")
     datamodule = _inst("datamodule", transforms=transforms)
-    lightningmodule = _inst(
-        "lightningmodule", model=_inst("model"),
-        objective=_inst("objectives"), transforms=transforms)
+    lightningmodule = _inst("lightningmodule", transforms=transforms)
     trainer = _inst("trainer")
     trainer.fit(model=lightningmodule, datamodule=datamodule)
-
 
 if __name__ == "__main__":
     train()

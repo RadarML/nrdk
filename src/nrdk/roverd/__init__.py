@@ -6,6 +6,32 @@ individually instantiated and applied, or assembled into a
 [`ADLDataModule`][abstract_dataloader.ext.lightning.] using the provided
 [`nrdk.roverd.datamodule`][nrdk.roverd.datamodule] constructor.
 
+???+ quote "Hydra Config for Individual Sensors"
+
+    === "Lidar"
+
+        ```yaml title="sensors/lidar.yaml"
+        --8<-- "grt/config/sensors/lidar.yaml"
+        ```
+
+    === "Radar"
+
+        ```yaml title="sensors/radar.yaml"
+        --8<-- "grt/config/sensors/radar.yaml"
+        ```
+
+    === "Semseg"
+
+        ```yaml title="sensors/semseg.yaml"
+        --8<-- "grt/config/sensors/semseg.yaml"
+        ```
+
+    === "Pose"
+
+        ```yaml title="sensors/pose.yaml"
+        --8<-- "grt/config/sensors/pose.yaml"
+        ```
+
 ??? quote "Sample Hydra Config"
 
     When instantiated, this config produces an
@@ -43,14 +69,11 @@ individually instantiated and applied, or assembled into a
         train:
         - list_of_training_traces
         - ...
-      datamodule:
-        _target_: abstract_dataloader.ext.lightning.ADLDataModule
-        _partial_: true
-        batch_size: 32
-        samples: 8
-        num_workers: 12
-        prefetch_factor: 2
-        subsample:
+      batch_size: 32
+      samples: 8
+      num_workers: 12
+      prefetch_factor: 2
+      subsample:
         val: 16384
       transforms: null  # or provide a transform specification
       ptrain: 0.8

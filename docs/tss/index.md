@@ -21,7 +21,7 @@ The neural radar development kit ships with a small statistical module (`nrdk.ts
     This methodology has so far been used by:
 
     - [DART: Implicit Doppler Tomography for Radar Novel View Synthesis](https://wiselabcmu.github.io/dart/), CVPR '24
-    - Towards Foundational Models for Single-Chip Radar, ICCV '25
+    - [Towards Foundational Models for Single-Chip Radar](https://wiselabcmu.github.io/grt/), ICCV '25
 
 !!! warning "Assumptions"
 

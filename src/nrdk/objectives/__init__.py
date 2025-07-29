@@ -13,6 +13,44 @@ objectives:
     ... # objective config
 ```
 
+??? quote "Hydra Configs"
+
+    === "2D Lidar Occupancy"
+
+        ```yaml title="objective/lidar2d.yaml"
+        --8<-- "grt/config/objective/lidar2d.yaml"
+        ```
+
+    === "3D Lidar Occupancy"
+
+        ```yaml title="objective/lidar3d.yaml"
+        --8<-- "grt/config/objective/lidar3d.yaml"
+        ```
+
+    === "Camera Semantic Segmentation"
+
+        ```yaml title="objective/semseg.yaml"
+        --8<-- "grt/config/objective/semseg.yaml"
+        ```
+
+    === "Ego-Velocity"
+
+        ```yaml title="objective/vel.yaml"
+        --8<-- "grt/config/objective/vel.yaml"
+        ```
+
+    Note that you can combine multiple configurations to use multiple
+    objectives, either in defaults:
+    ```yaml
+    defaults:
+        - objective@lightningmodule.objective: ["lidar3d", "semseg"]
+        ...
+    ```
+    or in the command line:
+    ```sh
+    uv run grt/train.py objective=[lidar3d,semseg] ...
+    ```
+
 !!! metrics
 
     In addition to a loss, each objective returns a set of metrics when called.

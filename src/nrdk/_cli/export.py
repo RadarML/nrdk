@@ -12,6 +12,14 @@ def cli_export(
 ) -> None:
     """Export model weights from a full-service checkpoint.
 
+    !!! info "Usage"
+
+        Take the best checkpoint in `results/experiment/version`, and export
+        the model to `results/experiment/version/weights.pth`:
+        ```sh
+        nrdk export results/experiment/version
+        ```
+
     The model is assumed to be created by
     [`NRDKLightningModule`][nrdk.framework.] (via pytorch lightning), so has a
     `state_dict` attribute that contains the model weights, where each key
