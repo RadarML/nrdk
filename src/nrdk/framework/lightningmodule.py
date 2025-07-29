@@ -113,9 +113,8 @@ class NRDKLightningModule(
             ```
 
         Args:
-            path: path to model weights; the weights should ether be stored
-                in the root of the file, or as `weights["state_dict"]["model"]`
-                in the file.
+            path: path to model weights, possibly inside a `state_dict` and/or
+                `model` sub-key.
             rename: substitutions to apply to the state dict.
 
         Returns:

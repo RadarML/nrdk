@@ -1,20 +1,22 @@
 # NRDK: Neural Radar Development Kit
 
-TODO: writeup of what this is
+The **Neural Radar Development Kit** (NRDK) is an open-source and MIT-licensed Python library and framework for developing, training, and evaluating machine learning models on radar spectrum and multimodal sensor data.
+
+Built around typed, high modular interfaces, the NRDK is designed to reduce the barrier of entry to learning on spectrum via out-of-the-box reference implementations for [red-rover](https://radarml.github.io/red-rover/) data and the [I/Q-1M Dataset](https://radarml.github.io/red-rover/iq1m/), while also providing an easy path towards customization and extensions for other radar and data collection systems.
 
 <div class="grid cards" markdown>
 
-- :octicons-ai-model-16: [`nrdk`](nrdk/index.md)
+- :octicons-ai-model-16: [`nrdk`](design.md)
 
     ---
 
-    neural radar development kit core framework documentation
+    neural radar development kit core framework
 
 - :material-book-open-page-variant-outline: [`grt`](grt/index.md)
 
     ---
 
-    reference implementation for [Towards Foundational Models for Single-Chip Radar](wiselabcmu.github.io/grt)
+    reference implementation for [Towards Foundational Models for Single-Chip Radar](https://wiselabcmu.github.io/grt)
 
 - :material-chart-line: [`nrdk.tss`](./tss/index.md)
 
