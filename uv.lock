@@ -1351,6 +1351,7 @@ docs = [
 grt = [
     { name = "hydra-core" },
     { name = "ipykernel" },
+    { name = "rich" },
     { name = "tensorboard" },
 ]
 roverd = [
@@ -1381,6 +1382,7 @@ requires-dist = [
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "rich", marker = "extra == 'grt'" },
     { name = "roverd", extras = ["ouster", "video"], marker = "extra == 'roverd'", git = "ssh://git@github.com/radarml/red-rover.git?subdirectory=format" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.10.0" },
     { name = "ruff", marker = "extra == 'docs'", specifier = ">=0.10.0" },

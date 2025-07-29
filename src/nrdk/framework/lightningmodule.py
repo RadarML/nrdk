@@ -1,8 +1,10 @@
 """Lightning module."""
 
+import logging
+import re
 import threading
 import warnings
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from functools import cache
 from typing import Any, Callable, Generic, TypeVar, cast
 
@@ -89,6 +91,62 @@ class NRDKLightningModule(
         self.transforms = transforms
         self.vis_interval = vis_interval
         self.vis_samples = vis_samples
+
+        self._log = logging.getLogger(self.__class__.__name__)
+
+    def load_weights(
+        self, path: str, rename: Sequence[Mapping[str, str | None]] = []
+    ) -> tuple[list[str], list[str]]:
+        """Load weights from an existing model for fine-tuning.
+
+        Substitutions should be specified as a list of dictionaries, each with
+        a single key and value. If the value is `None`, the key is removed;
+        otherwise, the key pattern is replaced with the value.
+
+        !!! quote "Example Configuration"
+
+            ```yaml
+            path: results/example/baseline3/weights.pth
+            rename:
+            - decoder.occ3d.unpatch: null
+            - decoder.occ3d: decoder.semseg
+            ```
+
+        Args:
+            path: path to model weights; the weights should ether be stored
+                in the root of the file, or as `weights["state_dict"]["model"]`
+                in the file.
+            rename: substitutions to apply to the state dict.
+
+        Returns:
+            A list of the `missing_keys` which were not present in the weights
+                after filtering, so are not loaded.
+            A list of the `unexpected_keys` provided in the loaded weights,
+                but are not used by the model.`
+        """
+        weights = torch.load(path, weights_only=True)
+        if "state_dict" in weights:
+            weights = weights["state_dict"]
+        if "model" in weights:
+            weights = weights["model"]
+
+        for pattern in rename:
+            pat, sub = next(iter(pattern.items()))
+            if sub is None:
+                weights = {
+                    k: v for k, v in weights.items() if not re.search(pat, k)}
+            else:
+                weights = {re.sub(pat, sub, k): v for k, v in weights.items()}
+
+        missing, unexpected = self.model.load_state_dict(weights, strict=False)
+        self._log.info(
+            f"Loaded {len(weights) - len(unexpected)} weights from {path}.")
+        if len(missing) > 0:
+            self._log.warning(f"Not loaded: {missing}")
+        if len(unexpected) > 0:
+            self._log.error(f"Unexpected keys: {unexpected}")
+
+        return missing, unexpected
 
     def forward(self, x: YTrue) -> YPred:
         return self.model(x)

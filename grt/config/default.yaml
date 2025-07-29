@@ -11,8 +11,9 @@ defaults:
 meta:
   dataset: data/
   results: results/
-  name: test_model
-  version: test_version
+  name: null
+  version: null
+  resume: null
 
 globals:
   d_model: 512

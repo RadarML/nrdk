@@ -51,6 +51,7 @@ grt = [
     "hydra-core >= 1.3.0",
     "ipykernel",
     "tensorboard",
+    "rich"
 ]
 
 docs = [

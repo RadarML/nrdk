@@ -35,3 +35,7 @@ uv run grt/train_minimal.py +objectives@objectives=lidar2d decoder@model.decoder
 ```sh
 uv run grt/train.py trainer=debug globals.d_feedforward=1024 model/decoder=semseg --cfg job
 ```
+
+```sh
+uv run python grt/train.py sensors@datamodule.dataset.sensors=[radar,semseg] transforms@transforms.sample=[radar,semseg] objective=semseg model/decoder@lightningmodule.model.decoder=semseg +base=occ3d_to_semseg
+```

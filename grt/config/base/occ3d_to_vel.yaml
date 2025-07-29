@@ -1,0 +1,3 @@
+path: results/example/baseline3/weights.pth
+rename:
+- decoder: null

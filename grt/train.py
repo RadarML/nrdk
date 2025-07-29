@@ -1,5 +1,6 @@
 """GRT Reference implementation training script."""
 
+import logging
 import os
 from time import perf_counter
 from typing import Any
@@ -19,13 +20,23 @@ def train(cfg):
         return hydra.utils.instantiate(
             cfg[path], _convert_="all", *args, **kwargs)
 
+    if cfg["meta"]["name"] is None or cfg["meta"]["version"] is None:
+        logging.error("Must set `meta.name` and `meta.version` in the config.")
+        return
+
     transforms = _inst("transforms")
     datamodule = _inst("datamodule", transforms=transforms)
     lightningmodule = _inst("lightningmodule", transforms=transforms)
     trainer = _inst("trainer")
 
+    if "base" in cfg:
+        lightningmodule.load_weights(
+            cfg['base']['path'], rename=cfg['base'].get('rename', {}))
+
     start = perf_counter()
-    trainer.fit(model=lightningmodule, datamodule=datamodule)
+    trainer.fit(
+        model=lightningmodule, datamodule=datamodule,
+        ckpt_path=cfg['meta']['resume'])
     duration = perf_counter() - start
 
     meta: dict[str, Any] = {"duration": duration}
