@@ -44,7 +44,7 @@ class _SingletonRegistry:
     def __init__(self) -> None:
         self.singletons: dict[str, Any] = {}
 
-    def register(self, **kwargs) -> dict[str, Any]:
+    def register(self, **kwargs: Any) -> dict[str, Any]:
         self.singletons.update(kwargs)
         return kwargs
 

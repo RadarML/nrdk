@@ -44,6 +44,12 @@ class TokenizerEncoderDecoder(nn.Module):
         Returns:
             Output data dictionary with the model's output.
         """
+        if self.key not in data:
+            raise KeyError(
+                f"`TokenizerEncoderDecoder` was created with an expected "
+                f"input key `{self.key}`, but only the following are "
+                f"available\n:{list(data.keys())}")
+
         x = data[self.key]
         tokens = self.tokenizer(x)
         encoded = self.encoder(tokens)
