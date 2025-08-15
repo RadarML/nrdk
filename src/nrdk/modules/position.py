@@ -109,7 +109,7 @@ class Sinusoid(nn.Module):
         """
         if positions is None:
             positions = [
-                torch.linspace(-1.0, 1.0, steps=n, device=x.device)
+                torch.linspace(-1.0, 1.0, steps=n, device=x.device)[None, :]
                 for n in x.shape[1:-1]]
 
         if len(positions) != len(x.shape) - 2:

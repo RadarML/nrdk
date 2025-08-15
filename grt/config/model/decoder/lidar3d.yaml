@@ -14,7 +14,7 @@ occ3d:
   d_model: ${globals.d_model}
   num_layers: 4
   shape: [1, 64, 128, 64]
-  pos_scale: [1.0, 1.0, 1.0, 1.0]
-  global_scale: 16.0
+  scale: [1.0, 1.0, 1.0, 1.0]
+  w_min: 0.2
   patch: [1, 8, 8, 8]
   out_dim: 0

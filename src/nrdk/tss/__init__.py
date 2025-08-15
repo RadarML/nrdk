@@ -44,5 +44,5 @@ __all__ = [
     "NestedValues",
     "dataframe_from_index", "dataframe_from_stats",
     "experiments_from_index", "stats_from_experiments",
-    "index", "stats", "utils"
+    "index", "stats", "utils", "_cli_main"
 ]

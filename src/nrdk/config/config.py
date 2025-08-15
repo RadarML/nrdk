@@ -23,10 +23,11 @@ def expand(path: str | None = None, **nested: Nested) -> list[str]:
     """
     def _expand(nested: Nested, base: str | None = None):
 
-        if base is not None:
-            _join = lambda p: os.path.join(base, p)
-        else:
-            _join = lambda p: p
+        def _join(p: str) -> str:
+            if base is not None:
+                return os.path.join(base, p)
+            else:
+                return p
 
         if isinstance(nested, Sequence):
             return [_join(item) for item in nested]

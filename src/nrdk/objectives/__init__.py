@@ -70,10 +70,11 @@ Objectives also have three type parameters:
 
     !!! info
 
-        Each `*Data` type is described using protocols such that any classes which
-        have the same attributes as the protocol can be used as inputs. For
-        example, `SemsegData` can be replaced by any object (e.g., a dataclass)
-        with a `semseg` attribute with dtype `UInt8` and shape `batch t h w`.
+        Each `*Data` type is described using protocols such that any classes
+        which have the same attributes as the protocol can be used as inputs.
+        For example, `SemsegData` can be replaced by any object (e.g., a
+        dataclass) with a `semseg` attribute with dtype `UInt8` and shape
+        `batch t h w`.
         ```python
         class SemsegData(Protocol, Generic[TArray]):
             semseg: UInt8[TArray, "batch t h w"]

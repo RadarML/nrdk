@@ -44,7 +44,7 @@ The neural radar development kit ships with a small statistical module (`nrdk.ts
     ```
     where `rho_t` is the `t`-lag autocorrelation. The sum of autocorrelations is empirically estimated from the performance metrics, where the sum is calculated up to `N / 2` or the first negative autocorrelation, whichever is first.
     
-    For details about how we calculate this, see [`effective_sample_size`][tss.stats.effective_sample_size].
+    For details about how we calculate this, see [`effective_sample_size`][nrdk.tss.stats.effective_sample_size].
 
     ??? question "Why cut off when `rho_t` is negative?"
 
@@ -62,7 +62,7 @@ The neural radar development kit ships with a small statistical module (`nrdk.ts
 
 ## General Usage
 
-In addition to using the [low level API][tss.stats], we provide a [CLI](#cli) and a [high level API][tss] which can be used to index results and evaluations, then load the evaluations and calculate statistics.
+In addition to using the [low level API][nrdk.tss.stats], we provide a [CLI](#cli) and a [high level API][nrdk.tss] which can be used to index results and evaluations, then load the evaluations and calculate statistics.
 
 ### File Format
 
@@ -160,7 +160,7 @@ The file path to each evaluation, relative to some base path, should contain inf
 
 ## High Level API
 
-**Index evaluations**: using [`index`][tss.index], provide a base path where the evaluations are stored, and a regex pattern for finding evaluation files and extracting their `experiment` and `trace` names.
+**Index evaluations**: using [`index`][nrdk.tss.index], provide a base path where the evaluations are stored, and a regex pattern for finding evaluation files and extracting their `experiment` and `trace` names.
 
 ```python
 import tss
@@ -178,7 +178,7 @@ index = tss.index_results(path, pattern)
     a directory with 20k total files on a SMB share). You may want to
     cache the index or save them to disk somewhere!
 
-**Compute Statistics**: we provide a all-inclusive [`dataframe_from_index`][tss.dataframe_from_index] function which returns a dataframe containing summary statistics for the specified index, given a key of interest and baseline method.
+**Compute Statistics**: we provide a all-inclusive [`dataframe_from_index`][nrdk.tss.dataframe_from_index] function which returns a dataframe containing summary statistics for the specified index, given a key of interest and baseline method.
 
 ```python
 experiments = ["small/p10", "small/p20", "small/p50", "small/base"]

@@ -14,7 +14,7 @@ occ2d:
   d_model: ${globals.d_model}
   num_layers: ${globals.dec_layers}
   shape: [1, 1, 1024, 256]
-  pos_scale: [1.0, 1.0, 1.0, 1.0]
-  global_scale: 16.0
+  scale: [1.0, 1.0, 1.0, 1.0]
+  w_min: 0.2
   patch: [1, 1, 16, 16]
   out_dim: 0

@@ -1315,6 +1315,7 @@ name = "nrdk"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "abstract-dataloader" },
     { name = "beartype" },
     { name = "einops" },
     { name = "jaxtyping" },
@@ -1361,6 +1362,7 @@ roverd = [
 
 [package.metadata]
 requires-dist = [
+    { name = "abstract-dataloader", specifier = ">=0.3.4" },
     { name = "beartype", specifier = ">=0.20" },
     { name = "coverage", marker = "extra == 'dev'" },
     { name = "einops", specifier = ">=0.8.0" },

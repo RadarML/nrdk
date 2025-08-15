@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nrdk"
-version = "0.0.0"
+version = "0.1.0"
 authors = [
   { name="Tianshu Huang", email="tianshu2@andrew.cmu.edu" },
 ]
@@ -79,13 +79,16 @@ indent-width = 4
 
 [tool.ruff.lint]
 select = [
-    "W", "N", "I", "D", "NPY"
+    "E", "F", "W", "N", "I", "D", "NPY"
 ]
 ignore = [
     "D102",  # Inheriting docstrings is allowed
     "D107",  # Initializer goes in the class docstring
     "D401",  # "Imperative mood" NLP doesn't always make sense
     "D413",  # No blank lines after section is preferred by mkdocstrings
+    "F722",  # Jaxtyping annotations confuse ruff
+    "F821",
+    "N806",  # We do math, so capitalization should be allowed
 
     # Must pick one...
     "D213",  # Pick 'multi-line-summary-first-line'.
