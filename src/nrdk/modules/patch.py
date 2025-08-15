@@ -1,6 +1,7 @@
 """Patching and unpatching modules."""
 
 from collections.abc import Sequence
+from typing import Literal
 
 import numpy as np
 import torch
@@ -19,11 +20,13 @@ class PatchMerge(nn.Module):
         d_out: output dimension; nominally less than `d_in * prod(scale)`.
         scale: downsampling factor to apply in each axis.
         norm: whether to perform layer normalization.
+        remainder: how to handle input sizes which do not evenly divide the
+            patch size.
     """
 
     def __init__(
         self, d_in: int, d_out: int, scale: Sequence[int] = [],
-        norm: bool = True
+        norm: bool = True, remainder: Literal["pad", "crop"] = "crop"
     ) -> None:
         super().__init__()
 
@@ -31,6 +34,7 @@ class PatchMerge(nn.Module):
         d_merge = d_in * int(np.prod(scale))
         self.linear = nn.Linear(d_merge, d_out, bias=False)
         self.norm = nn.LayerNorm(d_merge) if norm else None
+        self.remainder = remainder
 
     def _merge(self, x: Float[Tensor, "n *t c"]) -> Float[Tensor, "n *t2 c2"]:
         """Perform patch merging."""
@@ -46,7 +50,28 @@ class PatchMerge(nn.Module):
         return x.reshape(dims + [c]).permute(order).reshape(n, *t2, -1)
 
     def forward(self, x: Float[Tensor, "n *t c"]) -> Float[Tensor, "n *t2 c2"]:
-        """Merge and project."""
+        """Merge and project.
+
+        Args:
+            x: input data in batch-spatial-feature order.
+
+        Returns:
+            Patch merged data, with either cropping or padding applied if the
+                shape does not evenly divide the patch size.
+        """
+        shape = x.shape[1:-1]
+        if any(xs % ps != 0 for xs, ps in zip(shape, self.scale)):
+            remainder = [
+                xs - ps * (xs // ps) for xs, ps in zip(shape, self.scale)]
+            if self.remainder == "pad":
+                pad = sum([[0, r] for r in reversed(remainder)], start=[0, 0])
+                x = nn.functional.pad(x, pad, value=0.0)
+            else:  # "crop"
+                slices = [slice(None)] + [
+                    slice(0, xs - r) for xs, r in zip(shape, remainder)
+                ] + [slice(None)]
+                x = x[slices]
+
         merged = self._merge(x)
         if self.norm is not None:
             merged = self.norm(merged)
