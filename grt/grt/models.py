@@ -67,15 +67,16 @@ class SpectrumTokenizer(nn.Module):
         squeeze: eliminate these axes by moving them to the channel axis prior
             to patching; specified by index.
         n_channels: number of input channels; see [`xwr.nn`][xwr.nn].
-        pos_scale: per-axis position embedding scale.
-        global_scale: global positional embedding scale.
+        scale: position embedding scale.
+        w_min: minimum frequency for sinusoidal position embeddings.
         positions: type of positional embedding.
     """
 
     def __init__(
         self, d_model: int = 768, patch: Sequence[int] = (1, 2, 2, 8, 4),
         squeeze: Sequence[int] = [], n_channels: int = 2,
-        pos_scale: Sequence[float] | None = None, global_scale: float = 16.0,
+        scale: Sequence[float] | float | None = None,
+        w_min: Sequence[float] | float | None = 0.2,
         positions: Literal["flat", "nd"] = "nd",
     ) -> None:
         super().__init__()
@@ -96,8 +97,7 @@ class SpectrumTokenizer(nn.Module):
             d_in=n_channels, d_out=d_model, scale=patch, norm=False)
 
         self.positions = positions
-        self.pos = modules.Sinusoid(
-            scale=pos_scale, global_scale=global_scale)
+        self.pos = modules.Sinusoid(scale=scale, w_min=w_min)
         self.readout = modules.Readout(d_model=d_model)
 
     def forward(
@@ -135,10 +135,9 @@ class TransformerDecoder(nn.Module):
         num_layers: number of decoder layers.
         d_model: hidden dimension; should be the same as the encoder.
         shape: output shape; should be a 2 element list or tuple.
-        pos_scale: position embedding scale (i.e. the spatial range that this
-            axis corresponds to). If `None`, only the global scale is used.
-        global_scale: scalar constant to multiply scale by for convenience of
-            representation; yields a net scale of `scale * global_scale`.
+        scale: position embedding scale (i.e. the spatial range that this
+            axis corresponds to).
+        w_min: minimum frequency for sinusoidal position embeddings.
         patch: patch size to use for unpatching. Must evenly divide `shape`.
         out_dim: output channels; if `=0`, the dimension is omitted entirely,
             i.e. `(h, w)` instead of `(h, w, c)`.
@@ -147,7 +146,8 @@ class TransformerDecoder(nn.Module):
     def __init__(
         self, decoder_layer: nn.TransformerDecoderLayer, d_model: int = 512,
         num_layers: int = 4, shape: Sequence[int] = (1024, 256),
-        pos_scale: Sequence[float] | None = None, global_scale: float = 1.0,
+        scale: Sequence[float] | float | None = None,
+        w_min: Sequence[float] | float | None = 0.2,
         patch: Sequence[int] = (16, 16), out_dim: int = 0,
     ) -> None:
         super().__init__()
@@ -159,7 +159,7 @@ class TransformerDecoder(nn.Module):
 
         query_shape = [s // p for s, p in zip(shape, patch)]
         self.query = modules.BasisChange(
-            shape=query_shape, scale=pos_scale, global_scale=global_scale)
+            shape=query_shape, scale=scale, w_min=w_min)
 
         self.unpatch = modules.Unpatch(
             output_size=(*shape, max(1, self.out_dim)),

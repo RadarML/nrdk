@@ -1,8 +1,9 @@
 """Patching and unpatching modules."""
 
+from collections.abc import Sequence
+
 import numpy as np
 import torch
-from beartype.typing import Sequence
 from einops import rearrange
 from jaxtyping import Float
 from torch import Tensor, nn
