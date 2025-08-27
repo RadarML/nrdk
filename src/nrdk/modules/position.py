@@ -105,7 +105,13 @@ class Sinusoid(nn.Module):
     ) -> Float[Tensor, "batch *spatial channels"]:
         """Apply sinusoidal embedding.
 
-        Data should be in batch-spatial-feature order.
+        Args:
+            x: input data.
+            positions: optional exact position values to use for each axis. If
+                `None`, uses the positional indices, scaled to `[-1, 1]`.
+
+        Returns:
+            Input with a sinusoidal positional encoding added.
         """
         if positions is None:
             positions = [
@@ -268,6 +274,7 @@ class FourierFeatures(nn.Module):
     def __init__(
         self, features: int = 16, coef: float = 10000.
     ) -> None:
+        super().__init__()
         self.coef = coef
         self.features = features
 

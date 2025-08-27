@@ -14,8 +14,6 @@ In addition to the core framework and specification, the `nrdk` library hosts co
 
 ## Core Framework
 
-> [`nrdk.framework`](nrdk/framework.md)
-
 The NRDK framework is based on Pytorch Lightning, and centered around a core [`NRDKLightningModule`][nrdk.framework.NRDKLightningModule].
 
 !!! tip
@@ -33,9 +31,13 @@ The NRDK framework is based on Pytorch Lightning, and centered around a core [`N
 
 ## Data Loading
 
-> [`nrdk.roverd`](nrdk/roverd.md) 
+The NRDK leans heavily on the core [abstract dataloader specifications](https://wiselabcmu.github.io/abstract-dataloader/), which describe a set of modular and composable data loading &mdash;
+> [`Sensor`][abstract_dataloader.spec.Sensor] &#8594; [`Trace`][abstract_dataloader.spec.Trace] &#8594; [`Dataset`][abstract_dataloader.spec.Dataset]
 
-The NRDK leans heavily on the core [abstract dataloader specifications](https://wiselabcmu.github.io/abstract-dataloader/), which describe a set of modular and composable data loading ([`Sensor`][abstract_dataloader.spec.Sensor] &#8594; [`Trace`][abstract_dataloader.spec.Trace] &#8594; [`Dataset`][abstract_dataloader.spec.Dataset]) and preprocessing ([`Pipeline`][abstract_dataloader.spec.Pipeline] = [`.sample:Transform`][abstract_dataloader.spec.Transform] &#8594; [`Collate`][abstract_dataloader.spec.Collate] &#8594; [`.batch:Transform`][abstract_dataloader.spec.Transform]) components.
+&mdash; and preprocessing &mdash;
+> [`Pipeline`][abstract_dataloader.spec.Pipeline] := [`.sample:Transform`][abstract_dataloader.spec.Transform] &#8594; [`Collate`][abstract_dataloader.spec.Collate] &#8594; [`.batch:Transform`][abstract_dataloader.spec.Transform]
+
+&mdash; component interfaces.
 
 - When using data collected by [`red-rover`](https://radarml.github.io/red-rover/) and stored in the [`roverd`](https://radarml.github.io/red-rover/roverd/) format, read data using the [`red-rover/roverd`](https://radarml.github.io/red-rover/roverd/) library, which provides `abstract-dataloader` compliant [`Dataset`][roverd.Dataset], [`Trace`][roverd.Trace], and [`Sensor`][roverd.sensors] implementations.
 
@@ -48,8 +50,6 @@ The NRDK leans heavily on the core [abstract dataloader specifications](https://
 - Data augmentations can also be specified via the [`abstract_dataloader.ext.augment`][abstract_dataloader.ext.augment] data augmentation specifications.
 
 ## Training Objectives
-
-> [`nrdk.objectives`](nrdk/objectives.md)
 
 Training objectives for the NRDK use the [`abstract_dataloader.ext.objective`][abstract_dataloader.ext.objective] specification. From the abstract dataloader documentation:
 
@@ -75,11 +75,32 @@ We currently provide the following objectives:
 
 ## Other Modules
 
-> [`nrdk.config`](nrdk/config.md) [`nrdk.metrics`](nrdk/metrics.md) [`nrdk.modules`](nrdk/modules.md) [`nrdk.visualization`](nrdk/vis.md)
+The `nrdk` includes a number of other submodules intended as reusable libraries which are not associated with a well-defined abstract specification.
 
-The `nrdk` includes a number of other submodules intended as reusable libraries which are not associated with a well-defined abstract specification:
+<div class="grid cards" markdown>
 
-- [`config`](nrdk/config.md): configuration utilities
-- [`metrics`](nrdk/metrics.md): training and evaluation metrics
-- [`modules`](nrdk/modules.md): pytorch [`nn.Module`][torch.nn.Module] implementations outside of the standard library
-- [`visualization`](nrdk/vis.md): visualizations utilities (e.g., for in-training visualizations)
+- [`nrdk.config`](nrdk/config.md)
+
+    ---
+
+    configuration utilities
+
+- [`nrdk.metrics`](nrdk/metrics.md)
+
+    ---
+
+    training and evaluation metrics
+
+- [`nrdk.modules`](nrdk/modules.md)
+
+    ---
+
+    pytorch [`nn.Module`][torch.nn.Module] implementations outside of the standard library
+
+- [`nrdk.visualization`](nrdk/vis.md)
+
+    ---
+
+    visualizations utilities (e.g., for in-training visualizations)
+
+</div>
