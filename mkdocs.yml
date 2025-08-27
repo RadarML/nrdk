@@ -5,14 +5,14 @@ nav:
   - nrdk:
     - Overview: index.md
     - Architecture: design.md
-    - NRDK API:
-      - Config: nrdk/config.md
-      - Framework: nrdk/framework.md
-      - Metrics: nrdk/metrics.md
-      - Modules: nrdk/modules.md
-      - Objectives: nrdk/objectives.md
-      - Roverd: nrdk/roverd.md
-      - Visualization: nrdk/vis.md
+    - NRDK Modules:
+      - nrdk.config: nrdk/config.md
+      - nrdk.framework: nrdk/framework.md
+      - nrdk.metrics: nrdk/metrics.md
+      - nrdk.modules: nrdk/modules.md
+      - nrdk.objectives: nrdk/objectives.md
+      - nrdk.roverd: nrdk/roverd.md
+      - nrdk.vis: nrdk/vis.md
     - CLI Tools: cli.md
   - nrdk.tss:
     - Overview: tss/index.md
@@ -90,11 +90,11 @@ plugins:
         inventories:
         - https://docs.python.org/3/objects.inv
         - https://numpy.org/doc/stable/objects.inv
-        - https://wiselabcmu.github.io/abstract-dataloader/objects.inv
         - https://docs.pytorch.org/docs/stable/objects.inv
         - https://docs.jax.dev/en/latest/objects.inv
-        - http://radarml.github.io/xwr/objects.inv
-        - http://radarml.github.io/red-rover/objects.inv
+        - https://radarml.github.io/abstract-dataloader/objects.inv
+        - https://radarml.github.io/xwr/objects.inv
+        - https://radarml.github.io/red-rover/objects.inv
         - https://lightning.ai/docs/pytorch/stable/objects.inv
 
 markdown_extensions:
