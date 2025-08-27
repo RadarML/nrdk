@@ -21,7 +21,13 @@ jobs:
       - name: Check out
         uses: actions/checkout@v5
 
-      # Install uv (fast Python package/dependency manager)
+      - name: Fetch secrets
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+            ssh-private-key: |
+                  ${{ secrets.XWR_PRIVATE_KEY }}
+                  ${{ secrets.RED_ROVER_PRIVATE_KEY }}
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
 

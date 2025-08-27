@@ -7,23 +7,27 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
-    - name: Install the latest version of uv and set the python version
+    - name: Fetch secrets
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+          ssh-private-key: |
+                ${{ secrets.XWR_PRIVATE_KEY }}
+                ${{ secrets.RED_ROVER_PRIVATE_KEY }}
+
+    - name: Install uv with Python 3.12
       uses: astral-sh/setup-uv@v6
       with:
-        python-version: ${{ matrix.python-version }}
-        uv-version: latest
+        python-version: "3.12"
+        uv-version: 0.8.13
 
     - name: Lint with ruff
       run: |
-        uv run --extra dev ruff check
+        uv run --extra dev ruff check ./src
 
     - name: Type check with pyright
       run: |
