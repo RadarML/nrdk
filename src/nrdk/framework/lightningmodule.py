@@ -65,6 +65,9 @@ class NRDKLightningModule(
             model parameter already bound.
         transforms: data transform or pipeline to apply; potentially also a
             `nn.Module`; if `None`, no transforms are applied.
+        compile: if `True`, compile the model with `torch.compile`. Note that
+            this may cause a problem for typecheckers (so you should set
+            `JAXTYPING_DISABLE=1`).
         vis_interval: log visualizations (from replica `0` only) every
             `vis_interval` steps; if `<=0`, disable altogether.
         vis_samples: maximum number of samples to visualize during training.
@@ -82,9 +85,14 @@ class NRDKLightningModule(
         transforms:
             spec.Pipeline[Any, Any, YTrueRaw, YTrue]
             | spec.Transform[YTrueRaw, YTrue] | None = None,
+        compile: bool = False,
         vis_interval: int = 0, vis_samples: int = 16
     ) -> None:
         super().__init__()
+
+        if compile:
+            model = torch.compile(model)  # type: ignore
+
         self.model = model
         self.objective = objective
         self.optimizer = optimizer

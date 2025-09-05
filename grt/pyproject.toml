@@ -1,0 +1,27 @@
+[project]
+name = "grt-nrdk-example"
+version = "1.0.0"
+authors = [
+  { name="Tianshu Huang", email="tianshu2@andrew.cmu.edu" },
+]
+description = "GRT/NRDK Reference Implementation"
+requires-python = ">=3.12"
+
+dependencies = [
+    "nrdk[roverd] >= 0.1.1",
+    "pyyaml >= 5.0.0",
+    "hydra-core >= 1.3.0",
+    "lightning == 2.5.2",
+    "ipykernel",
+    "tensorboard",
+    "rich"
+]
+
+[tool.uv.sources]
+
+# NRDK for the GRT example in the NRDK repo
+nrdk = { path = "../", editable = true }
+# Via github
+# nrdk = { git = "ssh://git@github.com/radarml/nrdk.git" }
+# Pinned version as submodule
+# nrdk = { path = "./nrdk" }

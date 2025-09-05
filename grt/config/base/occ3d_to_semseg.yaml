@@ -1,4 +1,4 @@
-path: results/example/baseline3/weights.pth
+path: results/example/base/weights.pth
 rename:
 - decoder.occ3d.unpatch: null
 - decoder.occ3d: decoder.semseg

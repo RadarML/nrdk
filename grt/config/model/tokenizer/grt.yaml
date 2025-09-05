@@ -1,5 +1,5 @@
 _target_: grt.models.SpectrumTokenizer
-d_model: ${globals.d_model}
+d_model: ${size.d_model}
 patch: [1, 2, 2, 8, 4]  # (time, doppler, elevation, azimuth, range)
 squeeze: [2, 3]  # elevation + azimuth
 n_channels: 3 

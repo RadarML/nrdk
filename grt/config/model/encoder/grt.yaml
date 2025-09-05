@@ -1,14 +1,14 @@
 _target_: torch.nn.TransformerEncoder
 encoder_layer:
   _target_: torch.nn.TransformerEncoderLayer
-  d_model: ${globals.d_model}
-  nhead: ${globals.nhead}
-  dim_feedforward: ${globals.d_feedforward}
+  d_model: ${size.d_model}
+  nhead: ${size.nhead}
+  dim_feedforward: ${size.d_feedforward}
   dropout: 0.1
   activation: gelu
   layer_norm_eps: 1e-5
   batch_first: true
   norm_first: true
   bias: true
-num_layers: ${globals.enc_layers}
+num_layers: ${size.enc_layers}
 enable_nested_tensor: false

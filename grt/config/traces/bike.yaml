@@ -16,3 +16,10 @@ train:
   - point.out
   - sqhill.back
   - sqhill.out
+
+test:
+  bike:
+  - edgewood.back
+  - edgewood.out
+  - ptbreeze.back
+  - ptbreeze.out

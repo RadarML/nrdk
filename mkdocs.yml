@@ -5,7 +5,7 @@ nav:
   - nrdk:
     - Overview: index.md
     - Architecture: design.md
-    - NRDK Modules:
+    - Core Modules:
       - nrdk.config: nrdk/config.md
       - nrdk.framework: nrdk/framework.md
       - nrdk.metrics: nrdk/metrics.md
@@ -19,6 +19,7 @@ nav:
     - High Level API: tss/api.md
     - Stats: tss/stats.md
     - Utils: tss/utils.md
+  - nrdk.models: models.md
   - grt:
     - Overview: grt/index.md
     - Models: grt/models.md

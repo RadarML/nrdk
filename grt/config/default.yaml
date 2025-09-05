@@ -1,12 +1,12 @@
 defaults:
+  - _self_
   - aug@transforms.sample.augmentations: full
   - sensors@datamodule.dataset.sensors: ["radar", "lidar"]
   - transforms@transforms.sample: ["radar", "lidar3d"]
   - traces@datamodule.traces: ["bike", "indoor", "outdoor"]
-  - model@lightningmodule.model: default
+  - model: default
   - trainer: default
   - objective: lidar3d
-  - _self_
 
 meta:
   dataset: data/
@@ -15,7 +15,7 @@ meta:
   version: null
   resume: null
 
-globals:
+size:
   d_model: 512
   d_feedforward: 2048
   nhead: 8
@@ -42,18 +42,24 @@ datamodule:
       path: ${meta.dataset}
   batch_size: 32
   samples: 8
-  num_workers: 12
-  prefetch_factor: 2
+  num_workers: 16
+  prefetch_factor: 1
   subsample:
     val: 16384
   ptrain: 0.8
   pval: 0.2
 
+model: {}
+
+objective: {}
+
 lightningmodule:
   _target_: nrdk.framework.NRDKLightningModule
-  vis_interval: 10
+  compile: false
+  vis_interval: 1000
   vis_samples: 16
   objective: ${objective}
+  model: ${model}
   optimizer:
     _target_: torch.optim.AdamW
     _partial_: true
@@ -69,5 +75,5 @@ transforms:
     keep_all: false
     outputs: {}  # sensors/*.yaml
   collate:
-    _target_: abstract_dataloader.torch.Collate
+    _target_: abstract_dataloader.ext.torch.Collate
     mode: "concat"

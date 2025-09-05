@@ -14,7 +14,7 @@ from lightning.pytorch import callbacks
 @hydra.main(version_base=None, config_path="./config", config_name="default")
 def train(cfg):
     """Train a model using the GRT reference implementation."""
-    torch.set_float32_matmul_precision('medium')
+    torch.set_float32_matmul_precision('high')
 
     def _inst(path, *args, **kwargs):
         return hydra.utils.instantiate(

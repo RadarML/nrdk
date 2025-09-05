@@ -1,12 +1,12 @@
 vel:
-  _target_: grt.models.VectorDecoder
+  _target_: nrdk.models.MLPVectorDecoder
   layers:
-    - ${globals.d_model}
-    - ${globals.d_model}
-    - ${globals.d_model}
+    - ${size.d_model}
+    - ${size.d_model}
+    - ${size.d_model}
   dropout: 0.1
   activation: gelu
-  dim: ${globals.d_model}
+  dim: ${size.d_model}
   shape: [1, 4]
   strategy: last
   channels_first: false
