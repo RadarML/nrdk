@@ -1,5 +1,6 @@
 defaults:
   - _self_
+  - size: small
   - aug@transforms.sample.augmentations: full
   - sensors@datamodule.dataset.sensors: ["radar", "lidar"]
   - transforms@transforms.sample: ["radar", "lidar3d"]
@@ -15,12 +16,7 @@ meta:
   version: null
   resume: null
 
-size:
-  d_model: 512
-  d_feedforward: 2048
-  nhead: 8
-  enc_layers: 4
-  dec_layers: 4
+size: {}
 
 hydra:
   run:
