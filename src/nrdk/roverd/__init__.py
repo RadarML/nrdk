@@ -1,5 +1,11 @@
 """Data loading and transforms for `roverd` datasets.
 
+!!! warning
+
+    The `roverd` dependency must be installed to use this submodule, either
+    using the `nrdk[roverd]` extra or by manually installing the
+    [`roverd` package](https://radarml.github.io/red-rover/roverd/).
+
 Each `{Modality}` and `{Modality}Data` pair describe a data transform and the
 corresponding data type which it generates. These transforms can be
 individually instantiated and applied, or assembled into a

@@ -1,0 +1,5 @@
+d_model: 768
+d_feedforward: 3072
+nhead: 12
+enc_layers: 9
+dec_layers: 9

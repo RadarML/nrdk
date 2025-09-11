@@ -42,3 +42,14 @@ train:
     wean: [
       "wean.3.fwd", "wean.3.lat", "wean.4.fwd", "wean.4.lat", "wean.5.fwd",
       "wean.5.lat", "wean.6.fwd", "wean.6.lat"]
+
+test:
+  indoor:
+    cfa: [
+      "cfa.1.fwd", "cfa.1.lat", "cfa.3.fwd", "cfa.3.lat", "cfa.a.fwd",
+      "cfa.a.lat"]
+    morrison: [
+      "morrison.1.fwd", "morrison.1.lat", "morrison.2.fwd", "morrison.2.lat"]
+    posner: [
+      "posner.1.fwd", "posner.1.lat", "posner.2.fwd", "posner.2.lat",
+      "posner.3.fwd", "posner.3.lat", "posner.a.fwd", "posner.a.lat"]

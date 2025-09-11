@@ -13,6 +13,6 @@ rsp:
       window: False  # no windowing
       # no padding
     rep:
-      _target_: xwr.nn.PhaseVec
+      _target_: xwr.nn.PhaseAngle
       scale: 1e-6
       transform: sqrt          

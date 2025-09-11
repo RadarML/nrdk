@@ -31,13 +31,10 @@ The NRDK framework is based on Pytorch Lightning, and centered around a core [`N
 
 ## Data Loading
 
-The NRDK leans heavily on the core [abstract dataloader specifications](https://wiselabcmu.github.io/abstract-dataloader/), which describe a set of modular and composable data loading &mdash;
-> [`Sensor`][abstract_dataloader.spec.Sensor] &#8594; [`Trace`][abstract_dataloader.spec.Trace] &#8594; [`Dataset`][abstract_dataloader.spec.Dataset]
-
-&mdash; and preprocessing &mdash;
-> [`Pipeline`][abstract_dataloader.spec.Pipeline] := [`.sample:Transform`][abstract_dataloader.spec.Transform] &#8594; [`Collate`][abstract_dataloader.spec.Collate] &#8594; [`.batch:Transform`][abstract_dataloader.spec.Transform]
-
-&mdash; component interfaces.
+The NRDK leans heavily on the core [abstract dataloader specifications](https://wiselabcmu.github.io/abstract-dataloader/), which describe a set of modular and composable data loading and preprocessing component interfaces:
+> Load: [`Sensor`][abstract_dataloader.spec.Sensor] &#8594; [`Trace`][abstract_dataloader.spec.Trace] &#8594; [`Dataset`][abstract_dataloader.spec.Dataset]
+> <br>
+> Process: [`Pipeline`][abstract_dataloader.spec.Pipeline] := [`.sample:Transform`][abstract_dataloader.spec.Transform] &#8594; [`Collate`][abstract_dataloader.spec.Collate] &#8594; [`.batch:Transform`][abstract_dataloader.spec.Transform]
 
 - When using data collected by [`red-rover`](https://radarml.github.io/red-rover/) and stored in the [`roverd`](https://radarml.github.io/red-rover/roverd/) format, read data using the [`red-rover/roverd`](https://radarml.github.io/red-rover/roverd/) library, which provides `abstract-dataloader` compliant [`Dataset`][roverd.Dataset], [`Trace`][roverd.Trace], and [`Sensor`][roverd.sensors] implementations.
 
@@ -72,6 +69,26 @@ We currently provide the following objectives:
 
     In addition to implementing the abstract specification, each provided objective includes a type specification for their expected model predictions and ground truth data. Implementations using these objectives out-of-the-box only need to provide data which fits these type interfaces.
 
+## Model & Module Zoo
+
+We include a number of reusable implementations of common (and stable) model modules and architectures with the `nrdk`; note that active research code should go in separate repositories, and only merged here once stable &mdash; and ready to publicly release!
+
+<div class="grid cards" markdown>
+
+- [`nrdk.models`](nrdk/models.md)
+
+    ---
+
+    reusable, stable model architectures.
+
+- [`nrdk.modules`](nrdk/modules.md)
+
+    ---
+
+    modules beyond of the standard library.
+
+</div>
+
 
 ## Other Modules
 
@@ -90,12 +107,6 @@ The `nrdk` includes a number of other submodules intended as reusable libraries 
     ---
 
     training and evaluation metrics
-
-- [`nrdk.modules`](nrdk/modules.md)
-
-    ---
-
-    pytorch [`nn.Module`][torch.nn.Module] implementations outside of the standard library
 
 - [`nrdk.visualization`](nrdk/vis.md)
 

@@ -134,19 +134,22 @@ class Sinusoid(nn.Module):
             # Apply along the target spatial axis, batch, channels
             # Broadcast on all others
             # p_slice = [:, None, ..., None, :, None, ..., None, :]
-            p_slice: list[slice | None] = [None] * len(x.shape)
-            p_slice[0] = slice(None)
-            p_slice[axis + 1] = slice(None)
-            p_slice[-1] = slice(None)
+            _p_slice: list[slice | None] = [None] * len(x.shape)
+            _p_slice[0] = slice(None)
+            _p_slice[axis + 1] = slice(None)
+            _p_slice[-1] = slice(None)
+            p_slice = tuple(_p_slice)
 
             # pos[2 * i] = sin(w * t)
             x_sin_slice = [slice(None)] * len(x.shape)
             x_sin_slice[-1] = slice(start_dim, start_dim + nc * 2, 2)
+            x_sin_slice = tuple(x_sin_slice)
             x[x_sin_slice] = x[x_sin_slice] + torch.sin(wt)[p_slice]
 
             # pos[2 * i + 1] = cos(w * t)
             x_cos_slice = [slice(None)] * len(x.shape)
             x_cos_slice[-1] = slice(start_dim + 1, start_dim + nc * 2 + 1, 2)
+            x_cos_slice = tuple(x_cos_slice)
             x[x_cos_slice] = x[x_cos_slice] + torch.cos(wt)[p_slice]
 
             start_dim += nc * 2
@@ -249,7 +252,7 @@ class BasisChange(nn.Module):
                 positional embedding added. The tensor is flattened along the
                 spatial axes if desired (`flatten=True`).
         """
-        idxs = [slice(None)] + [None] * len(self.shape) + [slice(None)]
+        idxs = tuple([slice(None)] + [None] * len(self.shape) + [slice(None)])
         query = self.pos(
             torch.tile(x[idxs], (1, *self.shape, 1)),
             positions=positions)

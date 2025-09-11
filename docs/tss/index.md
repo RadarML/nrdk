@@ -4,7 +4,7 @@
 
     Use a effective sample size-corrected paired z-test to compare methods which have been evaluated on moderately-sized time series data.
 
-The neural radar development kit ships with a small statistical module (`nrdk.tss`) & CLI tool (`tss`) for analyzing time series performance metrics.
+The neural radar development kit ships with a small, self-contained statistical module (`nrdk.tss`) & CLI tool (`tss`) for analyzing time series performance metrics.
 
 !!! warning "Time-Correlated Samples"
 

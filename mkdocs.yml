@@ -5,10 +5,11 @@ nav:
   - nrdk:
     - Overview: index.md
     - Architecture: design.md
-    - NRDK Modules:
+    - Core Modules:
       - nrdk.config: nrdk/config.md
       - nrdk.framework: nrdk/framework.md
       - nrdk.metrics: nrdk/metrics.md
+      - nrdk.models: nrdk/models.md
       - nrdk.modules: nrdk/modules.md
       - nrdk.objectives: nrdk/objectives.md
       - nrdk.roverd: nrdk/roverd.md
@@ -22,6 +23,7 @@ nav:
   - grt:
     - Overview: grt/index.md
     - Models: grt/models.md
+    - Configuration: grt/config.md
 
 
 extra_css:

@@ -19,3 +19,9 @@ train:
   - pitt.central
   - pitt.west
   - schenley
+
+test:
+  outdoor:
+  - fifth
+  - shadyside.central
+  - shadyside.west

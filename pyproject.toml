@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nrdk"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
   { name="Tianshu Huang", email="tianshu2@andrew.cmu.edu" },
 ]
@@ -22,11 +22,12 @@ license-files = ["LICEN[CS]E*"]
 
 dependencies = [
     "abstract-dataloader >= 0.3.4",
+    "pyyaml >= 5.0.0",
     "torch >= 2.4",
     "numpy >= 1.19",
     "beartype >= 0.20",
     "jaxtyping >= 0.3.2",
-    "lightning == 2.5.2",
+    "lightning == 2.5.5",
     "matplotlib >= 3.0.0",
     "torchvision",
     "einops >= 0.8.0",
@@ -44,14 +45,8 @@ roverd = { git = "ssh://git@github.com/radarml/red-rover.git", subdirectory = "f
 
 [project.optional-dependencies]
 roverd = [
-    "xwr == 0.3.1",
-    "roverd[ouster,video] == 0.2.0"
-]
-grt = [
-    "hydra-core >= 1.3.0",
-    "ipykernel",
-    "tensorboard",
-    "rich"
+    "xwr >= 0.3.3",
+    "roverd[ouster,video] >= 0.2.2"
 ]
 
 docs = [
@@ -61,11 +56,13 @@ docs = [
     "mkdocs-material == 9.6.*",
     "mkdocstrings-python-xref == 1.16.3",
     "mkdocstrings-python == 1.16.6",
+    "griffe == 1.8.0",
     "mkdocstrings == 0.29.*",
     "ruff >= 0.10.0"
 ]
 dev = [
     "pre-commit >= 4.0.0",
+    "hydra-core >= 1.3.0",
     "coverage",
     "pytest",
     "pytest-cov",

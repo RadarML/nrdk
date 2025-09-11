@@ -65,6 +65,9 @@ class NRDKLightningModule(
             model parameter already bound.
         transforms: data transform or pipeline to apply; potentially also a
             `nn.Module`; if `None`, no transforms are applied.
+        compile: if `True`, compile the model with `torch.compile`. Note that
+            this may cause a problem for typecheckers (so you should set
+            `JAXTYPING_DISABLE=1`).
         vis_interval: log visualizations (from replica `0` only) every
             `vis_interval` steps; if `<=0`, disable altogether.
         vis_samples: maximum number of samples to visualize during training.
@@ -82,9 +85,14 @@ class NRDKLightningModule(
         transforms:
             spec.Pipeline[Any, Any, YTrueRaw, YTrue]
             | spec.Transform[YTrueRaw, YTrue] | None = None,
+        compile: bool = False,
         vis_interval: int = 0, vis_samples: int = 16
     ) -> None:
         super().__init__()
+
+        if compile:
+            model = torch.compile(model)  # type: ignore
+
         self.model = model
         self.objective = objective
         self.optimizer = optimizer
@@ -94,6 +102,7 @@ class NRDKLightningModule(
 
         self._log = logging.getLogger(self.__class__.__name__)
 
+    @torch.compiler.disable
     def load_weights(
         self, path: str, rename: Sequence[Mapping[str, str | None]] = []
     ) -> tuple[list[str], list[str]]:
@@ -150,6 +159,7 @@ class NRDKLightningModule(
     def forward(self, x: YTrue) -> YPred:
         return self.model(x)
 
+    @torch.compiler.disable
     def _make_log(
         self, y_true: YTrue, y_pred: YPred, split: str, step: int
     ) -> None:
@@ -169,6 +179,7 @@ class NRDKLightningModule(
             else:
                  self.logger.log_images(images, step=step)
 
+    @torch.compiler.disable
     def log_visualizations(
         self, y_true: YTrue, y_pred: YPred, split: str = "train"
     ) -> None:
@@ -200,6 +211,7 @@ class NRDKLightningModule(
             target=self._make_log,
             args=(y_true, y_pred, split, self.global_step)).start()
 
+    @torch.compiler.disable
     def transform(self, batch: YTrueRaw) -> YTrue:
         """Apply transforms."""
         with torch.no_grad():
@@ -238,6 +250,7 @@ class NRDKLightningModule(
         return loss
 
     @cache
+    @torch.compiler.disable
     def _get_val_samples(self) -> YTrueRaw | None:
         """Get validation samples, and fail gracefully."""
         try:

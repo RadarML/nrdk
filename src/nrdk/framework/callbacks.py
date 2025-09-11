@@ -34,18 +34,23 @@ class PerformanceMonitor(Callback):
     def on_train_batch_start(
         self, trainer, pl_module, batch, batch_idx
     ) -> None:
-        self._start = perf_counter()
+        if trainer.global_rank == 0:
+            self._start = perf_counter()
 
     def on_train_batch_end(
         self, trainer, pl_module, outputs, batch, batch_idx
     ) -> None:
-        duration = perf_counter() - self._start
-        pl_module.log(f"{self.name}/step_time", duration, on_step=True)
-        pl_module.log(f"{self.name}/throughput", 1 / duration, on_step=True)
+        if trainer.global_rank == 0:
+            duration = perf_counter() - self._start
+            pl_module.log_dict({
+                f"{self.name}/step_time": torch.tensor(duration),
+                f"{self.name}/throughput": torch.tensor(1 / duration)
+            }, on_step=True)
 
         stats = torch.cuda.memory_stats(device=trainer.global_rank)
-        for metric in ["allocated", "reserved", "active", "inactive_split"]:
-            pl_module.log(
-                f"{self.name}/{metric}.{trainer.global_rank}",
-                stats[f"{metric}_bytes.all.current"] / self.units,
-                on_step=True)
+        stats = {
+            f"{self.name}/{k}.{trainer.global_rank}":
+            stats[f"{k}_bytes.all.current"] / self.units
+            for k in ["allocated", "reserved", "active", "inactive_split"]
+        }
+        pl_module.log_dict(stats, on_step=True)

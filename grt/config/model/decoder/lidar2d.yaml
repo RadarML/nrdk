@@ -1,18 +1,18 @@
 occ2d:
-  _target_: grt.models.TransformerDecoder
+  _target_: nrdk.models.TransformerTensorDecoder
   decoder_layer:
     _target_: torch.nn.TransformerDecoderLayer
-    d_model: ${globals.d_model}
-    nhead: ${globals.nhead}
-    dim_feedforward: ${globals.d_feedforward}
+    d_model: ${size.d_model}
+    nhead: ${size.nhead}
+    dim_feedforward: ${size.d_feedforward}
     dropout: 0.1
     activation: gelu
     layer_norm_eps: 1e-5
     batch_first: true
     norm_first: true
     bias: true
-  d_model: ${globals.d_model}
-  num_layers: ${globals.dec_layers}
+  d_model: ${size.d_model}
+  num_layers: ${size.dec_layers}
   shape: [1, 1, 1024, 256]
   scale: [1.0, 1.0, 1.0, 1.0]
   w_min: 0.2
