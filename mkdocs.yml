@@ -9,6 +9,7 @@ nav:
       - nrdk.config: nrdk/config.md
       - nrdk.framework: nrdk/framework.md
       - nrdk.metrics: nrdk/metrics.md
+      - nrdk.models: nrdk/models.md
       - nrdk.modules: nrdk/modules.md
       - nrdk.objectives: nrdk/objectives.md
       - nrdk.roverd: nrdk/roverd.md
@@ -19,10 +20,10 @@ nav:
     - High Level API: tss/api.md
     - Stats: tss/stats.md
     - Utils: tss/utils.md
-  - nrdk.models: models.md
   - grt:
     - Overview: grt/index.md
     - Models: grt/models.md
+    - Configuration: grt/config.md
 
 
 extra_css:

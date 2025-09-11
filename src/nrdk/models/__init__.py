@@ -6,7 +6,7 @@
     nominally published) models should be implemented here.
 
     To add a new research model, create a new repository which uses the `nrdk`
-    as a dependency; see the [reference implementation](grt/index.md).
+    as a dependency; see the [reference implementation](../grt/index.md).
 """
 
 from .grt import MLPVectorDecoder, TransformerTensorDecoder
