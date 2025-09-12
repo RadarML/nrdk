@@ -183,25 +183,13 @@ class Occupancy3D(Objective[
         y_pred: Float[Tensor, "batch t elevation azimuth range"],
         render_gt: bool = False
     ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
-        occ = y_pred > 0
+        occ = y_pred[:, -1] > 0
 
-        rendered = {
-            "bev": vis.bev_height_from_polar_occupancy(
-                occ, size=self.vis_config.height, theta_min=self.theta_min,
-                theta_max=self.theta_max, scale=False),
-            "depth": vis.depth_from_polar_occupancy(
-                occ, size=(self.vis_config.height, self.vis_config.width))
-        }
+        rendered = {"occ3d": occ.to(torch.uint8).cpu().numpy()}
         if render_gt:
-            rendered["bev_gt"] = vis.bev_height_from_polar_occupancy(
-                y_true.occupancy, size=self.vis_config.height,
-                theta_min=self.theta_min, theta_max=self.theta_max,
-                scale=False)
-            rendered["depth_gt"] = vis.depth_from_polar_occupancy(
-                y_true.occupancy,
-                size=(self.vis_config.height, self.vis_config.width))
-
-        return {k: v.cpu().numpy() for k, v in rendered.items()}
+            rendered["occ3d_gt"] = y_true.occupancy.to(
+                torch.uint8).cpu().numpy()
+        return  rendered
 
 
 class Occupancy2D(Objective[
@@ -309,7 +297,7 @@ class Occupancy2D(Objective[
         y_pred: Float[Tensor, "batch t elevation azimuth range"],
         render_gt: bool = False
     ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
-        occ_hat = torch.nn.functional.sigmoid(y_pred)
+        occ_hat = torch.nn.functional.sigmoid(y_pred)[:, -1]
 
         rendered = {
             "bev":  vis.voxels.bev_from_polar2(

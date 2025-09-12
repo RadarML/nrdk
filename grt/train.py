@@ -1,4 +1,4 @@
-"""GRT Reference implementation training script."""
+"""GRT reference implementation training script."""
 
 import logging
 import os

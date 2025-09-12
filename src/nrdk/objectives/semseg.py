@@ -133,7 +133,7 @@ class Semseg(
         render_gt: bool = False
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
         y_hat_logits = rearrange(
-            y_pred, "b el az rng cls -> b (rng cls) el az")
+            y_pred[:, -1], "b h w cls -> b cls h w")
         y_hat_idx = torch.argmax(y_hat_logits, dim=1)
 
         res = {"semseg": y_hat_idx.to(torch.uint8).cpu().numpy()}

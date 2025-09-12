@@ -106,7 +106,7 @@ class NRDKLightningModule(
     def load_weights(
         self, path: str, rename: Sequence[Mapping[str, str | None]] = []
     ) -> tuple[list[str], list[str]]:
-        """Load weights from an existing model for fine-tuning.
+        """Load weights from an existing model for fine-tuning, resuming, etc.
 
         Substitutions should be specified as a list of dictionaries, each with
         a single key and value. If the value is `None`, the key is removed;
@@ -121,10 +121,17 @@ class NRDKLightningModule(
             - decoder.occ3d: decoder.semseg
             ```
 
+        !!! warning
+
+            If the weights have a `model.` prefix (e.g., if they were saved
+            directly from `NRDKLightningModule.state_dict()`), then this is
+            always removed first.
+
         Args:
             path: path to model weights, possibly inside a `state_dict` and/or
                 `model` sub-key.
-            rename: substitutions to apply to the state dict.
+            rename: substitutions to apply to the state dict. If resuming or
+                loading for evaluation, this should be empty!
 
         Returns:
             A list of the `missing_keys` which were not present in the weights
@@ -138,6 +145,9 @@ class NRDKLightningModule(
         if "model" in weights:
             weights = weights["model"]
 
+        weights = {
+            k[6:] if k.startswith("model.")
+            else k: v for k, v in weights.items()}
         for pattern in rename:
             pat, sub = next(iter(pattern.items()))
             if sub is None:
@@ -282,6 +292,8 @@ class NRDKLightningModule(
 
     def evaluate(
         self, dataset: torch.utils.data.DataLoader,
+        metadata: Callable[
+            [YTrue], Mapping[str, Shaped[Tensor, "batch"]]] | None = None,
         device: int | str | torch.device = 0,
     ) -> Iterator[tuple[
         dict[str, Shaped[np.ndarray, "batch"]],
@@ -291,6 +303,8 @@ class NRDKLightningModule(
 
         Args:
             dataset: `DataLoader`-wrapped dataset to run.
+            metadata: optional callable which takes in `y_true` and returns a
+                dictionary of metadata values to return alongside the metrics.
             device: device to run on. This method does not implement
                 distributed data parallelism; parallelism should be applied at
                 the trace level.
@@ -299,7 +313,7 @@ class NRDKLightningModule(
             Metric values for each sample in the batch as returned by the
                 objective, with an addditional `loss` key.
             Rendered outputs for each sample in the batch as returned by the
-                objective's `.visualizations(...)` method.
+                objective's `.render(...)` method.
         """
         # Don't forget this step!
         self.eval()
@@ -314,8 +328,10 @@ class NRDKLightningModule(
 
                 loss, metrics = self.objective(transformed, y_hat, train=False)
                 metrics["loss"] = loss
+                if metadata is not None:
+                    metrics.update(metadata(transformed))
 
-                vis = self.objective.visualizations(transformed, y_hat)
+                vis = self.objective.render(transformed, y_hat)
                 yield {k: v.cpu().numpy() for k, v in metrics.items()}, vis
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
