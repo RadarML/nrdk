@@ -18,7 +18,7 @@ wheels = [
 
 [[package]]
 name = "abstract-dataloader"
-version = "0.4.1"
+version = "0.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jaxtyping" },
@@ -27,9 +27,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "wadler-lindig" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/56/fb/cad5bd41b4cf236fb76eb9d5c57854bd3440fbd032f4b93ded43cfe9c9e0/abstract_dataloader-0.4.1.tar.gz", hash = "sha256:f9ae3fe30f5ee5b2a0c37974e412d0e535b96ca089f542a3e4f51a8eeae89ec2", size = 1705313, upload-time = "2025-08-26T22:58:27.096Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/a8/695b3065ff2f852ff2bca813c94cc5fc0a9b907027f5d74e565196d4865b/abstract_dataloader-0.4.2.tar.gz", hash = "sha256:1ef6eefcf3161f633c2944de9f2abb00fde326f435f2fc750dc84de938baed29", size = 1715493, upload-time = "2025-09-14T19:55:00.826Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/84/a48b6e3fbfc3be881cfb4d304f3b20bfd9acf1c001137bc8650f43b27e3c/abstract_dataloader-0.4.1-py3-none-any.whl", hash = "sha256:c2eca01d3d1bf260edcd912e2954b63f8abc2b56ac64bf524339abb1e420238e", size = 36236, upload-time = "2025-08-26T22:58:25.973Z" },
+    { url = "https://files.pythonhosted.org/packages/26/e8/a8bebfac4bf1986c58be1d7081d88fb9fdc584a3a622635eeb70ec775bd9/abstract_dataloader-0.4.2-py3-none-any.whl", hash = "sha256:c0e568e30ff679d5b59565a8de97c4a2dacf060e3c993e5c61553165b29a4caf", size = 36706, upload-time = "2025-09-14T19:54:59.68Z" },
 ]
 
 [[package]]
@@ -1152,7 +1152,7 @@ wheels = [
 
 [[package]]
 name = "nrdk"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "../" }
 dependencies = [
     { name = "abstract-dataloader" },
@@ -1181,7 +1181,7 @@ roverd = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abstract-dataloader", specifier = ">=0.3.4" },
+    { name = "abstract-dataloader", specifier = ">=0.4.2" },
     { name = "beartype", specifier = ">=0.20" },
     { name = "coverage", marker = "extra == 'dev'" },
     { name = "einops", specifier = ">=0.8.0" },
@@ -1212,7 +1212,7 @@ requires-dist = [
     { name = "torch", specifier = ">=2.4" },
     { name = "torchvision" },
     { name = "tyro", specifier = ">=0.9.0" },
-    { name = "xwr", marker = "extra == 'roverd'", git = "ssh://git@github.com/radarml/xwr.git" },
+    { name = "xwr", marker = "extra == 'roverd'", specifier = ">=0.3.3" },
 ]
 provides-extras = ["roverd", "docs", "dev"]
 
@@ -2667,8 +2667,8 @@ wheels = [
 
 [[package]]
 name = "xwr"
-version = "0.3.2"
-source = { git = "ssh://git@github.com/radarml/xwr.git#50301b561ad8e39cecf761f1772c853d480a5222" }
+version = "0.3.3"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beartype" },
     { name = "jaxtyping" },
@@ -2676,6 +2676,10 @@ dependencies = [
     { name = "pyfftw" },
     { name = "pyserial" },
     { name = "types-pyserial" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2f/25/7b84e444af1b0f0b78eddc55bc71b7e4a2520f877b330dd5d632be6c9630/xwr-0.3.3.tar.gz", hash = "sha256:c598aa7e1b78599cb18512d0fc14ec492b36e3ad9cb8550111a023b6b74c3a1f", size = 1590117, upload-time = "2025-09-08T15:52:13.485Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1d/fa/e327d55ecadc7aa851e5391165d3de76a564214cb51d0c5b5853f1ef6ddb/xwr-0.3.3-py3-none-any.whl", hash = "sha256:7df61f42023354037a7316270cd9e102f9c7b23320112f777909f40c757593f2", size = 48868, upload-time = "2025-09-08T15:52:12.421Z" },
 ]
 
 [[package]]

@@ -1,6 +1,7 @@
 """Lightning module."""
 
 import logging
+import os
 import re
 import threading
 import warnings
@@ -91,6 +92,13 @@ class NRDKLightningModule(
         super().__init__()
 
         if compile:
+            jt_disable = os.environ.get("JAXTYPING_DISABLE", "0").lower()
+            if jt_disable not in ("1", "true"):
+                warnings.warn(
+                    "torch.compile is currently incompatible with jaxtyping; "
+                    "if you see type errors, set the environment variable "
+                    "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
+
             model = torch.compile(model)  # type: ignore
 
         self.model = model

@@ -10,7 +10,6 @@ import hydra
 import numpy as np
 import torch
 import tyro
-from abstract_dataloader.ext.torch import TransformedDataset
 from omegaconf import DictConfig
 from roverd.channels.utils import Prefetch
 from roverd.sensors import DynamicSensor
@@ -23,14 +22,14 @@ def _get_dataloaders(
     cfg: DictConfig, data_root: str, transforms: Any,
     traces: list[str] | None = None, filter: str | None = None,
 ) -> dict[str, Callable[[], torch.utils.data.DataLoader]]:
+    datamodule = hydra.utils.instantiate(
+        cfg["datamodule"], transforms=transforms)
+
     if traces is None and filter is None:
-        datamodule = hydra.utils.instantiate(
-            cfg["datamodule"], transforms=transforms)
         return {"sample": lambda: datamodule.test_dataloader()}
     else:
         dataset_constructor = hydra.utils.instantiate(
             cfg["datamodule"]["dataset"])
-
         if traces is None:
             assert filter is not None
             traces_inst = [
@@ -40,14 +39,8 @@ def _get_dataloaders(
             traces = [t for t in traces_inst if re.match(filter, t)]
 
         def construct(t: str) -> torch.utils.data.DataLoader:
-            dataset =  TransformedDataset(
-                dataset_constructor(paths=[t]), transform=transforms.sample)
-            return torch.utils.data.DataLoader(
-                dataset, collate_fn=transforms.collate,
-                batch_size=cfg.datamodule.batch_size,
-                num_workers=cfg.datamodule.num_workers,
-                prefetch_factor=cfg.datamodule.prefetch_factor,
-                pin_memory=True, shuffle=False, drop_last=False)
+            dataset = dataset_constructor(paths=[t])
+            return datamodule.dataloader(dataset, mode="test")
 
         return {
             t: partial(construct, os.path.join(data_root, t)) for t in traces}

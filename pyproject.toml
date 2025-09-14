@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nrdk"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
   { name="Tianshu Huang", email="tianshu2@andrew.cmu.edu" },
 ]
@@ -21,7 +21,7 @@ license = "MIT"
 license-files = ["LICEN[CS]E*"]
 
 dependencies = [
-    "abstract-dataloader >= 0.3.4",
+    "abstract-dataloader >= 0.4.2",
     "pyyaml >= 5.0.0",
     "torch >= 2.4",
     "numpy >= 1.19",
@@ -40,7 +40,6 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-xwr = { git = "ssh://git@github.com/radarml/xwr.git" }
 roverd = { git = "ssh://git@github.com/radarml/red-rover.git", subdirectory = "format"}
 
 [project.optional-dependencies]
