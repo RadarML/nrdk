@@ -1,5 +1,6 @@
 """Unified logging interface."""
 
+import re
 from collections.abc import Mapping
 from typing import Protocol, runtime_checkable
 
@@ -34,13 +35,23 @@ class LoggerWithImages(Protocol):
 
 
 class TensorBoardLogger(loggers.TensorBoardLogger, LoggerWithImages):
-    """TensorBoard logger."""
+    """TensorBoard logger.
+
+    !!! bug
+
+        TensorBoard (2.20.0) appears to have a subtle bug where image names
+        with multiple "/" cause only one of the images to be logged/shown.
+        We replace all but the last "/" with "." (e.g.,
+        `occupancy3d/depth/train -> occupancy3d.depth/train`) as a workaround.
+    """
 
     def log_images(
         self, images: Mapping[str, UInt8[np.ndarray, "h w c"]], step: int = 0
     ) -> None:
         for name, image in images.items():
-            self.experiment.add_image(name, image, step, dataformats="HWC")
+            fixed_name = re.sub(r"/(?=.*?/)", ".", name)
+            self.experiment.add_image(
+                fixed_name, image, step, dataformats="HWC")
 
 
 class MLFlowLogger(loggers.MLFlowLogger, LoggerWithImages):

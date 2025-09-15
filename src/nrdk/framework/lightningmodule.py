@@ -195,7 +195,7 @@ class NRDKLightningModule(
                     "Tried to log visualizations, but the logger does not "
                     "implement the `LoggerWithImages` interface.")
             else:
-                 self.logger.log_images(images, step=step)
+                self.logger.log_images(images, step=step)
 
     @torch.compiler.disable
     def log_visualizations(
