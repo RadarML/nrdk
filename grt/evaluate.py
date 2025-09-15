@@ -21,22 +21,23 @@ from nrdk.framework import Result
 def _get_dataloaders(
     cfg: DictConfig, data_root: str, transforms: Any,
     traces: list[str] | None = None, filter: str | None = None,
+    sample: int | None = None
 ) -> dict[str, Callable[[], torch.utils.data.DataLoader]]:
     datamodule = hydra.utils.instantiate(
         cfg["datamodule"], transforms=transforms)
 
-    if traces is None and filter is None:
+    if traces is None and filter is None and sample is not None:
         return {"sample": lambda: datamodule.test_dataloader()}
     else:
         dataset_constructor = hydra.utils.instantiate(
             cfg["datamodule"]["dataset"])
         if traces is None:
-            assert filter is not None
-            traces_inst = [
+            traces = [
                 os.path.relpath(t, cfg["meta"]["dataset"])
                 for t in hydra.utils.instantiate(
                     cfg["datamodule"]["traces"]["test"])]
-            traces = [t for t in traces_inst if re.match(filter, t)]
+        if filter is not None:
+            traces = [t for t in traces if re.match(filter, t)]
 
         def construct(t: str) -> torch.utils.data.DataLoader:
             dataset = dataset_constructor(paths=[t])
@@ -64,6 +65,9 @@ def evaluate(
     3. Sample evaluation: evaluate a pseudo-random `--sample` taken from
         the test set specified in the configuration.
 
+    If none of `--trace`, `--filter`, or `--sample` are provided, defaults to
+    evaluating all traces specified in the configuration.
+
     !!! tip
 
         See [`Result`][nrdk.framework.Result] for details about the expected
@@ -76,9 +80,9 @@ def evaluate(
 
     Args:
         path: path to results directory.
-        sample: TODO
-        traces: TODO
-        filter: TODO
+        sample: number of samples to evaluate.
+        traces: explicit list of traces to evaluate.
+        filter: evaluate all traces matching this regex.
         data_root: root dataset directory; if `None`, use the path specified
             in `meta/dataset` in the config.
         device: device to use for evaluation.
@@ -110,7 +114,8 @@ def evaluate(
     lightningmodule.load_weights(result.best)
 
     dataloaders = _get_dataloaders(
-        cfg, data_root, transforms, traces=traces, filter=filter)
+        cfg, data_root, transforms,
+        traces=traces, filter=filter, sample=sample)
 
     def collect_metadata(y_true):
         return {
