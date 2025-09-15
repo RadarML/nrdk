@@ -16,9 +16,10 @@ with install_import_hook("nrdk.framework", "beartype.beartype"):
     from .callbacks import PerformanceMonitor
     from .lightningmodule import NRDKLightningModule
     from .logging import LoggerWithImages, MLFlowLogger, TensorBoardLogger
+    from .result import Result
 
 __all__ = [
     "TokenizerEncoderDecoder",
     "PerformanceMonitor",
     "LoggerWithImages", "MLFlowLogger", "TensorBoardLogger",
-    "NRDKLightningModule"]
+    "NRDKLightningModule", "Result"]

@@ -1,6 +1,7 @@
 """Time series analysis."""
 
 from dataclasses import dataclass
+from functools import partial
 from multiprocessing.pool import ThreadPool
 from typing import TYPE_CHECKING, Any, Sequence, TypeVar
 
@@ -73,7 +74,9 @@ def autocorrelation(
         return cov / std
 
 
-def effective_sample_size(x: Num[np.ndarray, "t"]) -> float:
+def effective_sample_size(
+    x: Num[np.ndarray, "t"], t_max: int | None = None
+) -> float:
     """Calculate effective sample size (ESS) for a univariate time series.
 
     Let `x` have `N` samples. For autocorrelation `rho_t`, where `t` is the
@@ -109,6 +112,7 @@ def effective_sample_size(x: Num[np.ndarray, "t"]) -> float:
 
     Args:
         x: time series data.
+        t_max: maximum time delay to consider; if `None`, use all `N/2`.
 
     Returns:
         ESS estimate. In the edge case that `x` is constant, the ESS is
@@ -118,8 +122,9 @@ def effective_sample_size(x: Num[np.ndarray, "t"]) -> float:
     if rho is None:
         return 0.0
     else:
-        if np.any(rho < 0):
-            rho = rho[:np.argmax(rho < 0)]
+        if t_max is not None:
+            rho = rho[:t_max - 1]
+        rho = np.maximum(rho, 0)
 
         rho_sum = np.sum(rho).item()
         return x.shape[0] / (1 + 2 * rho_sum)
@@ -161,7 +166,8 @@ class NDStats:
 
     @classmethod
     def from_values(
-        cls, values: NestedValues[Num[np.ndarray, "_N"]], workers: int = -1
+        cls, values: NestedValues[Num[np.ndarray, "_N"]], workers: int = -1,
+        t_max: int | None = None
     ) -> "NDStats":
         """Initialize from 1-dimensional time series of values.
 
@@ -176,6 +182,8 @@ class NDStats:
             workers: number of parallel workers to use (only used in the case
                 of multiple time series). If `<0`, all jobs are run in
                 parallel; if `0`, the jobs are run in the main thread.
+            t_max: maximum time delay to consider when computing effective
+                sample size; if `None`, do not use any additional constraints.
 
         Returns:
             Computed `NDStats` for the time series or set of time series.
@@ -185,7 +193,7 @@ class NDStats:
                 n=np.array(values.shape[0]),
                 m1=np.sum(values).astype(np.float64),
                 m2=np.sum(np.square(values)).astype(np.float64),
-                ess=np.array(effective_sample_size(values)))
+                ess=np.array(effective_sample_size(values, t_max=t_max)))
         else:
             if workers < 0:
                 workers = len(values)
@@ -194,7 +202,7 @@ class NDStats:
                 return cls.stack(*[cls.from_values(v) for v in values])
 
             with ThreadPool(workers) as p:
-                stats = p.map(cls.from_values, values)
+                stats = p.map(partial(cls.from_values, t_max=t_max), values)
             return cls.stack(*stats)
 
     @property

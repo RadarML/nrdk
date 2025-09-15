@@ -192,7 +192,7 @@ def experiments_from_index(
 def stats_from_experiments(
     y: Mapping[str, NestedValues[Num[np.ndarray, "_N"]]],
     t: Mapping[str, NestedValues[Float64[np.ndarray, "_N"]]] | None = None,
-    baseline: str | None = None, workers: int = -1
+    baseline: str | None = None, workers: int = -1, t_max: int | None = None
 ) -> tuple[list[str], NDStats, NDStats | None]:
     """Calculate statistics from experiment results.
 
@@ -202,6 +202,8 @@ def stats_from_experiments(
             metrics are assumed to be at identical timestamps.
         baseline: baseline experiment for relative statistics.
         workers: number of worker threads to use for computation.
+        t_max: maximum time delay to consider when computing effective sample
+            size; if `None`, do not use any additional constraints.
 
     Returns:
         Names of each experiment corresponding to leading axis in the output
@@ -217,7 +219,7 @@ def stats_from_experiments(
             f"y:{list(y.keys())}, t:{list(t.keys())}")
 
     y_sorted = [y[k] for k in n_sorted]
-    stats_abs = NDStats.from_values(y_sorted, workers=workers)
+    stats_abs = NDStats.from_values(y_sorted, workers=workers, t_max=t_max)
     if baseline is not None:
         if t is not None:
             t_sorted = [t[k] for k in n_sorted]
@@ -226,13 +228,13 @@ def stats_from_experiments(
                 y_sorted, [y[baseline]] * len(y),  # type: ignore
                 t_sorted, [t[baseline]] * len(y))  # type: ignore
             stats_rel = NDStats.from_values(
-                diff, workers=workers)  # type: ignore
+                diff, workers=workers, t_max=t_max)  # type: ignore
         else:
             diff = optree.tree_map(
                 lambda x, y: x - y, y_sorted,   # type: ignore
                 [y[baseline]] * len(y))  # type: ignore
             stats_rel = NDStats.from_values(
-                diff, workers=workers)  # type: ignore
+                diff, workers=workers, t_max=t_max)  # type: ignore
     else:
         stats_rel = None
     return n_sorted, stats_abs, stats_rel
@@ -291,7 +293,8 @@ def dataframe_from_index(
     index: dict[str | None, dict[str | None, str]],
     key: str, timestamps: str | None = None,
     experiments: Sequence[str | None] | None = None,
-    cut: float | None = None, baseline: str | None = None, workers: int = -1
+    cut: float | None = None, baseline: str | None = None, workers: int = -1,
+    t_max: int | None = None
 ) -> pd.DataFrame:
     """Load and calculate statistics from indexed experiment results.
 
@@ -310,6 +313,8 @@ def dataframe_from_index(
         baseline: baseline experiment for relative statistics.
         workers: number of worker threads to use when loading. If `<0`, load
             all in parallel; if `=0`, load all in the main thread.
+        t_max: maximum time delay to consider when computing effective sample
+            size; if `None`, do not use any additional constraints.
 
     Returns:
         Dataframe with statistics for each experiment.
@@ -318,6 +323,6 @@ def dataframe_from_index(
         index, key, timestamps=timestamps, experiments=experiments,
         cut=cut, workers=workers)
     names, stats_abs, stats_rel = stats_from_experiments(
-        y, t, baseline=baseline, workers=workers)
+        y, t, baseline=baseline, workers=workers, t_max=t_max)
     df = dataframe_from_stats(names, stats_abs, stats_rel, baseline=baseline)
     return df
