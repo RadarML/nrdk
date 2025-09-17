@@ -29,7 +29,7 @@ def datamodule(
     traces: Mapping[str, Sequence[str]],
     transforms: spec.Pipeline,
     batch_size: int = 32, samples: int | Sequence[int] = 0,
-    num_workers: int = 32, prefetch_factor: int = 2,
+    num_workers: int = 32, prefetch_factor: int | None = 2,
     subsample: Mapping[str, int | float | None] = {},
     ptrain: float = 0.8, pval: float = 0.2
 ) -> ADLDataModule:

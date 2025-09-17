@@ -35,10 +35,33 @@ class Result:
 
     Args:
         path: path to results directory.
+        validate: check that the path exists, and that it matches the expected
+            structure.
     """
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, validate: bool = True) -> None:
         self.path = path
+        if validate:
+            self.validate(path)
+
+    @staticmethod
+    def validate(path: str) -> None:
+        """Validate that the given path is a valid results directory.
+
+        Raises:
+            ValueError: if the path does not exist, or does not have the
+                expected structure.
+        """
+        if not os.path.exists(path):
+            raise ValueError(f"Result {path} does not exist.")
+        if not os.path.exists(os.path.join(path, ".hydra", "config.yaml")):
+            raise ValueError(
+                f"Result {path} exists, but does not have an associated "
+                f"hydra configuration {path}/.hydra/config.yaml.")
+        if not os.path.exists(os.path.join(path, "checkpoints.yaml")):
+            raise ValueError(
+                f"Result {path} exists, does not have a checkpoint index "
+                f"file {path}/checkpoints.yaml.")
 
     @overload
     def config(self, omegaconf: Literal[True] = True) -> DictConfig: ...
