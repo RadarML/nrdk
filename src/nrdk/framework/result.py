@@ -33,6 +33,12 @@ class Result:
         └── events.out.tfevents...
         ```
 
+    !!! danger
+
+        Since `.hydra` is technically a hidden folder, many file operations
+        (e.g., `mv experiment_result/*`) will skip or hide this folder by
+        default.
+
     Args:
         path: path to results directory.
         validate: check that the path exists, and that it matches the expected
