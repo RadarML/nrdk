@@ -12,6 +12,17 @@ from roverd.transforms.ouster import ConfigCache, Destagger
 from .transforms import SpectrumData
 
 
+def _n_range(
+    data: types.XWRRadarIQ[np.ndarray] | SpectrumData[np.ndarray]
+) -> int:
+    if isinstance(data, SpectrumData):
+        _batch, _t, _doppler, _el, _az, n_rng, _ch = data.spectrum.shape
+        return n_rng
+    else:  # XWRRadarIQ
+        _batch, _t, _n_slow, _tx, _rx, n_fast = data.iq.shape
+        return n_fast // 2
+
+
 @dataclass
 class Occupancy3DData(Generic[TArray]):
     """3D occupancy data.
@@ -62,7 +73,7 @@ class Occupancy3D:
 
     def __call__(
         self, lidar: types.OSDepth[np.ndarray],
-        radar: SpectrumData[np.ndarray],
+        radar: SpectrumData[np.ndarray] | types.XWRRadarIQ[np.ndarray],
         aug: Mapping[str, Any] = {}
     ) -> Occupancy3DData[np.ndarray]:
         """Create 3D occupancy map from Lidar depth data.
@@ -87,7 +98,7 @@ class Occupancy3D:
         if aug.get("azimuth_flip", False):
             rng = np.flip(rng, axis=3)
 
-        _batch, _t, _doppler, _el, _az, n_rng, _ch = radar.spectrum.shape
+        n_rng = _n_range(radar)
         n_bins = n_rng // self.d_rng
         bin = (rng // (radar.range_resolution * self.d_rng)).astype(np.uint16)
         bin[bin >= n_bins] = 0
@@ -177,7 +188,7 @@ class Occupancy2D:
 
     def __call__(
         self, lidar: types.OSDepth[np.ndarray],
-        radar: SpectrumData[np.ndarray],
+        radar: SpectrumData[np.ndarray] | types.XWRRadarIQ[np.ndarray],
         aug: Mapping[str, Any] = {}
     ) -> Occupancy2DData[np.ndarray]:
         """Create 2D occupancy map from Lidar depth data.
@@ -216,7 +227,7 @@ class Occupancy2D:
         r[(z > self.z_max) | (z < self.z_min)] = 0
 
         # Create map
-        _batch, _t, _doppler, _el, _az, n_rng, _ch = radar.spectrum.shape
+        n_rng = _n_range(radar)
         bin: UInt16[np.ndarray, "T El Az"] = (
             r // radar.range_resolution).astype(np.uint16)
         bin[bin >= n_rng] = 0

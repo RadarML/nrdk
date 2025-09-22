@@ -10,19 +10,23 @@ from . import api
 
 def _cli(
     path: str, /,
-    pattern: str =  r"^(?P<experiment>(.*)).npz$",
-    key: str = "loss", timestamps: str | None = None,
-    experiments: list[str] | None = None,
-    baseline: str | None = None,
-    follow_symlinks: bool = False,
-    cut: float | None = None,
-    t_max: int | None = None,
+    pattern: str | None = None, key: str | None = None,
+    timestamps: str | None = None, experiments: list[str] | None = None,
+    baseline: str | None = None, follow_symlinks: bool = False,
+    cut: float | None = None, t_max: int | None = None,
     config: str | None = None,
 ) -> int:
     """Calculate statistics for time series metrics.
 
-    - pipe `tss ... > results.csv` to save the results to a file
-    - use `--config config.yaml` to avoid having to specify all these arguments
+    - pipe `tss ... > results.csv` to save the results to a file.
+    - use `--config config.yaml` to avoid having to specify all these
+        arguments; any arguments which are explicitly provided will override
+        the values in the config file.
+
+    !!! warning
+
+        `path` (and `--follow_symlinks`, if specified) are required to be
+        passed via the command line, and cannot be specified via the config.
 
     Args:
         path: directory to find evaluations in.
@@ -43,18 +47,23 @@ def _cli(
     if config is not None:
         with open(config) as f:
             cfg = yaml.safe_load(f)
-            return _cli(
-                path,
-                pattern=cfg.get("pattern",  r"^(?P<experiment>(.*)).npz$"),
-                experiments=cfg.get("experiments", None),
-                key=cfg.get("key", "loss"),
-                timestamps=cfg.get("timestamps", None),
-                baseline=cfg.get("baseline", None),
-                cut=cfg.get("cut", None),
-                t_max=cfg.get("t_max", None),
-                follow_symlinks=follow_symlinks)
+    else:
+        cfg = {}
 
-    index = api.index(path, pattern=pattern, follow_symlinks=follow_symlinks)
+    def setdefault(value, param, default):
+        if value is None:
+            value = cfg.get(param, default)
+        return value
+
+    pattern = setdefault(pattern, "pattern", r"^(?P<experiment>(.*)).npz$")
+    key = setdefault(key, "key", "loss")
+    timestamps = setdefault(timestamps, "timestamps", None)
+    baseline = setdefault(baseline, "baseline", None)
+    cut = setdefault(cut, "cut", None)
+    t_max = setdefault(t_max, "t_max", None)
+
+    index = api.index(
+        path, pattern=pattern, follow_symlinks=follow_symlinks)  # type: ignore
 
     if len(index) == 0:
         print("No result files found!")
@@ -64,7 +73,7 @@ def _cli(
         return -1
 
     df = api.dataframe_from_index(
-        index, key=key, baseline=baseline,
+        index, key=key, baseline=baseline,  # type: ignore
         experiments=experiments, cut=cut, t_max=t_max, timestamps=timestamps)
 
     buf = StringIO()
