@@ -51,6 +51,24 @@ class Result:
             self.validate(path)
 
     @staticmethod
+    def find(path: str, follow_symlinks: bool = False) -> list[str]:
+        """Find all results directories under the given path.
+
+        Args:
+            path: path to search under.
+            follow_symlinks: if True, follow symlinks when searching.
+
+        Returns:
+            List of paths to results directories (that contain a
+                `checkpoints.yaml` and `.hydra` folder.)
+        """
+        results = []
+        for root, dirs, files in os.walk(path, followlinks=follow_symlinks):
+            if ".hydra" in dirs and "checkpoints.yaml" in files:
+                results.append(root)
+        return results
+
+    @staticmethod
     def validate(path: str) -> None:
         """Validate that the given path is a valid results directory.
 
