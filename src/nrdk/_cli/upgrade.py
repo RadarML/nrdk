@@ -133,7 +133,7 @@ def cli_upgrade(
 
                 n = re.findall(pattern, config)
                 if n:
-                    print(f"Upgrading {len(n)} occurence(s): {config_path}")
+                    print(f"Upgrading {len(n)} occurrence(s): {config_path}")
                     new_config = re.sub(pattern, f"_target_: {to}", config)
                     with open(config_path, "w") as f:
                         f.write(new_config)

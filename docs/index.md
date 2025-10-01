@@ -30,7 +30,6 @@ Built around typed, high modular interfaces, the NRDK is designed to reduce the 
 
     statistical testing for time series performance metrics
 
-
 </div>
 
 ## Setup
