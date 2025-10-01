@@ -12,6 +12,12 @@ Built around typed, high modular interfaces, the NRDK is designed to reduce the 
 
     neural radar development kit core framework
 
+- :octicons-terminal-16: [`> nrdk ...`](cli.md)
+
+    ---
+
+    cli tools for working with NRDK output conventions
+
 - :material-book-open-page-variant-outline: [`grt`](grt/index.md)
 
     ---

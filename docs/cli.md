@@ -28,3 +28,25 @@
         separate_signature: false
         show_root_heading: false
         show_root_toc_entry: false
+
+## `nrdk upgrade-config`
+
+:::nrdk._cli.cli_upgrade
+    options:
+        heading_level: 2
+        show_symbol_type_heading: false
+        show_signature: false
+        separate_signature: false
+        show_root_heading: false
+        show_root_toc_entry: false
+
+## `nrdk validate`
+
+:::nrdk._cli.cli_validate
+    options:
+        heading_level: 2
+        show_symbol_type_heading: false
+        show_signature: false
+        separate_signature: false
+        show_root_heading: false
+        show_root_toc_entry: false
