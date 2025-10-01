@@ -78,7 +78,7 @@ def cli_upgrade(
         You can also use the `upgrade-config` tool to check for this overlap
         first:
         ```sh
-        nrdk upgrade-cnofig <to> --path ./results --dry-run
+        nrdk upgrade-config <to> --path ./results --dry-run
         # Shouldn't return any of the config files you are planning to upgrade
         ```
 
@@ -112,15 +112,17 @@ def cli_upgrade(
                     all_matches[context].append((config_path, line_num))
 
         for k, v in all_matches.items():
-            print(f"Found {len(v)} occurrence(s) of '{target}':")
+            print(
+                f"Found {len(v)} occurrence(s) of '{target}' "
+                f"with this context:")
             print(Panel(k))
             print(Columns(
-                f"{config_path}:{line_num}" for config_path, line_num in v
-            ))
+                f"{os.path.relpath(config_path, path)}:{line_num}"
+                for config_path, line_num in v))
             print()
 
     else:
-        if to is not None:
+        if to is None:
             raise ValueError("Must specify `to` when not doing a dry run.")
 
         for r in results:
@@ -129,6 +131,9 @@ def cli_upgrade(
                 with open(config_path, "r") as f:
                     config = f.read()
 
-                new_config = re.sub(pattern, f"_target_: {to}", config)
-                with open(config_path, "w") as f:
-                    f.write(new_config)
+                n = re.findall(pattern, config)
+                if n:
+                    print(f"Upgrading {len(n)} occurence(s): {config_path}")
+                    new_config = re.sub(pattern, f"_target_: {to}", config)
+                    with open(config_path, "w") as f:
+                        f.write(new_config)

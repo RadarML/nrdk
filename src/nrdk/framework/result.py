@@ -51,12 +51,17 @@ class Result:
             self.validate(path)
 
     @staticmethod
-    def find(path: str, follow_symlinks: bool = False) -> list[str]:
+    def find(
+        path: str, follow_symlinks: bool = False, strict: bool = True
+    ) -> list[str]:
         """Find all results directories under the given path.
 
         Args:
             path: path to search under.
             follow_symlinks: if True, follow symlinks when searching.
+            strict: if `True`, only return directories that pass validation;
+                if `False`, return directories with any `.hydra` folder or
+                `checkpoints.yaml` file.
 
         Returns:
             List of paths to results directories (that contain a
@@ -64,8 +69,12 @@ class Result:
         """
         results = []
         for root, dirs, files in os.walk(path, followlinks=follow_symlinks):
-            if ".hydra" in dirs and "checkpoints.yaml" in files:
-                results.append(root)
+            if strict:
+                if ".hydra" in dirs and "checkpoints.yaml" in files:
+                    results.append(root)
+            else:
+                if ".hydra" in dirs or "checkpoints.yaml" in files:
+                    results.append(root)
         return results
 
     @staticmethod

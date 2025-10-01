@@ -7,6 +7,7 @@ import tyro
 from .export import cli_export
 from .inspect import cli_inspect
 from .upgrade import cli_upgrade
+from .validate import cli_validate
 
 
 def make_annotation(name, func):
@@ -24,6 +25,7 @@ def cli_main() -> None:
         "inspect": cli_inspect,
         "export": cli_export,
         "upgrade-config": cli_upgrade,
+        "validate": cli_validate,
     }
 
     return tyro.cli(Union[  # type: ignore
