@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import threading
-import warnings
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from functools import cache
 from typing import Any, Callable, Generic, TypeVar, cast
@@ -91,10 +90,12 @@ class NRDKLightningModule(
     ) -> None:
         super().__init__()
 
+        self._log = logging.getLogger("NRDKLightningModule")
+
         if compile:
             jt_disable = os.environ.get("JAXTYPING_DISABLE", "0").lower()
             if jt_disable not in ("1", "true"):
-                warnings.warn(
+                self._log.warning(
                     "torch.compile is currently incompatible with jaxtyping; "
                     "if you see type errors, set the environment variable "
                     "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
@@ -107,8 +108,6 @@ class NRDKLightningModule(
         self.transforms = transforms
         self.vis_interval = vis_interval
         self.vis_samples = vis_samples
-
-        self._log = logging.getLogger(self.__class__.__name__)
 
     @torch.compiler.disable
     def load_weights(
@@ -153,9 +152,14 @@ class NRDKLightningModule(
         if "model" in weights:
             weights = weights["model"]
 
-        weights = {
-            k[6:] if k.startswith("model.")
-            else k: v for k, v in weights.items()}
+        def _strip_prefix(k):
+            if k.startswith("model."):
+                k = k[6:]
+            if k.startswith("_orig_mod."):
+                k = k[10:]
+            return k
+
+        weights = {_strip_prefix(k): v for k, v in weights.items()}
         for pattern in rename:
             pat, sub = next(iter(pattern.items()))
             if sub is None:
@@ -191,7 +195,7 @@ class NRDKLightningModule(
 
         if len(images) > 0:
             if not isinstance(self.logger, LoggerWithImages):
-                warnings.warn(
+                self._log.warning(
                     "Tried to log visualizations, but the logger does not "
                     "implement the `LoggerWithImages` interface.")
             else:
@@ -222,6 +226,7 @@ class NRDKLightningModule(
             y_pred: model output values.
             split: train/val split to put in the output path.
         """
+        self._log.debug(f"Logging visualizations @ i={self.global_step}")
         y_true, y_pred = optree.tree_map(
             lambda x: x[:self.vis_samples].cpu().detach(),
             (y_true, y_pred))  # type: ignore
