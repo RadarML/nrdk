@@ -10,12 +10,28 @@ import hydra
 import numpy as np
 import torch
 import tyro
+import wadler_lindig as wl
+from abstract_dataloader import spec
 from omegaconf import DictConfig
 from roverd.channels.utils import Prefetch
 from roverd.sensors import DynamicSensor
 from tqdm import tqdm
 
 from nrdk.framework import Result
+
+
+class _DatasetMeta(spec.Dataset):
+    def __init__(
+        self, dataset: spec.Dataset[dict[str, Any]], meta: Any
+    ) -> None:
+        self.dataset = dataset
+        self.meta = meta
+
+    def __getitem__(self, index: int | np.integer) -> dict[str, Any]:
+        return {"meta": self.meta, **self.dataset[index]}
+
+    def __len__(self) -> int:
+        return len(self.dataset)
 
 
 def _get_dataloaders(
@@ -36,11 +52,20 @@ def _get_dataloaders(
                 os.path.relpath(t, cfg["meta"]["dataset"])
                 for t in hydra.utils.instantiate(
                     cfg["datamodule"]["traces"]["test"])]
+
+        _unfiltered = traces
         if filter is not None:
             traces = [t for t in traces if re.match(filter, t)]
+        if len(traces) == 0:
+            raise ValueError(
+                f"No traces match the filter {filter}:\n"
+                f"{wl.pprint(_unfiltered)}")
 
         def construct(t: str) -> torch.utils.data.DataLoader:
-            dataset = dataset_constructor(paths=[t])
+            dataset = _DatasetMeta(
+                dataset_constructor(paths=[t]),
+                meta={"train": False, "split": "test"})
+
             return datamodule.dataloader(dataset, mode="test")
 
         return {
@@ -48,7 +73,7 @@ def _get_dataloaders(
 
 
 def evaluate(
-    path: str, /, sample: int | None = None,
+    path: str, /, output: str | None = None, sample: int | None = None,
     traces: list[str] | None = None, filter: str | None = None,
     data_root: str | None = None,
     device: str = "cuda:0",
@@ -80,6 +105,7 @@ def evaluate(
 
     Args:
         path: path to results directory.
+        output: if specified, write results to this directory instead.
         sample: number of samples to evaluate.
         traces: explicit list of traces to evaluate.
         filter: evaluate all traces matching this regex.
@@ -90,10 +116,15 @@ def evaluate(
         workers: number of workers for data loading.
         prefetch: number of batches to prefetch per worker.
     """
+    torch.set_float32_matmul_precision('high')
+
     result = Result(path)
     cfg = result.config()
     if sample is not None:
         cfg["datamodule"]["subsample"]["test"] = sample
+
+    if output is None:
+        output = os.path.join(path, "eval")
 
     if data_root is None:
         data_root = cfg["meta"]["dataset"]
@@ -107,6 +138,7 @@ def evaluate(
     cfg["datamodule"]["batch_size"] = batch
     cfg["datamodule"]["num_workers"] = workers
     cfg["datamodule"]["prefetch_factor"] = prefetch
+    cfg["lightningmodule"]["compile"] = False
 
     transforms = hydra.utils.instantiate(cfg["transforms"])
     lightningmodule = hydra.utils.instantiate(
@@ -120,7 +152,7 @@ def evaluate(
     def collect_metadata(y_true):
         return {
             f"meta/{k}/ts": getattr(v, "timestamps")
-            for k, v in y_true.items()
+            for k, v in y_true.items() if hasattr(v, "timestamps")
         }
 
     for trace, dl_constructor in dataloaders.items():
@@ -131,8 +163,7 @@ def evaluate(
             total=len(dataloader), desc=trace)
 
         output_container = DynamicSensor(
-            os.path.join(result.path, "eval", trace),
-            create=True, exist_ok=True)
+            os.path.join(output, trace), create=True, exist_ok=True)
         metrics = []
         outputs = {}
         for batch_metrics, vis in eval_stream:
@@ -160,7 +191,7 @@ def evaluate(
             k: np.concatenate([m[k] for m in metrics], axis=0)
             for k in metrics[0]}
         np.savez_compressed(
-            os.path.join(result.path, "eval", trace, "metrics.npz"),
+            os.path.join(output, trace, "metrics.npz"),
             **metrics, allow_pickle=False)
 
         output_container.create("ts", meta={

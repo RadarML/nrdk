@@ -30,7 +30,7 @@ example-project/
 
         Don't forget to change the `name`, `authors`, and `description`!
 
-2. Set up the `nrdk` dependency.
+2. Set up the `nrdk` dependency (`nrdk[roverd] >= 0.1.5`).
 
     !!! warning "Required Extras"
 
@@ -71,3 +71,9 @@ The GRT template includes reference training scripts which can be used for high 
     ```python title="grt/train_minimal.py"
     --8<-- "grt/train_minimal.py"
     ```
+
+## Evaluation Script
+
+::: evaluate.evaluate
+    options:
+        show_root_heading: false
