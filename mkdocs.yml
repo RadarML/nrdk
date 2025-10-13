@@ -4,7 +4,7 @@ repo_name: RadarML/nrdk
 nav:
   - nrdk:
     - Overview: index.md
-    - Architecture: design.md
+    - Software Architecture: design.md
     - Core Modules:
       - nrdk.config: nrdk/config.md
       - nrdk.framework: nrdk/framework.md
@@ -14,7 +14,7 @@ nav:
       - nrdk.objectives: nrdk/objectives.md
       - nrdk.roverd: nrdk/roverd.md
       - nrdk.vis: nrdk/vis.md
-    - CLI Tools: cli.md
+  - cli: cli.md
   - nrdk.tss:
     - Overview: tss/index.md
     - High Level API: tss/api.md

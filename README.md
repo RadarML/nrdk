@@ -1,5 +1,13 @@
 # NRDK: Neural Radar Development Kit
 
+[![GitHub](https://img.shields.io/github/v/release/RadarML/nrdk)](https://github.com/RadarML/nrdk)
+![MIT License](https://img.shields.io/badge/license-MIT-green)
+![Supports Python 3.12+](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)
+![Typed](https://img.shields.io/badge/types-typed-limegreen)
+[![bear-ified](https://raw.githubusercontent.com/beartype/beartype-assets/main/badge/bear-ified.svg)](https://beartype.readthedocs.io)
+[![CI](https://github.com/RadarML/nrdk/actions/workflows/ci.yml/badge.svg)](https://github.com/RadarML/nrdk/actions/workflows/ci.yml)
+![GitHub issues](https://img.shields.io/github/issues/RadarML/nrdk)
+
 > [!IMPORTANT]
 > See our [documentation site](https://radarml.github.io/nrdk) for more details!
 

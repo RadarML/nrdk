@@ -90,8 +90,10 @@ class Occupancy3D(Objective[
             the relative weight of bins is adjusted on the range axis so that
             each bin is weighted according to the area which it represents
             (i.e. multiplying the weight by `range`).
-        positive_weight: weight to give occupied samples; nominally the number
-            of range bins.
+        positive_weight: weight to give occupied samples to account for
+            sparsity / class imbalance.
+        max_range: value to assign to chamfer loss when there are no points;
+            nominally the number of range bins.
         az_min: minimum azimuth angle.
         az_max: maximum azimuth angle.
         el_min: minimum elevation angle.
@@ -101,8 +103,9 @@ class Occupancy3D(Objective[
     """
 
     def __init__(
-        self, range_weighted: bool = True, positive_weight: float = 64.0,
-        mode: Literal["spherical", "cylindrical"] = "cylindrical",
+        self, range_weighted: bool = True, positive_weight: float = 16.0,
+        max_range: float = 64.0,
+        mode: Literal["spherical", "cylindrical"] = "spherical",
         az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
         el_min: float = -np.pi / 4, el_max: float = np.pi / 4,
         vis_config: VisualizationConfig | Mapping[str, Any] = {},
@@ -119,7 +122,7 @@ class Occupancy3D(Objective[
         self.depth = VoxelDepth(axis=0, reverse=False, ord=1)
         self.chamfer = PolarChamfer3D(
             mode='chamfer', az_min=az_min, az_max=az_max,
-            el_min=el_min, el_max=el_max)
+            el_min=el_min, el_max=el_max, on_empty=max_range)
 
         if not isinstance(vis_config, VisualizationConfig):
             vis_config = VisualizationConfig(**vis_config)
