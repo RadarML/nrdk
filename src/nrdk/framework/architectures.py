@@ -1,13 +1,39 @@
 """Generic model architectures."""
 
 from collections.abc import Mapping
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, TypeVar
 
 from torch import nn
+
+TReg = TypeVar("TReg", bound=dict[str, Any])
+
+@dataclass
+class Regularized[Tout, Treg]:
+    """Module with regularization outputs.
+
+    Type Parameters:
+        - Tout: type of the primary module output.
+        - Treg: type of the regularization side channel; must be a dictionary
+            with string keys.
+
+    Attributes:
+        out: primary module output.
+        reg: regularization side channel which should be passed directly to
+            the model outputs (if present).
+    """
+
+    out: Tout
+    reg: Treg
 
 
 class TokenizerEncoderDecoder(nn.Module):
     """Generic architecture with a tokenizer, encoder, and decoder(s).
+
+    The `tokenizer` and `encoder` can optionally return a [`Regularized`][^.]
+    output, in which case the regularization outputs (`reg`) are returned
+    directly in the model output, with only the primary output (`out`) passed
+    to the next stage in the model.
 
     !!! info
 
@@ -50,9 +76,19 @@ class TokenizerEncoderDecoder(nn.Module):
                 f"input key `{self.key}`, but only the following are "
                 f"available\n:{list(data.keys())}")
 
+        outputs = {}
+
         x = data[self.key]
         tokens = self.tokenizer(x)
+        if isinstance(tokens, Regularized):
+            outputs.update(tokens.reg)
+            tokens = tokens.out
+
         encoded = self.encoder(tokens)
+        if isinstance(encoded, Regularized):
+            outputs.update(encoded.reg)
+            encoded = encoded.out
+
         decoded = {k: v(encoded) for k, v in self.decoder.items()}
 
         # 0 - batch; 1 - temporal
@@ -61,4 +97,4 @@ class TokenizerEncoderDecoder(nn.Module):
                 k: v.squeeze(dim=tuple(range(2, v.ndim)))
                 for k, v in decoded.items()}
 
-        return decoded
+        return {**outputs, **decoded}
