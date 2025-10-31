@@ -9,22 +9,21 @@ from torch import nn
 TReg = TypeVar("TReg", bound=dict[str, Any])
 
 @dataclass
-class Regularized[Tout, Treg]:
-    """Module with regularization outputs.
+class Output[Tstage, Toutput]:
+    """Module with "shortcut" outputs which are directly passed to the output.
 
     Type Parameters:
-        - Tout: type of the primary module output.
-        - Treg: type of the regularization side channel; must be a dictionary
+        - Tstage: type of the primary module output.
+        - Toutput: type of the regularization side channel; must be a dictionary
             with string keys.
 
     Attributes:
-        out: primary module output.
-        reg: regularization side channel which should be passed directly to
-            the model outputs (if present).
+        stage: output for this stage to pass to the next stage.
+        output: outputs to pass directly to the model output.
     """
 
-    out: Tout
-    reg: Treg
+    stage: Tstage
+    output: Toutput
 
 
 class TokenizerEncoderDecoder(nn.Module):
@@ -80,14 +79,14 @@ class TokenizerEncoderDecoder(nn.Module):
 
         x = data[self.key]
         tokens = self.tokenizer(x)
-        if isinstance(tokens, Regularized):
-            outputs.update(tokens.reg)
-            tokens = tokens.out
+        if isinstance(tokens, Output):
+            outputs.update(tokens.output)
+            tokens = tokens.stage
 
         encoded = self.encoder(tokens)
-        if isinstance(encoded, Regularized):
-            outputs.update(encoded.reg)
-            encoded = encoded.out
+        if isinstance(encoded, Output):
+            outputs.update(encoded.output)
+            encoded = encoded.stage
 
         decoded = {k: v(encoded) for k, v in self.decoder.items()}
 
