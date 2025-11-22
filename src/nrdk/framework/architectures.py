@@ -29,7 +29,7 @@ class Output[Tstage, Toutput]:
 class TokenizerEncoderDecoder(nn.Module):
     """Generic architecture with a tokenizer, encoder, and decoder(s).
 
-    The `tokenizer` and `encoder` can optionally return a [`Regularized`][^.]
+    The `tokenizer` and `encoder` can optionally return a [`Output`][^.]
     output, in which case the regularization outputs (`reg`) are returned
     directly in the model output, with only the primary output (`out`) passed
     to the next stage in the model.

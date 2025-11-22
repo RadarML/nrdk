@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nrdk"
-version = "0.1.5"
+version = "0.1.6"
 authors = [
   { name="Tianshu Huang", email="tianshu2@andrew.cmu.edu" },
 ]
@@ -40,7 +40,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-roverd = { git = "ssh://git@github.com/radarml/red-rover.git", subdirectory = "format"}
+roverd = { git = "https://github.com/radarml/red-rover.git", subdirectory = "format"}
 
 [project.optional-dependencies]
 roverd = [
