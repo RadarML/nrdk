@@ -15,10 +15,12 @@ with install_import_hook("nrdk.framework", "beartype.beartype"):
     from .architectures import Output, TokenizerEncoderDecoder
     from .callbacks import PerformanceMonitor
     from .lightningmodule import NRDKLightningModule
+    from .load import load_model
     from .logging import LoggerWithImages, MLFlowLogger, TensorBoardLogger
     from .result import Result
 
 __all__ = [
+    "load_model",
     "Output", "TokenizerEncoderDecoder",
     "PerformanceMonitor",
     "LoggerWithImages", "MLFlowLogger", "TensorBoardLogger",

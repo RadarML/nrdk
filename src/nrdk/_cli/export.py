@@ -51,7 +51,7 @@ def cli_export(
         with open(os.path.join(path, config), 'w') as f:
             yaml.dump({
                 "model": resolved["model"],
-                "transforms": resolved["transforms"]
+                "transforms": resolved["transforms"],
             }, f, default_flow_style=False, sort_keys=False)
 
         output = os.path.join(path, output)
@@ -68,7 +68,7 @@ def cli_export(
 
     print(f"Exporting: {path}")
     print(f"--> {output}")
-    pattern = re.compile(r"^model\.")
+    pattern = re.compile(r"^(model\.)(_orig_mod\.)?")
     state_dict = {
         pattern.sub("", k): v for k, v in contents['state_dict'].items()}
     torch.save(state_dict, output)

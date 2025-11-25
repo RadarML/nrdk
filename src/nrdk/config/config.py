@@ -4,6 +4,9 @@ import os
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+import hydra
+import yaml
+
 Nested = Sequence[str] | Mapping[str, "Nested"]
 
 
@@ -88,3 +91,29 @@ dependency to mutiple different constructors.
         name: example
     ```
 """
+
+
+def inst_from(
+    path: str, key: str | Sequence[str] | None
+) -> Any:
+    """Load and instantiate an object from an arbitrary configuration file.
+
+    Args:
+        path: path to the configuration yaml file.
+        key: key or sequence of keys to locate the object specification in the
+            configuration file. If `None`, the entire configuration is used.
+
+    Returns:
+        Instantiated object (via `hydra.utils.instantiate`).
+    """
+    with open(path) as f:
+        spec = yaml.safe_load(f)
+
+    if key is not None:
+        if isinstance(key, str):
+            spec = spec[key]
+        else:
+            for k in key:
+                spec = spec[k]
+    return hydra.utils.instantiate(spec)
+
