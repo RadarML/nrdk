@@ -48,7 +48,8 @@ def tile_images(
         y_hat: optional secondary images to tile; if provided, each `y_hat`
             is placed under its corresponding `y_true`.
         cols: number of columns. If the number of images does not divide
-            `batch`, they are zero padded in the resulting image.
+            `batch`, they are zero padded in the resulting image unless there
+            are fewer images than `batch`.
         cmap: colormap to apply, either as the name of a matplotlib colormap
             or a list of colors.
         normalize: whether to normalize the input data. All data is normalized
@@ -75,7 +76,9 @@ def tile_images(
     else:
         images = torch.concatenate([y_true] + _y_hat, dim=1)
 
-    if images.shape[0] % cols != 0:
+    if images.shape[0] < cols:
+        cols = images.shape[0]
+    elif images.shape[0] % cols != 0:
         padding = torch.zeros(
             [cols - (images.shape[0] % cols), *images.shape[1:]],
             dtype=images.dtype, device=images.device)

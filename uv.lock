@@ -1168,12 +1168,13 @@ wheels = [
 
 [[package]]
 name = "nrdk"
-version = "0.1.5"
+version = "0.1.6"
 source = { editable = "." }
 dependencies = [
     { name = "abstract-dataloader" },
     { name = "beartype" },
     { name = "einops" },
+    { name = "hydra-core" },
     { name = "jaxtyping" },
     { name = "lightning" },
     { name = "matplotlib" },
@@ -1220,6 +1221,7 @@ requires-dist = [
     { name = "coverage", marker = "extra == 'dev'" },
     { name = "einops", specifier = ">=0.8.0" },
     { name = "griffe", marker = "extra == 'docs'", specifier = "==1.8.0" },
+    { name = "hydra-core", specifier = ">=1.3.0" },
     { name = "hydra-core", marker = "extra == 'dev'", specifier = ">=1.3.0" },
     { name = "jaxtyping", specifier = ">=0.3.2" },
     { name = "lightning", specifier = "==2.5.5" },
@@ -1238,7 +1240,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
     { name = "pyyaml", specifier = ">=5.0.0" },
-    { name = "roverd", extras = ["ouster", "video"], marker = "extra == 'roverd'", git = "ssh://git@github.com/radarml/red-rover.git?subdirectory=format" },
+    { name = "roverd", extras = ["ouster", "video"], marker = "extra == 'roverd'", git = "https://github.com/radarml/red-rover.git?subdirectory=format" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.10.0" },
     { name = "ruff", marker = "extra == 'docs'", specifier = ">=0.10.0" },
     { name = "scipy", specifier = ">=1.10.0" },
@@ -2173,8 +2175,8 @@ wheels = [
 
 [[package]]
 name = "roverd"
-version = "0.3.0"
-source = { git = "ssh://git@github.com/radarml/red-rover.git?subdirectory=format#e69b02919d24b3da54ef98695a36d446c73df855" }
+version = "0.3.3"
+source = { git = "https://github.com/radarml/red-rover.git?subdirectory=format#0de37e1bb616f76c3302525f5cdbd150b6df2b69" }
 dependencies = [
     { name = "abstract-dataloader" },
     { name = "beartype" },

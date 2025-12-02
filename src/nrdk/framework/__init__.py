@@ -12,14 +12,16 @@ We supply and standardize the following components:
 from jaxtyping import install_import_hook
 
 with install_import_hook("nrdk.framework", "beartype.beartype"):
-    from .architectures import TokenizerEncoderDecoder
+    from .architectures import Output, TokenizerEncoderDecoder
     from .callbacks import PerformanceMonitor
     from .lightningmodule import NRDKLightningModule
+    from .load import load_model
     from .logging import LoggerWithImages, MLFlowLogger, TensorBoardLogger
     from .result import Result
 
 __all__ = [
-    "TokenizerEncoderDecoder",
+    "load_model",
+    "Output", "TokenizerEncoderDecoder",
     "PerformanceMonitor",
     "LoggerWithImages", "MLFlowLogger", "TensorBoardLogger",
     "NRDKLightningModule", "Result"]

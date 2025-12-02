@@ -14,7 +14,7 @@ semseg:
   d_model: ${size.d_model}
   num_layers: 4
   shape: [1, 160, 160, 1]
-  scale: [1.0, 1.0, 0.666, 1.0]
+  scale: [16.0, 16.0, 10.666, 16.0]
   w_min: 0.2
   patch: [1, 5, 5, 1]
   out_dim: 8

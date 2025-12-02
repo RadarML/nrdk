@@ -192,7 +192,7 @@ class Occupancy3D(Objective[
         if render_gt:
             rendered["occ3d_gt"] = y_true.occupancy.to(
                 torch.uint8).cpu().numpy()
-        return  rendered
+        return rendered
 
 
 class Occupancy2D(Objective[

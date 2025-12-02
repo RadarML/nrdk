@@ -1,5 +1,5 @@
 d_model: 512
-d_feedforward: 1024
+d_feedforward: 2048
 nhead: 8
 enc_layers: 4
 dec_layers: 4
