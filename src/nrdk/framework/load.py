@@ -14,7 +14,7 @@ def load_model(
 
     If `path` is a directory, it should contain a `weights.pth` file and a
     `config.yaml` file, i.e., as saved by
-    [`nrdk export`][nrdk._cli.cli_export].
+    [`nrdk export`](../cli.md/#nrdk-export).
 
     Args:
         path: path to the model checkpoint or directory.
