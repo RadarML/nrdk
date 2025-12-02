@@ -10,6 +10,10 @@ The GRT reference implementation uses a [hydra](https://hydra.cc/docs/intro/) + 
     2. Create a virtual environment in `nrdk/grt` with `uv sync`.
     3. Run with `uv run train.py`; see the hydra config files in `nrdk/grt/config/` for options.
 
+!!! info "Pre-Trained Checkpoints"
+
+    Pre-trained model checkpoints for the GRT reference implementation on the [I/Q-1M dataset](https://radarml.github.io/red-rover/iq1m/) can also be found [here](https://radarml.github.io/red-rover/iq1m/osn/#download-from-osn).
+
 ## Quick Start
 
 1. Create a new repository, and copy the contents of the `grt/` directory:
