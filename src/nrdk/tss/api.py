@@ -158,6 +158,12 @@ def experiments_from_index(
 
     def _load(path: str):
         data = np.load(path)
+
+        if key not in data:
+            raise KeyError(
+                f"Key '{key}' not found in file: {path}. Available keys: "
+                f"{list(data.keys())}")
+
         if timestamps is not None:
             t = data[timestamps]
             t = t.reshape(t.shape[0], -1)[:, -1]

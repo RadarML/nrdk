@@ -10,7 +10,13 @@ from jaxtyping import Bool, Float, Shaped
 from torch import Tensor
 
 from nrdk import vis
-from nrdk.metrics import BCE, PolarChamfer2D, PolarChamfer3D, VoxelDepth
+from nrdk.metrics import (
+    BCE,
+    BinaryDiceLoss,
+    PolarChamfer2D,
+    PolarChamfer3D,
+    VoxelDepth,
+)
 
 
 @runtime_checkable
@@ -200,8 +206,13 @@ class Occupancy2D(Objective[
 ]):
     """2D polar occupancy prediction objective.
 
+    This objective uses the same mixed BCE + Dice loss formulation as
+    [RadarHD](https://arxiv.org/abs/2206.09273).
+
     Metrics:
-        - loss: weighted BCE loss.
+        - loss: weighted BCE & Dice loss.
+        - bce: Binary Cross Entropy loss, with range weighting if specified.
+        - dice: Dice loss, also with range weighting.
 
     Visualizations:
         - `bev`: Bird's Eye View occupancy grid.
@@ -217,6 +228,7 @@ class Occupancy2D(Objective[
             _target_: nrdk.objectives.Occupancy2D
             range_weighted: True
             positive_weight: 64.0
+            bce_weight: 0.9
             vis_config:
             cols: 8
             width: 512
@@ -232,6 +244,7 @@ class Occupancy2D(Objective[
             (i.e. multiplying the weight by `range`).
         positive_weight: weight to give occupied samples; nominally the number
             of range bins.
+        bce_weight: BCE loss weight; Dice loss is weighted `1 - bce_weight`.
         az_min: minimum azimuth angle.
         az_max: maximum azimuth angle.
         vis_config: visualization configuration; `cmaps` can have a `bev` key.
@@ -239,13 +252,18 @@ class Occupancy2D(Objective[
 
     def __init__(
         self, range_weighted: bool = True, positive_weight: float = 64.0,
+        bce_weight: float = 0.9,
         az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
-        vis_config: VisualizationConfig | Mapping = {}
+        vis_config: VisualizationConfig | Mapping = {},
     ) -> None:
         self.az_min = az_min
         self.az_max = az_max
+        self.bce_weight = bce_weight
+
         self.bce_loss = BCE(
             positive_weight=positive_weight,
+            weighting='cylindrical' if range_weighted else None)
+        self.dice_loss = BinaryDiceLoss(
             weighting='cylindrical' if range_weighted else None)
         self.chamfer = PolarChamfer2D(
             mode="chamfer", az_min=az_min, az_max=az_max)
@@ -263,9 +281,11 @@ class Occupancy2D(Objective[
         occ_true = rearrange(y_true.occupancy, "b t az rng -> (b t) az rng")
 
         metrics = {
-            # bce_loss takes [* azimuth range]
+            # bce_loss takes [batch * azimuth range]
             "bce": self.bce_loss(
-                occ_true[:, :, None, :], _y_pred[:, :, None, :])
+                occ_true[:, None, :, :], _y_pred[:, None, :, :]),
+            "dice": self.dice_loss(
+                occ_true[:, None, :, :], _y_pred[:, None, :, :])
         }
         if not train:
             metrics["chamfer"] = self.chamfer(_y_pred > 0, occ_true)
@@ -275,7 +295,10 @@ class Occupancy2D(Objective[
             k: reduce(
                 v, "(b t) -> b", "mean", b=y_pred.shape[0], t=y_pred.shape[1])
             for k, v in metrics.items()}
-        return metrics["bce"], metrics
+        loss = (
+            metrics["bce"] * self.bce_weight
+            + metrics["dice"] * (1 - self.bce_weight))
+        return loss, metrics
 
     def visualizations(
         self, y_true: Occupancy2DData,

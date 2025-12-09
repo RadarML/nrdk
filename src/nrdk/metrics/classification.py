@@ -65,6 +65,36 @@ class BCE:
         return loss / total_weight
 
 
+class BinaryDiceLoss:
+    """Binary Dice loss for classification."""
+
+    def __init__(
+        self, weighting: Literal["cylindrical", "spherical"] | None = None
+    ) -> None:
+        self.weighting = weighting
+
+    def __call__(
+        self, y_true: Bool[Tensor, "batch y z range"],
+        y_hat: Float[Tensor, "batch y z range"]
+    ) -> Float[Tensor, "batch"]:
+        """Compute dice loss for binary classification."""
+        *_, nr = y_true.shape
+
+        with torch.device(y_true.device):
+            if self.weighting == "cylindrical":
+                weight = ((torch.arange(nr) + 1))[..., :]
+            elif self.weighting == "spherical":
+                weight = ((torch.arange(nr) + 1))[..., :] ** 2
+            else:
+                weight = torch.ones((1, 1, 1, 1), dtype=y_hat.dtype)
+
+        denominator = (
+            torch.sum(y_hat * y_hat * weight, dim=(1, 2))
+            + torch.sum(y_true * weight, dim=(1, 2)))
+        numerator = 2 * torch.sum(y_hat * y_true * weight, dim=(1, 2))
+        return 1.0 - numerator / denominator
+
+
 class FocalLoss:
     """Focal loss for classification.
 
