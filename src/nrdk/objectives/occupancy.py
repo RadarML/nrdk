@@ -210,9 +210,10 @@ class Occupancy2D(Objective[
     [RadarHD](https://arxiv.org/abs/2206.09273).
 
     Metrics:
-        - loss: weighted BCE & Dice loss.
-        - bce: Binary Cross Entropy loss, with range weighting if specified.
-        - dice: Dice loss, also with range weighting.
+        - `loss`: weighted BCE & Dice loss.
+        - `bce`: Binary Cross Entropy loss, with range weighting if specified.
+        - `dice`: Dice loss, also with range weighting.
+        - `chamfer`: 2D point cloud Chamfer distance.
 
     Visualizations:
         - `bev`: Bird's Eye View occupancy grid.
