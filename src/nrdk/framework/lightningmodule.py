@@ -92,6 +92,7 @@ class NRDKLightningModule(
 
         self._log = logging.getLogger("NRDKLightningModule")
         self.model = model
+        self.objective = objective
 
         if compile:
             jt_disable = os.environ.get("JAXTYPING_DISABLE", "0").lower()
@@ -105,7 +106,7 @@ class NRDKLightningModule(
             objective = torch.compile(objective)  # type: ignore
 
         self._model = model
-        self.objective = objective
+        self._objective = objective
         self.optimizer = optimizer
         self.transforms = transforms
         self.vis_interval = vis_interval
@@ -248,7 +249,7 @@ class NRDKLightningModule(
         transformed = cast(YTrue, self.transform(batch))  # type: ignore
         y_pred = cast(YPred, self(transformed))
 
-        loss, metrics = self.objective(transformed, y_pred, train=True)
+        loss, metrics = self._objective(transformed, y_pred, train=True)
         loss = torch.mean(loss)
         metrics = {k: torch.mean(v) for k, v in metrics.items()}
 
@@ -284,7 +285,7 @@ class NRDKLightningModule(
         """Standard lightning validation step."""
         transformed = cast(YTrue, self.transform(batch))  # type: ignore
         y_hat = self(transformed)
-        loss, metrics = self.objective(transformed, y_hat, train=False)
+        loss, metrics = self._objective(transformed, y_hat, train=False)
         loss = torch.mean(loss)
         metrics = {k: torch.mean(v) for k, v in metrics.items()}
 
@@ -338,7 +339,7 @@ class NRDKLightningModule(
                     cast(YTrueRaw, batch_gpu)))  # type: ignore
                 y_hat = cast(YPred, self(transformed))
 
-                loss, metrics = self.objective(transformed, y_hat, train=False)
+                loss, metrics = self._objective(transformed, y_hat, train=False)
                 metrics["loss"] = loss
                 if metadata is not None:
                     metrics.update(metadata(transformed))
