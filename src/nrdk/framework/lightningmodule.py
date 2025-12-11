@@ -65,9 +65,9 @@ class NRDKLightningModule(
             model parameter already bound.
         transforms: data transform or pipeline to apply; potentially also a
             `nn.Module`; if `None`, no transforms are applied.
-        compile: if `True`, compile the model with `torch.compile`. Note that
-            this may cause a problem for typecheckers (so you should set
-            `JAXTYPING_DISABLE=1`).
+        compile: if `True`, compile the model and objective with
+            `torch.compile`. Note that causes problems for typecheckers (so you
+            should set `JAXTYPING_DISABLE=1`).
         vis_interval: log visualizations (from replica `0` only) every
             `vis_interval` steps; if `<=0`, disable altogether.
         vis_samples: maximum number of samples to visualize during training.
@@ -91,7 +91,6 @@ class NRDKLightningModule(
         super().__init__()
 
         self._log = logging.getLogger("NRDKLightningModule")
-        self.model = model
         self.objective = objective
 
         if compile:
@@ -105,7 +104,7 @@ class NRDKLightningModule(
             model = torch.compile(model)  # type: ignore
             objective = torch.compile(objective)  # type: ignore
 
-        self._model = model
+        self.model = model
         self._objective = objective
         self.optimizer = optimizer
         self.transforms = transforms
@@ -157,6 +156,14 @@ class NRDKLightningModule(
         if "model" in weights:
             weights = weights["model"]
 
+        def _strip_prefix(k):
+            if k.startswith("model."):
+                k = k[6:]
+            if k.startswith("_orig_mod."):
+                k = k[10:]
+            return k
+
+        weights = {_strip_prefix(k): v for k, v in weights.items()}
         for pattern in rename:
             pat, sub = next(iter(pattern.items()))
             if sub is None:
@@ -176,7 +183,7 @@ class NRDKLightningModule(
         return missing, unexpected
 
     def forward(self, x: YTrue) -> YPred:
-        return self._model(x)
+        return self.model(x)
 
     @torch.compiler.disable
     def _make_log(
