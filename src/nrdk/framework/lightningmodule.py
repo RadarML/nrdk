@@ -2,7 +2,6 @@
 
 import logging
 import os
-import re
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import cache
@@ -91,6 +90,7 @@ class NRDKLightningModule(
         super().__init__()
 
         self._log = logging.getLogger("NRDKLightningModule")
+        self.model = model
 
         if compile:
             jt_disable = os.environ.get("JAXTYPING_DISABLE", "0").lower()
@@ -101,8 +101,9 @@ class NRDKLightningModule(
                     "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
 
             model = torch.compile(model)  # type: ignore
+            objective = torch.compile(objective)  # type: ignore
 
-        self.model = model
+        self._model = model
         self.objective = objective
         self.optimizer = optimizer
         self.transforms = transforms
@@ -154,22 +155,6 @@ class NRDKLightningModule(
         if "model" in weights:
             weights = weights["model"]
 
-        def _strip_prefix(k):
-            if k.startswith("model."):
-                k = k[6:]
-            if k.startswith("_orig_mod."):
-                k = k[10:]
-            return k
-
-        weights = {_strip_prefix(k): v for k, v in weights.items()}
-        for pattern in rename:
-            pat, sub = next(iter(pattern.items()))
-            if sub is None:
-                weights = {
-                    k: v for k, v in weights.items() if not re.search(pat, k)}
-            else:
-                weights = {re.sub(pat, sub, k): v for k, v in weights.items()}
-
         missing, unexpected = self.model.load_state_dict(weights, strict=False)
         self._log.info(
             f"Loaded {len(weights) - len(unexpected)} weights from {path}.")
@@ -181,7 +166,7 @@ class NRDKLightningModule(
         return missing, unexpected
 
     def forward(self, x: YTrue) -> YPred:
-        return self.model(x)
+        return self._model(x)
 
     @torch.compiler.disable
     def _make_log(
