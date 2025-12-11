@@ -116,4 +116,3 @@ def inst_from(
             for k in key:
                 spec = spec[k]
     return hydra.utils.instantiate(spec)
-

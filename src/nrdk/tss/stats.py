@@ -1,9 +1,10 @@
 """Time series analysis."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import partial
 from multiprocessing.pool import ThreadPool
-from typing import TYPE_CHECKING, Any, Sequence, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 import pandas as pd

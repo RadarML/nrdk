@@ -1,5 +1,7 @@
 """Nonstandard 2D Convolutional modules."""
 
+from typing import Literal
+
 import torch
 from jaxtyping import Float
 from torch import Tensor, nn
@@ -28,7 +30,9 @@ class ConvNextLayer(nn.Module):
 
     def __init__(
         self, channels: int, expansion_ratio: int | float = 4.0,
-        padding_mode: str = "zeros", layer_scale_init_value: float = 1e-6
+        padding_mode: Literal[
+            'zeros', 'reflect', 'replicate', 'circular'] = "zeros",
+        layer_scale_init_value: float = 1e-6
     ) -> None:
         super().__init__()
 

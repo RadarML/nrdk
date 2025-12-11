@@ -12,3 +12,9 @@ repos:
         entry: uv run --extra dev pyright
         language: system
         types: [python]
+
+      - id: pytest
+        name: Run pytest with coverage
+        entry: uv run --extra dev --extra roverd pytest -- tests
+        language: system
+        pass_filenames: false

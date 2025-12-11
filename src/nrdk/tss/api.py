@@ -2,8 +2,9 @@
 
 import os
 import re
+from collections.abc import Mapping, Sequence
 from multiprocessing import pool
-from typing import TYPE_CHECKING, Any, Mapping, Sequence, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 import optree

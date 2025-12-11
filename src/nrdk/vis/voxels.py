@@ -116,7 +116,7 @@ def bev_height_from_polar_occupancy(
     if scale:
         zmin = reduce(height, "batch height width -> batch", "min")
         zmax = reduce(height, "batch height width -> batch", "max")
-        return (height - zmin) / (zmax - zmin)
+        return (height - zmin[:, None, None]) / (zmax - zmin)[:, None, None]
     else:
         if height.shape[-1] <= 256:
             return height.to(torch.uint8)

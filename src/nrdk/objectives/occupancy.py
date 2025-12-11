@@ -1,6 +1,7 @@
 """Radar training objectives and common building blocks for losses/metrics."""
 
-from typing import Any, Literal, Mapping, Protocol, runtime_checkable
+from collections.abc import Mapping
+from typing import Any, Literal, Protocol, runtime_checkable
 
 import numpy as np
 import torch
@@ -286,7 +287,8 @@ class Occupancy2D(Objective[
             "bce": self.bce_loss(
                 occ_true[:, None, :, :], _y_pred[:, None, :, :]),
             "dice": self.dice_loss(
-                occ_true[:, None, :, :], _y_pred[:, None, :, :])
+                occ_true[:, None, :, :],
+                torch.nn.functional.sigmoid(_y_pred[:, None, :, :]))
         }
         if not train:
             metrics["chamfer"] = self.chamfer(_y_pred > 0, occ_true)
