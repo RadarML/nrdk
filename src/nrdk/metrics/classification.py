@@ -2,8 +2,8 @@
 
 from typing import Literal
 
-import einops
 import torch
+from einops import reduce
 from jaxtyping import Bool, Float
 from torch import Tensor
 from torch.nn.functional import binary_cross_entropy_with_logits
@@ -56,13 +56,44 @@ class BCE:
             weight = torch.where(y_true, self.positive_weight, 1.0) * weight
 
         weight = weight.expand(y_true.shape)
-        total_weight = einops.reduce(weight, "batch y z range -> batch", "sum")
-        loss = einops.reduce(
+        total_weight = reduce(weight, "batch y z range -> batch", "sum")
+        loss = reduce(
             weight * binary_cross_entropy_with_logits(
                 y_hat, y_true.to(y_hat.dtype), reduction='none'),
             "batch y z range -> batch", "sum")
 
         return loss / total_weight
+
+
+class BinaryDiceLoss:
+    """Binary Dice loss for classification."""
+
+    def __init__(
+        self, weighting: Literal["cylindrical", "spherical"] | None = None
+    ) -> None:
+        self.weighting = weighting
+
+    def __call__(
+        self, y_true: Bool[Tensor, "batch y z range"],
+        y_hat: Float[Tensor, "batch y z range"]
+    ) -> Float[Tensor, "batch"]:
+        """Compute dice loss for binary classification."""
+        *_, nr = y_true.shape
+
+        with torch.device(y_true.device):
+            if self.weighting == "cylindrical":
+                weight = ((torch.arange(nr) + 1))[..., :]
+            elif self.weighting == "spherical":
+                weight = ((torch.arange(nr) + 1))[..., :] ** 2
+            else:
+                weight = torch.ones((1, 1, 1, 1), dtype=y_hat.dtype)
+
+        denominator = reduce(
+            y_hat * y_hat * weight, "batch y z range -> batch", "sum"
+        ) + reduce(y_true * weight, "batch y z range -> batch", "sum")
+        numerator = 2 * reduce(
+            y_hat * y_true * weight, "batch y z range -> batch", "sum")
+        return 1.0 - numerator / denominator
 
 
 class FocalLoss:

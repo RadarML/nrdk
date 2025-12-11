@@ -2,12 +2,17 @@ defaults:
   - _self_
   - size: small
   - aug@transforms.sample.augmentations: full
-  - sensors@datamodule.dataset.sensors: ["radar", "lidar"]
+  - sensors: ["radar", "lidar"]
   - transforms@transforms.sample: ["radar", "lidar3d"]
   - traces@datamodule.traces: ["bike", "indoor", "outdoor"]
   - model: default
   - trainer: default
   - objective: lidar3d
+  - optimizer: default
+
+hydra:
+  run:
+    dir: ${meta.results}/${meta.name}/${meta.version}
 
 meta:
   dataset: data/
@@ -18,9 +23,11 @@ meta:
 
 size: {}
 
-hydra:
-  run:
-    dir: ${meta.results}/${meta.name}/${meta.version}
+model: {}
+objective: {}
+aug: {}
+optimizer: {}
+sensors: {}
 
 datamodule:
   _target_: nrdk.roverd.datamodule
@@ -31,7 +38,7 @@ datamodule:
       _target_: abstract_dataloader.generic.Next
       margin: [1.0, 1.0]
       reference: "radar"
-    sensors: {}  # sensors/*.yaml
+    sensors: ${sensors}
   traces:
     train:
       _target_: nrdk.config.expand
@@ -39,7 +46,7 @@ datamodule:
     test:
       _target_: nrdk.config.expand
       path: ${meta.dataset}
-  batch_size: 32
+  batch_size: 64
   samples: 8
   num_workers: 16
   prefetch_factor: 1
@@ -48,10 +55,6 @@ datamodule:
   ptrain: 0.8
   pval: 0.2
 
-model: {}
-
-objective: {}
-
 lightningmodule:
   _target_: nrdk.framework.NRDKLightningModule
   compile: false
@@ -59,13 +62,7 @@ lightningmodule:
   vis_samples: 16
   objective: ${objective}
   model: ${model}
-  optimizer:
-    _target_: torch.optim.AdamW
-    _partial_: true
-    lr: 1e-4
-    weight_decay: 1e-2
-    betas: [0.9, 0.999]
-    eps: 1e-8
+  optimizer: ${optimizer}
 
 transforms:
   _target_: abstract_dataloader.abstract.Pipeline
@@ -73,6 +70,7 @@ transforms:
     _target_: abstract_dataloader.ext.graph.Transform
     keep_all: false
     outputs: {}  # sensors/*.yaml
+    augmentations: ${aug}
   collate:
     _target_: abstract_dataloader.ext.torch.Collate
     mode: "concat"

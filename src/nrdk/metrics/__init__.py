@@ -10,7 +10,7 @@
 from jaxtyping import install_import_hook
 
 with install_import_hook("nrdk.metrics", "beartype.beartype"):
-    from .classification import BCE, FocalLoss
+    from .classification import BCE, BinaryDiceLoss, FocalLoss
     from .metrics import (
         DepthWithConfidence,
         Lp,
@@ -21,7 +21,7 @@ with install_import_hook("nrdk.metrics", "beartype.beartype"):
     from .pointcloud import PolarChamfer2D, PolarChamfer3D
 
 __all__ = [
-    "BCE", "FocalLoss",
+    "BCE", "BinaryDiceLoss", "FocalLoss",
     "DepthWithConfidence", "Lp", "VoxelDepth", "lp_power", "mean_with_mask",
     "PolarChamfer2D", "PolarChamfer3D",
 ]

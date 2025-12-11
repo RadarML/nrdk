@@ -14,6 +14,49 @@ The GRT reference implementation uses a [hydra](https://hydra.cc/docs/intro/) + 
 
     Pre-trained model checkpoints for the GRT reference implementation on the [I/Q-1M dataset](https://radarml.github.io/red-rover/iq1m/) can also be found [here](https://radarml.github.io/red-rover/iq1m/osn/#download-from-osn).
 
+    With a single GPU, these checkpoints can be reproduced with the following:
+
+    === "Base Model"
+        The 3D polar occupancy base model is provided as the default configuration (i.e., `sensors=[radar,lidar]`, `transforms@transforms.sample=[radar,lidar3d]`, `objective=lidar3d`, `model/decoder=lidar3d`).
+        ```sh
+        uv run train.py meta.name=base meta.version=small size=small
+        ```
+
+    === "2D Occupancy"
+        ```sh
+        uv run train.py meta.name=occ2d meta.version=small size=small \
+            +base=occ3d_to_occ2d \
+            sensors=[radar,lidar] \
+            transforms@transforms.sample=[radar,lidar2d] \
+            objective=lidar2d \
+            model/decoder=lidar2d
+        ```
+
+    === "Semantic Segmentation"
+        ```sh
+        uv run train.py meta.name=semseg meta.version=small size=small \
+            +base=occ3d_to_semseg \
+            sensors=[radar,semseg] \
+            transforms@transforms.sample=[radar,semseg] \
+            objective=semseg \
+            model/decoder=semseg
+        ```
+
+    === "Ego-Motion"
+        ```sh
+        uv run train.py meta.name=vel meta.version=small size=small \
+            +base=occ3d_to_vel \
+            sensors=[radar,pose]
+            transforms@transforms.sample=[radar,vel] \
+            objective=vel \
+            model/decoder=vel
+        ```
+
+!!! tip
+
+    If you're not running in a "managed" environment (e.g., Slurm, LSF, AzureML), [`nq`](https://github.com/leahneukirchen/nq) is a lightweight way to run jobs in a queue. Just `sudo apt-get install -y nq`, and run with `nq uv run train.py ...`.
+
+
 ## Quick Start
 
 1. Create a new repository, and copy the contents of the `grt/` directory:

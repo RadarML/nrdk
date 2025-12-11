@@ -62,6 +62,14 @@ def train(cfg: DictConfig) -> None:
         return hydra.utils.instantiate(
             cfg[path], _convert_="all", *args, **kwargs)
 
+    n_gpus = torch.cuda.device_count()
+    if "batch_size" in cfg["datamodule"] and n_gpus > 1:
+        batch_new = cfg["datamodule"]["batch_size"] // n_gpus
+        logger.info(
+            f"Auto-scaling batch size by n_gpus={n_gpus}: "
+            f"{cfg["datamodule"]["batch_size"]} -> {batch_new}")
+        cfg["datamodule"]["batch_size"] = batch_new
+
     transforms = _inst("transforms")
     datamodule = _inst("datamodule", transforms=transforms)
     lightningmodule = _inst("lightningmodule", transforms=transforms)

@@ -7,6 +7,7 @@ occupancy2d:
     _target_: nrdk.objectives.Occupancy2D
     range_weighted: True
     positive_weight: 64.0
+    bce_weight: 0.9
     vis_config:
       cols: 8
       width: 512
