@@ -109,7 +109,7 @@ class NRDKLightningModule(
         self.vis_interval = vis_interval
         self.vis_samples = vis_samples
 
-    # NOTE: any @torch.compiler.disable method break the type checker. Any
+    # NOTE: any @torch.compiler.disable method breaks the type checker. Any
     # calls to them must be # type: ignore'd.
     @torch.compiler.disable
     def load_weights(

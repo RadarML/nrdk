@@ -267,7 +267,7 @@ def test_semseg_basic():
     assert loss.shape == (2,)
     assert torch.all(loss >= 0)
     assert torch.all(torch.isfinite(loss))
-    assert "bce" in metrics  # Actually cross-entropy loss, labeled as 'bce'
+    assert "bce" in metrics
     assert "acc" in metrics
     assert "top2" in metrics
     assert "miou" in metrics

@@ -34,4 +34,4 @@ jobs:
 
     - name: Run tests
       run: |
-        uv run --extra dev --extra roverd -ra -- tests
+        uv run --extra dev --extra roverd pytest -ra -- tests
