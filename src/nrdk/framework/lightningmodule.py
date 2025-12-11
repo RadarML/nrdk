@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import cache
@@ -154,6 +155,14 @@ class NRDKLightningModule(
             weights = weights["state_dict"]
         if "model" in weights:
             weights = weights["model"]
+
+        for pattern in rename:
+            pat, sub = next(iter(pattern.items()))
+            if sub is None:
+                weights = {
+                    k: v for k, v in weights.items() if not re.search(pat, k)}
+            else:
+                weights = {re.sub(pat, sub, k): v for k, v in weights.items()}
 
         missing, unexpected = self.model.load_state_dict(weights, strict=False)
         self._log.info(
