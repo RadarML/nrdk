@@ -1,6 +1,7 @@
 """Radar training objectives and common building blocks for losses/metrics."""
 
-from typing import Any, Literal, Mapping, Protocol, runtime_checkable
+from collections.abc import Mapping
+from typing import Any, Literal, Protocol, runtime_checkable
 
 import numpy as np
 import torch

@@ -4,9 +4,9 @@ import logging
 import os
 import re
 import threading
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import cache
-from typing import Any, Callable, Generic, TypeVar, cast
+from typing import Any, Generic, TypeVar, cast
 
 import lightning
 import numpy as np
@@ -109,6 +109,8 @@ class NRDKLightningModule(
         self.vis_interval = vis_interval
         self.vis_samples = vis_samples
 
+    # NOTE: any @torch.compiler.disable method break the type checker. Any
+    # calls to them must be # type: ignore'd.
     @torch.compiler.disable
     def load_weights(
         self, path: str, rename: Sequence[Mapping[str, str | None]] = []
@@ -249,8 +251,8 @@ class NRDKLightningModule(
         self, batch: YTrueRaw, batch_idx: int
     ) -> torch.Tensor:
         """Standard lightning training step."""
-        transformed = self.transform(batch)
-        y_pred = self(transformed)
+        transformed = cast(YTrue, self.transform(batch))  # type: ignore
+        y_pred = cast(YPred, self(transformed))
 
         loss, metrics = self.objective(transformed, y_pred, train=True)
         loss = torch.mean(loss)
@@ -268,7 +270,8 @@ class NRDKLightningModule(
             and self.vis_interval > 0
             and (self.global_step % self.vis_interval == 0))
         if do_log:
-            self.log_visualizations(transformed, y_pred, split="train")
+            self.log_visualizations(
+                transformed, y_pred, split="train")  # type: ignore
 
         return loss
 
@@ -285,7 +288,7 @@ class NRDKLightningModule(
 
     def validation_step(self, batch: YTrueRaw, batch_idx: int) -> None:
         """Standard lightning validation step."""
-        transformed = self.transform(batch)
+        transformed = cast(YTrue, self.transform(batch))  # type: ignore
         y_hat = self(transformed)
         loss, metrics = self.objective(transformed, y_hat, train=False)
         loss = torch.mean(loss)
@@ -301,7 +304,8 @@ class NRDKLightningModule(
                 samples_gpu = self.transform(cast(YTrueRaw, optree.tree_map(
                     lambda x: x.to(loss.device), val_samples)))  # type: ignore
                 y_hat = self(samples_gpu)
-                self.log_visualizations(samples_gpu, y_hat, split="val")
+                self.log_visualizations(
+                    samples_gpu, y_hat, split="val")  # type: ignore
 
     def evaluate(
         self, dataset: torch.utils.data.DataLoader,
@@ -336,8 +340,9 @@ class NRDKLightningModule(
             for batch in dataset:
                 batch_gpu = optree.tree_map(lambda x: x.to(device), batch)
 
-                transformed = self.transform(cast(YTrueRaw, batch_gpu))
-                y_hat = self(transformed)
+                transformed = cast(YTrue, self.transform(
+                    cast(YTrueRaw, batch_gpu)))  # type: ignore
+                y_hat = cast(YPred, self(transformed))
 
                 loss, metrics = self.objective(transformed, y_hat, train=False)
                 metrics["loss"] = loss

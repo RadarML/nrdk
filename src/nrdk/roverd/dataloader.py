@@ -1,8 +1,8 @@
 """Dataloader creation."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from functools import cache, partial
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import roverd

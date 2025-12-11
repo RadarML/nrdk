@@ -1,6 +1,7 @@
 """Data transforms."""
 
-from typing import Any, Generic, Mapping
+from collections.abc import Mapping
+from typing import Any, Generic
 
 import numpy as np
 from abstract_dataloader.ext.types import TArray, dataclass

@@ -1,6 +1,7 @@
 """Lidar transforms."""
 
-from typing import Any, Generic, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any, Generic
 
 import numpy as np
 from abstract_dataloader.ext.types import TArray, dataclass
