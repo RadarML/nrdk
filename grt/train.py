@@ -77,6 +77,15 @@ def train(cfg: DictConfig) -> None:
     if "base" in cfg:
         _load_weights(lightningmodule, **cfg['base'])
 
+    if cfg["meta"]["compile"]:
+        jt_disable = os.environ.get("JAXTYPING_DISABLE", "0").lower()
+        if jt_disable not in ("1", "true"):
+            logger.error(
+                "torch.compile is currently incompatible with jaxtyping; "
+                "if you see type errors, set the environment variable "
+                "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
+        lightningmodule = torch.compile(lightningmodule)
+
     start = perf_counter()
     logger.info(
         f"Start training @ {cfg["meta"]["results"]}/{cfg["meta"]["name"]}/"

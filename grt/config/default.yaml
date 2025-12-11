@@ -20,6 +20,7 @@ meta:
   name: null
   version: null
   resume: null
+  compile: false
 
 size: {}
 
@@ -57,7 +58,6 @@ datamodule:
 
 lightningmodule:
   _target_: nrdk.framework.NRDKLightningModule
-  compile: false
   vis_interval: 1000
   vis_samples: 16
   objective: ${objective}

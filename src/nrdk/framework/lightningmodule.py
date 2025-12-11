@@ -1,7 +1,6 @@
 """Lightning module."""
 
 import logging
-import os
 import re
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -65,9 +64,6 @@ class NRDKLightningModule(
             model parameter already bound.
         transforms: data transform or pipeline to apply; potentially also a
             `nn.Module`; if `None`, no transforms are applied.
-        compile: if `True`, compile the model and objective with
-            `torch.compile`. Note that causes problems for typecheckers (so you
-            should set `JAXTYPING_DISABLE=1`).
         vis_interval: log visualizations (from replica `0` only) every
             `vis_interval` steps; if `<=0`, disable altogether.
         vis_samples: maximum number of samples to visualize during training.
@@ -85,27 +81,13 @@ class NRDKLightningModule(
         transforms:
             spec.Pipeline[Any, Any, YTrueRaw, YTrue]
             | spec.Transform[YTrueRaw, YTrue] | None = None,
-        compile: bool = False,
         vis_interval: int = 0, vis_samples: int = 16
     ) -> None:
         super().__init__()
 
         self._log = logging.getLogger("NRDKLightningModule")
-        self.objective = objective
-
-        if compile:
-            jt_disable = os.environ.get("JAXTYPING_DISABLE", "0").lower()
-            if jt_disable not in ("1", "true"):
-                self._log.warning(
-                    "torch.compile is currently incompatible with jaxtyping; "
-                    "if you see type errors, set the environment variable "
-                    "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
-
-            model = torch.compile(model)  # type: ignore
-            objective = torch.compile(objective)  # type: ignore
-
         self.model = model
-        self._objective = objective
+        self.objective = objective
         self.optimizer = optimizer
         self.transforms = transforms
         self.vis_interval = vis_interval
@@ -186,6 +168,10 @@ class NRDKLightningModule(
         return self.model(x)
 
     @torch.compiler.disable
+    def apply_transform(self, x: YTrueRaw) -> YTrue:
+        return cast(YTrue, self.transform(x))  # type: ignore
+
+    @torch.compiler.disable
     def _make_log(
         self, y_true: YTrue, y_pred: YPred, split: str, step: int
     ) -> None:
@@ -253,10 +239,10 @@ class NRDKLightningModule(
         self, batch: YTrueRaw, batch_idx: int
     ) -> torch.Tensor:
         """Standard lightning training step."""
-        transformed = cast(YTrue, self.transform(batch))  # type: ignore
+        transformed = cast(YTrue, self.apply_transform(batch))  # type: ignore
         y_pred = cast(YPred, self(transformed))
 
-        loss, metrics = self._objective(transformed, y_pred, train=True)
+        loss, metrics = self.objective(transformed, y_pred, train=True)
         loss = torch.mean(loss)
         metrics = {k: torch.mean(v) for k, v in metrics.items()}
 
@@ -290,9 +276,9 @@ class NRDKLightningModule(
 
     def validation_step(self, batch: YTrueRaw, batch_idx: int) -> None:
         """Standard lightning validation step."""
-        transformed = cast(YTrue, self.transform(batch))  # type: ignore
+        transformed = cast(YTrue, self.apply_transform(batch))  # type: ignore
         y_hat = self(transformed)
-        loss, metrics = self._objective(transformed, y_hat, train=False)
+        loss, metrics = self.objective(transformed, y_hat, train=False)
         loss = torch.mean(loss)
         metrics = {k: torch.mean(v) for k, v in metrics.items()}
 
@@ -342,11 +328,11 @@ class NRDKLightningModule(
             for batch in dataset:
                 batch_gpu = optree.tree_map(lambda x: x.to(device), batch)
 
-                transformed = cast(YTrue, self.transform(
+                transformed = cast(YTrue, self.apply_transform(
                     cast(YTrueRaw, batch_gpu)))  # type: ignore
                 y_hat = cast(YPred, self(transformed))
 
-                loss, metrics = self._objective(transformed, y_hat, train=False)
+                loss, metrics = self.objective(transformed, y_hat, train=False)
                 metrics["loss"] = loss
                 if metadata is not None:
                     metrics.update(metadata(transformed))
