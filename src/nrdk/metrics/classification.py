@@ -2,8 +2,8 @@
 
 from typing import Literal
 
-import einops
 import torch
+from einops import reduce
 from jaxtyping import Bool, Float
 from torch import Tensor
 from torch.nn.functional import binary_cross_entropy_with_logits
@@ -56,8 +56,8 @@ class BCE:
             weight = torch.where(y_true, self.positive_weight, 1.0) * weight
 
         weight = weight.expand(y_true.shape)
-        total_weight = einops.reduce(weight, "batch y z range -> batch", "sum")
-        loss = einops.reduce(
+        total_weight = reduce(weight, "batch y z range -> batch", "sum")
+        loss = reduce(
             weight * binary_cross_entropy_with_logits(
                 y_hat, y_true.to(y_hat.dtype), reduction='none'),
             "batch y z range -> batch", "sum")
@@ -88,10 +88,11 @@ class BinaryDiceLoss:
             else:
                 weight = torch.ones((1, 1, 1, 1), dtype=y_hat.dtype)
 
-        denominator = (
-            torch.sum(y_hat * y_hat * weight, dim=(1, 2))
-            + torch.sum(y_true * weight, dim=(1, 2)))
-        numerator = 2 * torch.sum(y_hat * y_true * weight, dim=(1, 2))
+        denominator = reduce(
+            y_hat * y_hat * weight, "batch y z range -> batch", "sum"
+        ) + reduce(y_true * weight, "batch y z range -> batch", "sum")
+        numerator = 2 * reduce(
+            y_hat * y_true * weight, "batch y z range -> batch", "sum")
         return 1.0 - numerator / denominator
 
 
