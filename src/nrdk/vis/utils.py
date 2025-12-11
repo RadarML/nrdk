@@ -100,7 +100,7 @@ def tile_images(
 
 def swap_angular_conventions(
     data: Shaped[Tensor, "batch h w *c"]
-) -> Shaped[Tensor, "batch h w *c"]:
+) -> Shaped[Tensor, "batch w h *c"]:
     """Swap image and spatial angular conventions.
 
     - Image conventions are in elevation-azimuth order (vertical axis is first),
