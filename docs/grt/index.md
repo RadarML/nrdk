@@ -52,6 +52,10 @@ The GRT reference implementation uses a [hydra](https://hydra.cc/docs/intro/) + 
             model/decoder=vel
         ```
 
+!!! tip
+
+    If you're not running in a "managed" environment (e.g., Slurm, LSF, AzureML), [`nq`](https://github.com/leahneukirchen/nq) is a lightweight way to run jobs in a queue. Just `sudo apt-get install -y nq`, and run with `nq uv run train.py ...`.
+
 
 ## Quick Start
 
