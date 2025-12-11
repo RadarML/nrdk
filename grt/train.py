@@ -62,6 +62,9 @@ def train(cfg: DictConfig) -> None:
         return hydra.utils.instantiate(
             cfg[path], _convert_="all", *args, **kwargs)
 
+    if "batch" in cfg["datamodule"] and torch.cuda.device_count() > 1:
+        cfg["datamodule"]["batch"] /= torch.cuda.device_count()
+
     transforms = _inst("transforms")
     datamodule = _inst("datamodule", transforms=transforms)
     lightningmodule = _inst("lightningmodule", transforms=transforms)

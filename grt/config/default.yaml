@@ -46,7 +46,7 @@ datamodule:
     test:
       _target_: nrdk.config.expand
       path: ${meta.dataset}
-  batch_size: 32
+  batch_size: 64
   samples: 8
   num_workers: 16
   prefetch_factor: 1
