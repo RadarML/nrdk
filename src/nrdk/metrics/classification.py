@@ -146,4 +146,5 @@ class FocalLoss:
         focus = torch.clip((1 - p_t) ** self.gamma, self.eps, 1 - self.eps)
         fl = - focus * log_p_t
 
-        return fl
+        batch_size = y_true.shape[0]
+        return torch.mean(fl.reshape(batch_size, -1), dim=1)

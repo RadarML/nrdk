@@ -31,3 +31,7 @@ jobs:
     - name: Type check with pyright
       run: |
         uv run --extra dev --extra roverd pyright ./src
+
+    - name: Run tests
+      run: |
+        uv run --extra dev --extra roverd -ra -- tests
