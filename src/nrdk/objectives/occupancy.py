@@ -287,7 +287,8 @@ class Occupancy2D(Objective[
             "bce": self.bce_loss(
                 occ_true[:, None, :, :], _y_pred[:, None, :, :]),
             "dice": self.dice_loss(
-                occ_true[:, None, :, :], _y_pred[:, None, :, :])
+                occ_true[:, None, :, :],
+                torch.nn.functional.sigmoid(_y_pred[:, None, :, :]))
         }
         if not train:
             metrics["chamfer"] = self.chamfer(_y_pred > 0, occ_true)
