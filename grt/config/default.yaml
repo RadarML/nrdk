@@ -13,6 +13,10 @@ defaults:
 hydra:
   run:
     dir: ${meta.results}/${meta.name}/${meta.version}
+  callbacks:
+    prevent_overwrite:
+      _target_: nrdk.config.PreventHydraOverwrite
+
 
 meta:
   dataset: data/
