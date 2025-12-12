@@ -6,7 +6,7 @@ occupancy3d:
   objective:
     _target_: nrdk.objectives.Occupancy3D
     range_weighted: True
-    positive_weight: 64.0
+    positive_weight: 16.0
     mode: spherical
     vis_config:
       cols: 8

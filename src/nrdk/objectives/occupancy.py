@@ -253,7 +253,7 @@ class Occupancy2D(Objective[
     """
 
     def __init__(
-        self, range_weighted: bool = True, positive_weight: float = 64.0,
+        self, range_weighted: bool = True, positive_weight: float = 1.0,
         bce_weight: float = 0.9,
         az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
         vis_config: VisualizationConfig | Mapping = {},

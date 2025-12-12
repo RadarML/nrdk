@@ -10,47 +10,47 @@ The GRT reference implementation uses a [hydra](https://hydra.cc/docs/intro/) + 
     2. Create a virtual environment in `nrdk/grt` with `uv sync`.
     3. Run with `uv run train.py`; see the hydra config files in `nrdk/grt/config/` for options.
 
-!!! info "Pre-Trained Checkpoints"
+## Pre-Trained Checkpoints
 
-    Pre-trained model checkpoints for the GRT reference implementation on the [I/Q-1M dataset](https://radarml.github.io/red-rover/iq1m/) can also be found [here](https://radarml.github.io/red-rover/iq1m/osn/#download-from-osn).
+Pre-trained model checkpoints for the GRT reference implementation on the [I/Q-1M dataset](https://radarml.github.io/red-rover/iq1m/) can also be found [here](https://radarml.github.io/red-rover/iq1m/osn/#download-from-osn).
 
-    With a single GPU, these checkpoints can be reproduced with the following:
+With a single GPU, these checkpoints can be reproduced with the following:
 
-    === "Base Model"
-        The 3D polar occupancy base model is provided as the default configuration (i.e., `sensors=[radar,lidar]`, `transforms@transforms.sample=[radar,lidar3d]`, `objective=lidar3d`, `model/decoder=lidar3d`).
-        ```sh
-        uv run train.py meta.name=base meta.version=small size=small
-        ```
+=== "Base Model"
+    The 3D polar occupancy base model is provided as the default configuration (i.e., `sensors=[radar,lidar]`, `transforms@transforms.sample=[radar,lidar3d]`, `objective=lidar3d`, `model/decoder=lidar3d`).
+    ```sh
+    uv run train.py meta.name=base meta.version=small size=small
+    ```
 
-    === "2D Occupancy"
-        ```sh
-        uv run train.py meta.name=occ2d meta.version=small size=small \
-            +base=occ3d_to_occ2d \
-            sensors=[radar,lidar] \
-            transforms@transforms.sample=[radar,lidar2d] \
-            objective=lidar2d \
-            model/decoder=lidar2d
-        ```
+=== "2D Occupancy"
+    ```sh
+    uv run train.py meta.name=occ2d meta.version=small size=small \
+        +base=occ3d_to_occ2d \
+        sensors=[radar,lidar] \
+        transforms@transforms.sample=[radar,lidar2d] \
+        objective=lidar2d \
+        model/decoder=lidar2d
+    ```
 
-    === "Semantic Segmentation"
-        ```sh
-        uv run train.py meta.name=semseg meta.version=small size=small \
-            +base=occ3d_to_semseg \
-            sensors=[radar,semseg] \
-            transforms@transforms.sample=[radar,semseg] \
-            objective=semseg \
-            model/decoder=semseg
-        ```
+=== "Semantic Segmentation"
+    ```sh
+    uv run train.py meta.name=semseg meta.version=small size=small \
+        +base=occ3d_to_semseg \
+        sensors=[radar,semseg] \
+        transforms@transforms.sample=[radar,semseg] \
+        objective=semseg \
+        model/decoder=semseg
+    ```
 
-    === "Ego-Motion"
-        ```sh
-        uv run train.py meta.name=vel meta.version=small size=small \
-            +base=occ3d_to_vel \
-            sensors=[radar,pose]
-            transforms@transforms.sample=[radar,vel] \
-            objective=vel \
-            model/decoder=vel
-        ```
+=== "Ego-Motion"
+    ```sh
+    uv run train.py meta.name=vel meta.version=small size=small \
+        +base=occ3d_to_vel \
+        sensors=[radar,pose] \
+        transforms@transforms.sample=[radar,vel] \
+        objective=vel \
+        model/decoder=vel
+    ```
 
 !!! tip
 
@@ -117,6 +117,13 @@ The GRT template includes reference training scripts which can be used for high 
 
     ```python title="grt/train_minimal.py"
     --8<-- "grt/train_minimal.py"
+    ```
+
+!!! info "Compile the Model"
+
+    You can invoke the pytorch [JIT Compiler](https://docs.pytorch.org/tutorials/intermediate/torch_compile_tutorial.html) by setting `meta.compile=True`. Since the pytorch compiler is kind of janky and causes issues with type checkers, you will also need to set
+    ```sh
+    export JAXTYPING_DISABLE=1
     ```
 
 ## Evaluation Script

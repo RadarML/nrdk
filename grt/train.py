@@ -85,6 +85,7 @@ def train(cfg: DictConfig) -> None:
                 "if you see type errors, set the environment variable "
                 "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
         lightningmodule = torch.compile(lightningmodule)
+        logger.info("LightningModule compiled with torch.compile.")
 
     start = perf_counter()
     logger.info(
