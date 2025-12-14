@@ -1,6 +1,7 @@
 """Lightning module."""
 
 import logging
+import os
 import re
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -93,6 +94,27 @@ class NRDKLightningModule(
         self.vis_interval = vis_interval
         self.vis_samples = vis_samples
 
+    def compile(self) -> None:
+        """Compile model in-place.
+
+        !!! bug
+
+            `torch.compile` is currently incompatible with `jaxtyping`. If you
+            see type errors after compiling, set the environment variable
+            `JAXTYPING_DISABLE=1` to disable jaxtyping checks.
+
+            This method is a thin wrapper over pytorch's native in-place
+            compile API which warns about this issue.
+        """
+        jt_disable = os.environ.get("JAXTYPING_DISABLE", "0").lower()
+        if jt_disable not in ("1", "true"):
+            self._log.error(
+                "torch.compile is currently incompatible with jaxtyping; "
+                "if you see type errors, set the environment variable "
+                "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
+        super().compile()
+        self._log.info("LightningModule compiled with torch.compile.")
+
     # NOTE: any @torch.compiler.disable method breaks the type checker. Any
     # calls to them must be # type: ignore'd.
     @torch.compiler.disable
@@ -168,10 +190,6 @@ class NRDKLightningModule(
         return self.model(x)
 
     @torch.compiler.disable
-    def apply_transform(self, x: YTrueRaw) -> YTrue:
-        return cast(YTrue, self.transform(x))  # type: ignore
-
-    @torch.compiler.disable
     def _make_log(
         self, y_true: YTrue, y_pred: YPred, split: str, step: int
     ) -> None:
@@ -239,7 +257,7 @@ class NRDKLightningModule(
         self, batch: YTrueRaw, batch_idx: int
     ) -> torch.Tensor:
         """Standard lightning training step."""
-        transformed = cast(YTrue, self.apply_transform(batch))  # type: ignore
+        transformed = cast(YTrue, self.transform(batch))  # type: ignore
         y_pred = cast(YPred, self(transformed))
 
         loss, metrics = self.objective(transformed, y_pred, train=True)
@@ -276,7 +294,7 @@ class NRDKLightningModule(
 
     def validation_step(self, batch: YTrueRaw, batch_idx: int) -> None:
         """Standard lightning validation step."""
-        transformed = cast(YTrue, self.apply_transform(batch))  # type: ignore
+        transformed = cast(YTrue, self.transform(batch))  # type: ignore
         y_hat = self(transformed)
         loss, metrics = self.objective(transformed, y_hat, train=False)
         loss = torch.mean(loss)
@@ -328,7 +346,7 @@ class NRDKLightningModule(
             for batch in dataset:
                 batch_gpu = optree.tree_map(lambda x: x.to(device), batch)
 
-                transformed = cast(YTrue, self.apply_transform(
+                transformed = cast(YTrue, self.transform(
                     cast(YTrueRaw, batch_gpu)))  # type: ignore
                 y_hat = cast(YPred, self(transformed))
 
@@ -337,8 +355,15 @@ class NRDKLightningModule(
                 if metadata is not None:
                     metrics.update(metadata(transformed))
 
-                vis = self.objective.render(transformed, y_hat)
-                yield {k: v.cpu().numpy() for k, v in metrics.items()}, vis
+                # NOTE: make sure to explicitly copy the metrics here!
+                # Otherwise, a reference to the original `v.cpu()` tensor is
+                # kept. Pytorch can also have trouble garbage collecting these
+                # references, leading to memory leaks.
+                np_metrics = {
+                    k: np.copy(v.cpu().numpy()) for k, v in metrics.items()}
+
+                rendered = self.objective.render(transformed, y_hat)
+                yield np_metrics, rendered
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Configure optimizers; passthrough to the provided `Optimizer`."""

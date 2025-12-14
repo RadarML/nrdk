@@ -118,7 +118,13 @@ class MLPVectorDecoder(nn.Module):
 
         self.strategy = strategy
         self.channels_first = channels_first
-        self.shape = shape
+
+        # NOTE: we have to manually make sure that `shape` is a default python
+        # list; otherwise, `torch.compile` will crash when we try to unpack
+        # `*shape` later.
+        # This bug is still present as of 12/13/2025:
+        # https://github.com/pytorch/pytorch/issues/168954
+        self.shape = list(shape)
 
         _layers = []
         for d1, d2 in zip(([dim] + layers)[:-1], layers):
