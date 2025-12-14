@@ -51,7 +51,7 @@ def train(cfg: DictConfig) -> None:
     """Train a model using the GRT reference implementation."""
     torch.set_float32_matmul_precision('high')
 
-    _log_level = configure_rich_logging(cfg.meta.get("verbose"))
+    _log_level = configure_rich_logging(cfg.meta.get("verbose", logging.INFO))
     logger.debug(f"Configured with log level: {_log_level}")
 
     if cfg["meta"]["name"] is None or cfg["meta"]["version"] is None:
