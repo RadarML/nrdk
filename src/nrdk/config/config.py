@@ -131,9 +131,18 @@ class PreventHydraOverwrite(Callback):
         prevent_overwrite:
           _target_: nrdk.config.PreventHydraOverwrite
     ```
+
+    !!! warning
+
+        In multi-GPU setups, the check is only performed on the main process
+        (`LOCAL_RANK=0`) since other workers are expected to see the same
+        output directory.
     """
 
     def on_run_start(self, config: DictConfig, **kwargs: Any) -> None:
+        if os.environ.get('LOCAL_RANK', '0') != '0':
+            return
+
         output_dir = config.hydra.run.dir
         if os.path.exists(output_dir):
             logging.error(

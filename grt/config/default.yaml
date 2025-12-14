@@ -19,8 +19,8 @@ hydra:
 
 
 meta:
-  dataset: data/
-  results: results/
+  dataset: data
+  results: results
   name: null
   version: null
   resume: null
