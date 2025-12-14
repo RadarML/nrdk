@@ -55,23 +55,26 @@ The NRDK is intended to be used as a library; we recommend installing it as a su
 
     ```sh
     git submodule add git@github.com:RadarML/nrdk.git
-    uv pip install -e ./nrdk[roverd,grt]
+    uv pip install -e ./nrdk[roverd]
     ```
 
-=== "Development"
+=== "Via `uv` + `pyproject.toml`"
+
+    ```toml
+    [project]
+    dependencies = ["nrdk[roverd]"]
+
+    [tool.uv.extensions]
+    nrdk = { path = "./nrdk", editable = true }
+    ```
+
+=== "For Development"
 
     ```sh
     git clone git@github.com:RadarML/nrdk.git
     cd nrdk
-    uv sync --all-extras
+    uv sync --all-extras --frozen
     uv run pre-commit install
-    ```
-
-!!! tip
-
-    If authenticating with a github token (i.e., `https`), translate all `ssh://git@github.com` authentication to `https://github.com` with
-    ```sh
-    git config --global url."https://github.com/".insteadOf ssh://git@github.com/
     ```
 
 ??? info "Extras"
@@ -79,7 +82,6 @@ The NRDK is intended to be used as a library; we recommend installing it as a su
     The NRDK library also includes the following extras:
 
     - `nrdk[roverd]`: support for loading and processing data using the [roverd](https://radarml.github.io/red-rover/roverd/) format (i.e., as collected by the [`red-rover`](https://radarml.github.io/red-rover/) system).
-    - `nrdk[grt]`: extra dependencies for our GRT reference implementation, which uses a hydra-based configuration system.
     - `nrdk[docs]`: a mkdocs + mkdocs-material + mdocstrings-python documentation stack.
     - `nrdk[dev]`: linters, testing, pre-commit hooks, etc.
 
@@ -122,6 +124,12 @@ uv run pre-commit run --all-files
     ---
 
     abstract interface for composable dataloaders and preprocessing pipelines
+
+- :fontawesome-solid-hexagon-nodes: [`grt`](https://wiselabcmu.github.io/grt/)
+
+    --- 
+
+    *our latest work, GRT: Towards Foundational Models for Single-Chip Radar*
 
 - :dart: [`dart`](https://wiselabcmu.github.io/dart/)
 

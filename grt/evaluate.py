@@ -13,7 +13,7 @@ import numpy as np
 import torch
 import tyro
 import wadler_lindig as wl
-from abstract_dataloader import spec
+from abstract_dataloader.generic import DatasetMeta
 from omegaconf import DictConfig
 from roverd.channels.utils import Prefetch
 from roverd.sensors import DynamicSensor
@@ -23,20 +23,6 @@ from nrdk.config import configure_rich_logging
 from nrdk.framework import Result
 
 logger = logging.getLogger("evaluate")
-
-
-class _DatasetMeta(spec.Dataset):
-    def __init__(
-        self, dataset: spec.Dataset[dict[str, Any]], meta: Any
-    ) -> None:
-        self.dataset = dataset
-        self.meta = meta
-
-    def __getitem__(self, index: int | np.integer) -> dict[str, Any]:
-        return {"meta": self.meta, **self.dataset[index]}
-
-    def __len__(self) -> int:
-        return len(self.dataset)
 
 
 def _get_dataloaders(
@@ -67,7 +53,7 @@ def _get_dataloaders(
                 f"{wl.pprint(_unfiltered)}")
 
         def construct(t: str) -> torch.utils.data.DataLoader:
-            dataset = _DatasetMeta(
+            dataset = DatasetMeta(
                 dataset_constructor(paths=[t]),
                 meta={"train": False, "split": "test"})
 
