@@ -112,7 +112,7 @@ class NRDKLightningModule(
         """
         jt_disable = os.environ.get("JAXTYPING_DISABLE", "0").lower()
         if jt_disable not in ("1", "true"):
-            self._log.error(
+            self._log.warning(
                 "torch.compile is currently incompatible with jaxtyping; "
                 "if you see type errors, set the environment variable "
                 "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")

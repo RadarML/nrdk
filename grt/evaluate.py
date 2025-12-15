@@ -205,8 +205,7 @@ def evaluate(
     for trace, dl_constructor in dataloaders.items():
         dataloader = dl_constructor()
         _evaluate_trace(dataloader, lightningmodule, device, trace, output)
-    logging.info(
-        f"Evaluation completed in {time.perf_counter() - start:.3f}s.")
+    logger.info(f"Evaluation completed in {time.perf_counter() - start:.3f}s.")
 
 if __name__ == "__main__":
     tyro.cli(evaluate)
