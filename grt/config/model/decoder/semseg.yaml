@@ -12,7 +12,7 @@ semseg:
     norm_first: true
     bias: true
   d_model: ${size.d_model}
-  num_layers: 4
+  num_layers: ${size.dec_layers}
   shape: [1, 160, 160, 1]
   scale: [16.0, 16.0, 10.666, 16.0]
   w_min: 0.2

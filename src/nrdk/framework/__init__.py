@@ -9,9 +9,9 @@ We supply and standardize the following components:
     as the training objectives, dataloader transforms, etc.
 """
 
-from jaxtyping import install_import_hook
+from nrdk._typecheck import typechecker
 
-with install_import_hook("nrdk.framework", "beartype.beartype"):
+with typechecker("nrdk.framework"):
     from .architectures import Output, TokenizerEncoderDecoder
     from .callbacks import PerformanceMonitor
     from .lightningmodule import NRDKLightningModule

@@ -46,9 +46,9 @@ class BCE:
 
         with torch.device(y_true.device):
             if self.weighting == "cylindrical":
-                weight = ((torch.arange(nr) + 1))[..., :]
+                weight = (torch.arange(nr) + 1) / nr
             elif self.weighting == "spherical":
-                weight = ((torch.arange(nr) + 1))[..., :] ** 2
+                weight = ((torch.arange(nr) + 1) / nr) ** 2
             else:
                 weight = torch.ones((1, 1, 1, 1), dtype=y_hat.dtype)
 
@@ -82,11 +82,11 @@ class BinaryDiceLoss:
 
         with torch.device(y_true.device):
             if self.weighting == "cylindrical":
-                weight = ((torch.arange(nr) + 1))[..., :]
+                weight = (torch.arange(nr) + 1) / nr
             elif self.weighting == "spherical":
-                weight = ((torch.arange(nr) + 1))[..., :] ** 2
+                weight = ((torch.arange(nr) + 1) / nr) ** 2
             else:
-                weight = torch.ones((1, 1, 1, 1), dtype=y_hat.dtype)
+                weight = torch.ones((1,), dtype=y_hat.dtype)
 
         denominator = reduce(
             y_hat * y_hat * weight, "batch y z range -> batch", "sum"

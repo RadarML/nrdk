@@ -13,13 +13,18 @@ defaults:
 hydra:
   run:
     dir: ${meta.results}/${meta.name}/${meta.version}
+  callbacks:
+    prevent_overwrite:
+      _target_: nrdk.config.PreventHydraOverwrite
+
 
 meta:
-  dataset: data/
-  results: results/
+  dataset: data
+  results: results
   name: null
   version: null
   resume: null
+  compile: false
 
 size: {}
 
@@ -57,7 +62,6 @@ datamodule:
 
 lightningmodule:
   _target_: nrdk.framework.NRDKLightningModule
-  compile: false
   vis_interval: 1000
   vis_samples: 16
   objective: ${objective}

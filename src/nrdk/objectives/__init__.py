@@ -83,9 +83,9 @@ Objectives also have three type parameters:
 - `YPred`: model output type, i.e., tensor shape and dtype.
 """
 
-from jaxtyping import install_import_hook
+from nrdk._typecheck import typechecker
 
-with install_import_hook("nrdk.objectives", "beartype.beartype"):
+with typechecker("nrdk.objectives"):
     from .occupancy import (
         Occupancy2D,
         Occupancy2DData,

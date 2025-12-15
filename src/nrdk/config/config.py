@@ -1,11 +1,14 @@
 """Configuration-related utilities to simplify hydra configurations."""
 
+import logging
 import os
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 import hydra
 import yaml
+from hydra.experimental.callback import Callback
+from omegaconf import DictConfig
 
 Nested = Sequence[str] | Mapping[str, "Nested"]
 
@@ -116,3 +119,32 @@ def inst_from(
             for k in key:
                 spec = spec[k]
     return hydra.utils.instantiate(spec)
+
+
+class PreventHydraOverwrite(Callback):
+    """Prevent Hydra from overwriting existing output directories.
+
+    To use this callback, add it to the `hydra` configuration:
+    ```yaml
+    hydra:
+      callbacks:
+        prevent_overwrite:
+          _target_: nrdk.config.PreventHydraOverwrite
+    ```
+
+    !!! warning
+
+        In multi-GPU setups, the check is only performed on the main process
+        (`LOCAL_RANK=0`) since other workers are expected to see the same
+        output directory.
+    """
+
+    def on_run_start(self, config: DictConfig, **kwargs: Any) -> None:
+        if os.environ.get('LOCAL_RANK', '0') != '0':
+            return
+
+        output_dir = config.hydra.run.dir
+        if os.path.exists(output_dir):
+            logging.error(
+                f"Aborting: output directory '{output_dir}' already exists!")
+            exit(1)

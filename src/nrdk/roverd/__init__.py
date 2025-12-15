@@ -87,9 +87,9 @@ individually instantiated and applied, or assembled into a
     ```
 """
 
-from jaxtyping import install_import_hook
+from nrdk._typecheck import typechecker
 
-with install_import_hook("nrdk.roverd", "beartype.beartype"):
+with typechecker("nrdk.roverd"):
     from .dataloader import datamodule
     from .lidar import (
         Occupancy2D,

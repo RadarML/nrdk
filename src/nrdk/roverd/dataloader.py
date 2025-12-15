@@ -2,26 +2,11 @@
 
 from collections.abc import Callable, Mapping, Sequence
 from functools import cache, partial
-from typing import Any
 
-import numpy as np
 import roverd
 from abstract_dataloader import spec
 from abstract_dataloader.ext.lightning import ADLDataModule
-
-
-class _DatasetMeta(spec.Dataset):
-    def __init__(
-        self, dataset: spec.Dataset[dict[str, Any]], meta: Any
-    ) -> None:
-        self.dataset = dataset
-        self.meta = meta
-
-    def __getitem__(self, index: int | np.integer) -> dict[str, Any]:
-        return {"meta": self.meta, **self.dataset[index]}
-
-    def __len__(self) -> int:
-        return len(self.dataset)
+from abstract_dataloader.generic import DatasetMeta
 
 
 def datamodule(
@@ -66,9 +51,9 @@ def datamodule(
         Fully initialized datamodule with the datasets for each split still
             lazily initialized.
     """
-    def test_closure(split) -> Callable[[], _DatasetMeta]:
+    def test_closure(split) -> Callable[[], DatasetMeta]:
         def closed():
-            return _DatasetMeta(
+            return DatasetMeta(
                 dataset(split), meta={"train": False, "split": split})
         return closed
 
@@ -78,12 +63,12 @@ def datamodule(
         train_val = cache(partial(dataset, traces["train"]))
 
         def train():
-            return _DatasetMeta(
+            return DatasetMeta(
                 roverd.split(train_val(), start=0.0, end=ptrain),
                 meta={"train": True, "split": "train"})
 
         def val():
-            return _DatasetMeta(
+            return DatasetMeta(
                 roverd.split(train_val(), start=1 - pval, end=1.0),
                 meta={"train": False, "split": "val"})
 

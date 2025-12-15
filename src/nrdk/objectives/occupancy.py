@@ -9,6 +9,7 @@ from abstract_dataloader.ext.objective import Objective, VisualizationConfig
 from einops import rearrange, reduce
 from jaxtyping import Bool, Float, Shaped
 from torch import Tensor
+from torch.nn.functional import sigmoid
 
 from nrdk import vis
 from nrdk.metrics import (
@@ -193,9 +194,7 @@ class Occupancy3D(Objective[
         y_pred: Float[Tensor, "batch t elevation azimuth range"],
         render_gt: bool = False
     ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
-        occ = y_pred[:, -1] > 0
-
-        rendered = {"occ3d": occ.to(torch.uint8).cpu().numpy()}
+        rendered = {"occ3d": (y_pred > 0).to(torch.uint8).cpu().numpy()}
         if render_gt:
             rendered["occ3d_gt"] = y_true.occupancy.to(
                 torch.uint8).cpu().numpy()
@@ -253,7 +252,7 @@ class Occupancy2D(Objective[
     """
 
     def __init__(
-        self, range_weighted: bool = True, positive_weight: float = 64.0,
+        self, range_weighted: bool = True, positive_weight: float = 1.0,
         bce_weight: float = 0.9,
         az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
         vis_config: VisualizationConfig | Mapping = {},
@@ -287,8 +286,7 @@ class Occupancy2D(Objective[
             "bce": self.bce_loss(
                 occ_true[:, None, :, :], _y_pred[:, None, :, :]),
             "dice": self.dice_loss(
-                occ_true[:, None, :, :],
-                torch.nn.functional.sigmoid(_y_pred[:, None, :, :]))
+                occ_true[:, None, :, :], sigmoid(_y_pred[:, None, :, :]))
         }
         if not train:
             metrics["chamfer"] = self.chamfer(_y_pred > 0, occ_true)
@@ -307,7 +305,7 @@ class Occupancy2D(Objective[
         self, y_true: Occupancy2DData,
         y_pred: Float[Tensor, "batch t azimuth range"]
     ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
-        occ = torch.nn.functional.sigmoid(y_pred)[:, -1]
+        occ = sigmoid(y_pred)[:, -1]
 
         bev_true, bev_hat = (
             # There's an extra channels axis that we bypass
@@ -326,16 +324,10 @@ class Occupancy2D(Objective[
         y_pred: Float[Tensor, "batch t elevation azimuth range"],
         render_gt: bool = False
     ) -> dict[str, Shaped[np.ndarray, "batch ..."]]:
-        occ_hat = torch.nn.functional.sigmoid(y_pred)[:, -1]
-
         rendered = {
-            "bev":  vis.voxels.bev_from_polar2(
-                occ_hat[..., None], size=self.vis_config.height,
-                theta_min=self.az_min, theta_max=self.az_max)[..., 0]
+            "bev": (sigmoid(y_pred) * 255.0).to(torch.uint8).cpu().numpy()
         }
         if render_gt:
-            rendered["bev_gt"] = vis.voxels.bev_from_polar2(
-                y_true.occupancy[..., None], size=self.vis_config.height,
-                theta_min=self.az_min, theta_max=self.az_max)[..., 0]
+            rendered["bev_gt"] = y_true.occupancy.to(torch.uint8).cpu().numpy()
 
-        return {k: v.cpu().numpy() for k, v in rendered.items()}
+        return rendered

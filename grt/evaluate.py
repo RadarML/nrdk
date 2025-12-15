@@ -1,7 +1,9 @@
 """GRT reference implementation evaluation script."""
 
+import logging
 import os
 import re
+import time
 from functools import partial
 from queue import Queue
 from typing import Any, Callable
@@ -11,27 +13,16 @@ import numpy as np
 import torch
 import tyro
 import wadler_lindig as wl
-from abstract_dataloader import spec
+from abstract_dataloader.generic import DatasetMeta
 from omegaconf import DictConfig
 from roverd.channels.utils import Prefetch
 from roverd.sensors import DynamicSensor
 from tqdm import tqdm
 
+from nrdk.config import configure_rich_logging
 from nrdk.framework import Result
 
-
-class _DatasetMeta(spec.Dataset):
-    def __init__(
-        self, dataset: spec.Dataset[dict[str, Any]], meta: Any
-    ) -> None:
-        self.dataset = dataset
-        self.meta = meta
-
-    def __getitem__(self, index: int | np.integer) -> dict[str, Any]:
-        return {"meta": self.meta, **self.dataset[index]}
-
-    def __len__(self) -> int:
-        return len(self.dataset)
+logger = logging.getLogger("evaluate")
 
 
 def _get_dataloaders(
@@ -62,7 +53,7 @@ def _get_dataloaders(
                 f"{wl.pprint(_unfiltered)}")
 
         def construct(t: str) -> torch.utils.data.DataLoader:
-            dataset = _DatasetMeta(
+            dataset = DatasetMeta(
                 dataset_constructor(paths=[t]),
                 meta={"train": False, "split": "test"})
 
@@ -72,12 +63,66 @@ def _get_dataloaders(
             t: partial(construct, os.path.join(data_root, t)) for t in traces}
 
 
+def _collect_metadata(y_true):
+    return {
+        f"meta/{k}/ts": getattr(v, "timestamps")
+        for k, v in y_true.items() if hasattr(v, "timestamps")
+    }
+
+
+def _evaluate_trace(
+    dataloader, lightningmodule, device, trace, output
+) -> None:
+    eval_stream = tqdm(
+        Prefetch(lightningmodule.evaluate(
+            dataloader, metadata=_collect_metadata, device=device)),
+        total=len(dataloader), desc=trace)
+
+    output_container = DynamicSensor(
+        os.path.join(output, trace), create=True, exist_ok=True)
+    outputs = {}
+    metrics = []
+    for batch_metrics, vis in eval_stream:
+        if len(outputs) == 0:
+            for k, v in vis.items():
+                outputs[k] = Queue()
+                output_container.create(
+                    k.split("/")[-1], meta={
+                        "format": "lzmaf",
+                        "type": f"{v.dtype.kind}{v.dtype.itemsize}",
+                        "shape": v.shape[1:],
+                        "desc": f"eval_render:{k}"
+                    }
+                ).consume(outputs[k], thread=True)
+
+        for k, v in vis.items():
+            for sample in v:
+                outputs[k].put(sample)
+
+        metrics.append(batch_metrics)
+
+    for q in outputs.values():
+        q.put(None)
+
+    metrics = {
+        k: np.concatenate([m[k] for m in metrics], axis=0) for k in metrics[0]}
+    np.savez_compressed(
+        os.path.join(output, trace, "metrics.npz"),
+        **metrics, allow_pickle=False)
+
+    output_container.create("ts", meta={
+        "format": "raw", "type": "f8", "shape": (),
+        "desc": "reference timestamps"}
+    ).write(metrics["meta/spectrum/ts"])
+
+
 def evaluate(
     path: str, /, output: str | None = None, sample: int | None = None,
     traces: list[str] | None = None, filter: str | None = None,
     data_root: str | None = None,
-    device: str = "cuda:0",
-    batch: int = 32, workers: int = 32, prefetch: int = 2
+    device: str = "cuda:0", compile: bool = False,
+    batch: int = 32, workers: int = 32, prefetch: int = 2,
+    verbose: int = logging.INFO
 ) -> None:
     """Evaluate a trained model.
 
@@ -112,11 +157,16 @@ def evaluate(
         data_root: root dataset directory; if `None`, use the path specified
             in `meta/dataset` in the config.
         device: device to use for evaluation.
+        compile: whether to compile the model using `torch.compile`.
         batch: batch size.
         workers: number of workers for data loading.
         prefetch: number of batches to prefetch per worker.
+        verbose: logging verbosity level.
     """
     torch.set_float32_matmul_precision('high')
+
+    configure_rich_logging(verbose)
+    logger.debug(f"Configured with log level: {verbose}")
 
     result = Result(path)
     cfg = result.config()
@@ -138,67 +188,24 @@ def evaluate(
     cfg["datamodule"]["batch_size"] = batch
     cfg["datamodule"]["num_workers"] = workers
     cfg["datamodule"]["prefetch_factor"] = prefetch
-    cfg["lightningmodule"]["compile"] = False
 
     transforms = hydra.utils.instantiate(cfg["transforms"])
     lightningmodule = hydra.utils.instantiate(
         cfg["lightningmodule"], transforms=transforms).to(device)
     lightningmodule.load_weights(result.best)
 
+    if compile:
+        lightningmodule.compile()
+
     dataloaders = _get_dataloaders(
         cfg, data_root, transforms,
         traces=traces, filter=filter, sample=sample)
 
-    def collect_metadata(y_true):
-        return {
-            f"meta/{k}/ts": getattr(v, "timestamps")
-            for k, v in y_true.items() if hasattr(v, "timestamps")
-        }
-
+    start = time.perf_counter()
     for trace, dl_constructor in dataloaders.items():
         dataloader = dl_constructor()
-        eval_stream = tqdm(
-            Prefetch(lightningmodule.evaluate(
-                dataloader, metadata=collect_metadata, device=device)),
-            total=len(dataloader), desc=trace)
-
-        output_container = DynamicSensor(
-            os.path.join(output, trace), create=True, exist_ok=True)
-        metrics = []
-        outputs = {}
-        for batch_metrics, vis in eval_stream:
-            if len(outputs) == 0:
-                for k, v in vis.items():
-                    outputs[k] = Queue()
-                    output_container.create(
-                        k.split("/")[-1], meta={
-                            "format": "lzmaf",
-                            "type": f"{v.dtype.kind}{v.dtype.itemsize}",
-                            "shape": v.shape[1:],
-                            "desc": f"eval_render:{k}"
-                        }
-                    ).consume(outputs[k], thread=True)
-
-            for k, v in vis.items():
-                for sample in v:
-                    outputs[k].put(sample)
-            metrics.append(batch_metrics)
-
-        for q in outputs.values():
-            q.put(None)
-
-        metrics = {
-            k: np.concatenate([m[k] for m in metrics], axis=0)
-            for k in metrics[0]}
-        np.savez_compressed(
-            os.path.join(output, trace, "metrics.npz"),
-            **metrics, allow_pickle=False)
-
-        output_container.create("ts", meta={
-            "format": "raw", "type": "f8", "shape": (),
-            "desc": "reference timestamps"}
-        ).write(metrics["meta/spectrum/ts"])
-
+        _evaluate_trace(dataloader, lightningmodule, device, trace, output)
+    logger.info(f"Evaluation completed in {time.perf_counter() - start:.3f}s.")
 
 if __name__ == "__main__":
     tyro.cli(evaluate)

@@ -65,9 +65,6 @@ class NRDKLightningModule(
             model parameter already bound.
         transforms: data transform or pipeline to apply; potentially also a
             `nn.Module`; if `None`, no transforms are applied.
-        compile: if `True`, compile the model with `torch.compile`. Note that
-            this may cause a problem for typecheckers (so you should set
-            `JAXTYPING_DISABLE=1`).
         vis_interval: log visualizations (from replica `0` only) every
             `vis_interval` steps; if `<=0`, disable altogether.
         vis_samples: maximum number of samples to visualize during training.
@@ -85,29 +82,42 @@ class NRDKLightningModule(
         transforms:
             spec.Pipeline[Any, Any, YTrueRaw, YTrue]
             | spec.Transform[YTrueRaw, YTrue] | None = None,
-        compile: bool = False,
         vis_interval: int = 0, vis_samples: int = 16
     ) -> None:
         super().__init__()
 
         self._log = logging.getLogger("NRDKLightningModule")
-
-        if compile:
-            jt_disable = os.environ.get("JAXTYPING_DISABLE", "0").lower()
-            if jt_disable not in ("1", "true"):
-                self._log.warning(
-                    "torch.compile is currently incompatible with jaxtyping; "
-                    "if you see type errors, set the environment variable "
-                    "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
-
-            model = torch.compile(model)  # type: ignore
-
         self.model = model
         self.objective = objective
         self.optimizer = optimizer
         self.transforms = transforms
         self.vis_interval = vis_interval
         self.vis_samples = vis_samples
+
+        # Disable compilation on logging methods
+        self.log = torch.compiler.disable(self.log)  # type: ignore
+        self.log_dict = torch.compiler.disable(self.log_dict)  # type: ignore
+
+    def compile(self) -> None:
+        """Compile model in-place.
+
+        !!! bug
+
+            `torch.compile` is currently incompatible with `jaxtyping`. If you
+            see type errors after compiling, set the environment variable
+            `JAXTYPING_DISABLE=1` to disable jaxtyping checks.
+
+            This method is a thin wrapper over pytorch's native in-place
+            compile API which warns about this issue.
+        """
+        jt_disable = os.environ.get("JAXTYPING_DISABLE", "0").lower()
+        if jt_disable not in ("1", "true"):
+            self._log.warning(
+                "torch.compile is currently incompatible with jaxtyping; "
+                "if you see type errors, set the environment variable "
+                "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
+        super().compile()
+        self._log.info("LightningModule compiled with torch.compile.")
 
     # NOTE: any @torch.compiler.disable method breaks the type checker. Any
     # calls to them must be # type: ignore'd.
@@ -237,8 +247,23 @@ class NRDKLightningModule(
             args=(y_true, y_pred, split, self.global_step)).start()
 
     @torch.compiler.disable
-    def transform(self, batch: YTrueRaw) -> YTrue:
-        """Apply transforms."""
+    def transform(
+        self, batch: YTrueRaw, device: torch.device | None = None
+    ) -> YTrue:
+        """Apply transforms.
+
+        Args:
+            batch: raw input data.
+            device: optional device to move data to before transforming.
+
+        Returns:
+            Transformed data.
+        """
+        if device is not None:
+            batch = cast(
+                YTrueRaw,
+                optree.tree_map(lambda x: x.to(device), batch))  # type: ignore
+
         with torch.no_grad():
             if isinstance(self.transforms, spec.Pipeline):
                 return self.transforms.batch(batch)
@@ -301,8 +326,8 @@ class NRDKLightningModule(
         if batch_idx == 0 and self.global_rank == 0:
             val_samples = self._get_val_samples()
             if val_samples is not None:
-                samples_gpu = self.transform(cast(YTrueRaw, optree.tree_map(
-                    lambda x: x.to(loss.device), val_samples)))  # type: ignore
+                samples_gpu = self.transform(
+                    val_samples, device=loss.device)  # type: ignore
                 y_hat = self(samples_gpu)
                 self.log_visualizations(
                     samples_gpu, y_hat, split="val")  # type: ignore
@@ -349,8 +374,15 @@ class NRDKLightningModule(
                 if metadata is not None:
                     metrics.update(metadata(transformed))
 
-                vis = self.objective.render(transformed, y_hat)
-                yield {k: v.cpu().numpy() for k, v in metrics.items()}, vis
+                # NOTE: make sure to explicitly copy the metrics here!
+                # Otherwise, a reference to the original `v.cpu()` tensor is
+                # kept. Pytorch can also have trouble garbage collecting these
+                # references, leading to memory leaks.
+                np_metrics = {
+                    k: np.copy(v.cpu().numpy()) for k, v in metrics.items()}
+
+                rendered = self.objective.render(transformed, y_hat)
+                yield np_metrics, rendered
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Configure optimizers; passthrough to the provided `Optimizer`."""

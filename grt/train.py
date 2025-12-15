@@ -11,24 +11,11 @@ import torch
 import yaml
 from lightning.pytorch import callbacks
 from omegaconf import DictConfig
-from rich.logging import RichHandler
 
+from nrdk.config import configure_rich_logging
 from nrdk.framework import Result
 
 logger = logging.getLogger("train")
-
-def _configure_logging(cfg: DictConfig) -> None:
-    log_level = cfg.meta.get("verbose", logging.INFO)
-    root = logging.getLogger()
-    root.setLevel(log_level)
-    root.handlers.clear()
-
-    rich_handler = RichHandler(markup=True)
-    rich_handler.setFormatter(logging.Formatter(
-        "[orange1]%(name)s:[/orange1] %(message)s"))
-    root.addHandler(rich_handler)
-
-    logger.debug(f"Configured with log level: {log_level}")
 
 
 def _load_weights(lightningmodule, path: str, rename: Mapping = {}) -> None:
@@ -48,27 +35,34 @@ def _get_best(trainer) -> dict[str, Any]:
     return {}
 
 
+def _autoscale_batch_size(batch: int) -> int:
+    n_gpus = torch.cuda.device_count()
+    if n_gpus > 1:
+        batch_new = batch // n_gpus
+        logger.info(
+            f"Auto-scaling batch size by n_gpus={n_gpus}: "
+            f"{batch} -> {batch_new}")
+        return batch_new
+    return batch
+
+
 @hydra.main(version_base=None, config_path="./config", config_name="default")
 def train(cfg: DictConfig) -> None:
     """Train a model using the GRT reference implementation."""
     torch.set_float32_matmul_precision('high')
-    _configure_logging(cfg)
+
+    _log_level = configure_rich_logging(cfg.meta.get("verbose", logging.INFO))
+    logger.debug(f"Configured with log level: {_log_level}")
 
     if cfg["meta"]["name"] is None or cfg["meta"]["version"] is None:
         logger.error("Must set `meta.name` and `meta.version` in the config.")
         return
+    cfg["datamodule"]["batch_size"] = _autoscale_batch_size(
+        cfg["datamodule"]["batch_size"])
 
     def _inst(path, *args, **kwargs):
         return hydra.utils.instantiate(
             cfg[path], _convert_="all", *args, **kwargs)
-
-    n_gpus = torch.cuda.device_count()
-    if "batch_size" in cfg["datamodule"] and n_gpus > 1:
-        batch_new = cfg["datamodule"]["batch_size"] // n_gpus
-        logger.info(
-            f"Auto-scaling batch size by n_gpus={n_gpus}: "
-            f"{cfg["datamodule"]["batch_size"]} -> {batch_new}")
-        cfg["datamodule"]["batch_size"] = batch_new
 
     transforms = _inst("transforms")
     datamodule = _inst("datamodule", transforms=transforms)
@@ -76,6 +70,9 @@ def train(cfg: DictConfig) -> None:
     trainer = _inst("trainer")
     if "base" in cfg:
         _load_weights(lightningmodule, **cfg['base'])
+
+    if cfg["meta"]["compile"]:
+        lightningmodule.compile()
 
     start = perf_counter()
     logger.info(
