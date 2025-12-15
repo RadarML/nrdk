@@ -94,6 +94,10 @@ class NRDKLightningModule(
         self.vis_interval = vis_interval
         self.vis_samples = vis_samples
 
+        # Disable compilation on logging methods
+        self.log = torch.compiler.disable(self.log)  # type: ignore
+        self.log_dict = torch.compiler.disable(self.log_dict)  # type: ignore
+
     def compile(self) -> None:
         """Compile model in-place.
 
@@ -243,8 +247,23 @@ class NRDKLightningModule(
             args=(y_true, y_pred, split, self.global_step)).start()
 
     @torch.compiler.disable
-    def transform(self, batch: YTrueRaw) -> YTrue:
-        """Apply transforms."""
+    def transform(
+        self, batch: YTrueRaw, device: torch.device | None = None
+    ) -> YTrue:
+        """Apply transforms.
+
+        Args:
+            batch: raw input data.
+            device: optional device to move data to before transforming.
+
+        Returns:
+            Transformed data.
+        """
+        if device is not None:
+            batch = cast(
+                YTrueRaw,
+                optree.tree_map(lambda x: x.to(device), batch))  # type: ignore
+
         with torch.no_grad():
             if isinstance(self.transforms, spec.Pipeline):
                 return self.transforms.batch(batch)
@@ -307,8 +326,8 @@ class NRDKLightningModule(
         if batch_idx == 0 and self.global_rank == 0:
             val_samples = self._get_val_samples()
             if val_samples is not None:
-                samples_gpu = self.transform(cast(YTrueRaw, optree.tree_map(
-                    lambda x: x.to(loss.device), val_samples)))  # type: ignore
+                samples_gpu = self.transform(
+                    val_samples, device=loss.device)  # type: ignore
                 y_hat = self(samples_gpu)
                 self.log_visualizations(
                     samples_gpu, y_hat, split="val")  # type: ignore

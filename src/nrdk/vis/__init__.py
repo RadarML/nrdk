@@ -1,8 +1,8 @@
 """General purpose visualization utilities."""
 
-from jaxtyping import install_import_hook
+from nrdk._typecheck import typechecker
 
-with install_import_hook("nrdk.vis", "beartype.beartype"):
+with typechecker("nrdk.vis"):
     from .utils import swap_angular_conventions, tile_images
     from .voxels import (
         bev_from_polar2,

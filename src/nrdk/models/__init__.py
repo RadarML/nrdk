@@ -9,6 +9,9 @@
     as a dependency; see the [reference implementation](../grt/index.md).
 """
 
-from .grt import MLPVectorDecoder, TransformerTensorDecoder
+from nrdk._typecheck import typechecker
+
+with typechecker("nrdk.models"):
+    from .grt import MLPVectorDecoder, TransformerTensorDecoder
 
 __all__ = ["TransformerTensorDecoder", "MLPVectorDecoder"]

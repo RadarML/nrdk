@@ -1,8 +1,8 @@
 """Configuration-related utilities to simplify hydra configurations."""
 
-from jaxtyping import install_import_hook
+from nrdk._typecheck import typechecker
 
-with install_import_hook("nrdk.config", "beartype.beartype"):
+with typechecker("nrdk.config"):
     from .config import PreventHydraOverwrite, Singleton, expand, inst_from
     from .logging import configure_rich_logging
 

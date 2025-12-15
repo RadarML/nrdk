@@ -25,9 +25,9 @@ The high level API is broken up into four steps:
     steps into a single function for convenience.
 """
 
-from jaxtyping import install_import_hook
+from nrdk._typecheck import typechecker
 
-with install_import_hook("nrdk.stats", "beartype.beartype"):
+with typechecker("nrdk.tss"):
     from . import stats, utils
     from ._cli import _cli_main
     from .api import (

@@ -7,9 +7,9 @@
     however, the input types and shapes may vary arbitrarily.
 """
 
-from jaxtyping import install_import_hook
+from nrdk._typecheck import typechecker
 
-with install_import_hook("nrdk.metrics", "beartype.beartype"):
+with typechecker("nrdk.metrics"):
     from .classification import BCE, BinaryDiceLoss, FocalLoss
     from .metrics import (
         DepthWithConfidence,

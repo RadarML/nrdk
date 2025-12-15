@@ -8,9 +8,9 @@ objective, and method-specific implementations or modifications made in
 downstream repositories.
 """
 
-from jaxtyping import install_import_hook
+from nrdk._typecheck import typechecker
 
-with install_import_hook("nrdk.modules", "beartype.beartype"):
+with typechecker("nrdk.modules"):
     from .conv import ConvNextLayer
     from .patch import PatchMerge, Squeeze, Unpatch
     from .position import (
