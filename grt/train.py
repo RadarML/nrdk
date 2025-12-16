@@ -51,7 +51,8 @@ def train(cfg: DictConfig) -> None:
     """Train a model using the GRT reference implementation."""
     torch.set_float32_matmul_precision('high')
 
-    _log_level = configure_rich_logging(cfg.meta.get("verbose", logging.INFO))
+    _log_level = configure_rich_logging(
+        cfg.meta.get("verbose", logging.INFO), rank0_only=["train"])
     logger.debug(f"Configured with log level: {_log_level}")
 
     if cfg["meta"]["name"] is None or cfg["meta"]["version"] is None:
@@ -85,12 +86,13 @@ def train(cfg: DictConfig) -> None:
     logger.info(
         f"Training completed in {duration / 60 / 60:.2f}h (={duration:.3f}s).")
 
-    meta: dict[str, Any] = {"duration": duration}
-    meta.update(_get_best(trainer))
-    logger.info(f"Best checkpoint: {meta.get('best')}")
-    meta_path = os.path.join(trainer.logger.log_dir, "checkpoints.yaml")
-    with open(meta_path, 'w') as f:
-        yaml.dump(meta, f, sort_keys=False)
+    if os.getenv('RANK', '0') == '0':
+        meta: dict[str, Any] = {"duration": duration}
+        meta.update(_get_best(trainer))
+        logger.info(f"Best checkpoint: {meta.get('best')}")
+        meta_path = os.path.join(trainer.logger.log_dir, "checkpoints.yaml")
+        with open(meta_path, 'w') as f:
+            yaml.dump(meta, f, sort_keys=False)
 
 
 if __name__ == "__main__":

@@ -1,17 +1,28 @@
 """Logging helpers."""
 
 import logging
+import os
 
 from rich.logging import RichHandler
 
 
-def configure_rich_logging(level: int = logging.INFO) -> int:
+class _Rank0Filter(logging.Filter):
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return os.environ.get('LOCAL_RANK', '0') != 0
+
+
+def configure_rich_logging(
+    level: int = logging.INFO, rank0_only: list[str] = []
+) -> int:
     """Configure rich logging for the root logger.
 
     Analogous to `basicConfig(level=...)`.
 
     Args:
         level: log level to use.
+        rank0_only: list of logger names that should only emit from (local)
+            rank 0. If empty, no rank filtering is applied.
 
     Returns:
         Configured log level; useful for chaining.
@@ -24,5 +35,9 @@ def configure_rich_logging(level: int = logging.INFO) -> int:
     fmt = logging.Formatter("[orange1]%(name)s:[/orange1] %(message)s")
     rich_handler.setFormatter(fmt)
     root.addHandler(rich_handler)
+
+    if rank0_only:
+        for logger_name in rank0_only:
+            logging.getLogger(logger_name).addFilter(_Rank0Filter())
 
     return level
