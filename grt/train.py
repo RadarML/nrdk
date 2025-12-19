@@ -86,7 +86,7 @@ def train(cfg: DictConfig) -> None:
     logger.info(
         f"Training completed in {duration / 60 / 60:.2f}h (={duration:.3f}s).")
 
-    if os.getenv('RANK', '0') == '0':
+    if trainer.is_global_zero:
         meta: dict[str, Any] = {"duration": duration}
         meta.update(_get_best(trainer))
         logger.info(f"Best checkpoint: {meta.get('best')}")
