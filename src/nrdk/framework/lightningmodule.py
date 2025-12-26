@@ -300,8 +300,8 @@ class NRDKLightningModule(
 
         return loss
 
-    @cache
     @torch.compiler.disable
+    @cache
     def _get_val_samples(self) -> YTrueRaw | None:
         """Get validation samples, and fail gracefully."""
         try:

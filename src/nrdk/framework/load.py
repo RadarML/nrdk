@@ -8,7 +8,8 @@ import yaml
 
 
 def load_model(
-    path: str, config: str | None = None, freeze: bool = True
+    path: str, config: str | None = None, freeze: bool = True,
+    eval: bool = True
 ) -> torch.nn.Module:
     """Load a pre-trained model from a given path.
 
@@ -21,6 +22,7 @@ def load_model(
         config: if `path` is a file, provide the model configuration separately
             here.
         freeze: whether to freeze the model parameters.
+        eval: whether the model should be set to eval mode.
 
     Returns:
         Loaded model.
@@ -45,5 +47,7 @@ def load_model(
     if freeze:
         for param in model.parameters():
             param.requires_grad = False
+    if eval:
+        model.eval()
 
     return model

@@ -52,7 +52,7 @@ class ConvNextLayer(nn.Module):
     def forward(self, x: Float[Tensor, "b c h w"]) -> Float[Tensor, "b c h w"]:
         """Forward pass through the ConvNext layer."""
         x1 = self.dw(x)
-        x1 = self.norm(x1.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+        x1 = self.norm(x1.permute(0, 2, 3, 1)).permute(0, 3, 1, 2).contiguous()
         x1 = self.pw2(self.act(self.pw1(x1)))
         if self.gamma is not None:
             x1 = self.gamma[None, :, None, None] * x1
