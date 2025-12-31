@@ -143,7 +143,12 @@ def cli_inspect(
 
     metadata = [Text(f"{size_str}", style=style)]
     shapes = [Text("", style=style)]
-    root = Tree("total")
+
+    if len(tree) == 1:
+        root = Tree(next(iter(tree.keys())))
+        tree = next(iter(tree.values()))
+    else:
+        root = Tree("total")
     _build_tree(tree, root, metadata, shapes, 0, depth - 1)
 
     table = Table(box=None, pad_edge=False, show_header=False, show_edge=False)
