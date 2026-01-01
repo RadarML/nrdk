@@ -142,12 +142,12 @@ class PreventHydraOverwrite(Callback):
     def on_run_start(self, config: DictConfig, **kwargs: Any) -> None:
         # Rank environment variables are not reliably named
         # Read everything I can think of to be sure
-        not_rank0 = (
-            os.environ.get('RANK', '0') != '0' and
-            os.environ.get('LOCAL_RANK', '0') != '0' and
-            os.environ.get('GLOBAL_RANK', '0') != '0'
+        is_rank0 = (
+            os.environ.get('RANK', '0') == '0' and
+            os.environ.get('LOCAL_RANK', '0') == '0' and
+            os.environ.get('GLOBAL_RANK', '0') == '0'
         )
-        if not not_rank0:
+        if not is_rank0:
             return
 
         output_dir = config.hydra.run.dir

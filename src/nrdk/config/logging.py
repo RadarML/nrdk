@@ -9,7 +9,11 @@ from rich.logging import RichHandler
 class _Rank0Filter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
-        return os.environ.get('LOCAL_RANK', '0') != 0
+        return (
+            os.environ.get('RANK', '0') == '0' and
+            os.environ.get('LOCAL_RANK', '0') == '0' and
+            os.environ.get('GLOBAL_RANK', '0') == '0'
+        )
 
 
 def configure_rich_logging(
