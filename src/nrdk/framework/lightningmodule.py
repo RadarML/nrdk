@@ -146,6 +146,15 @@ class NRDKLightningModule(
             directly from `NRDKLightningModule.state_dict()`), then this is
             always removed first.
 
+        !!! danger
+
+            Any `rename` operations are applied in order, with later operations
+            potentially affecting earlier ones! For example,
+            ```
+            rename = {"a": "b", "b": "c"}
+            ```
+            will map `a -> c` and `b -> c`.
+
         Args:
             path: path to model weights, possibly inside a `state_dict` and/or
                 `model` sub-key.
@@ -184,9 +193,11 @@ class NRDKLightningModule(
         self._log.info(
             f"Loaded {len(weights) - len(unexpected)} weights from {path}.")
         if len(missing) > 0:
-            self._log.warning(f"Not loaded: {missing}")
+            self._log.warning(f"Not loaded: {len(missing)}")
+            self._log.info(f"{missing}")
         if len(unexpected) > 0:
-            self._log.error(f"Unexpected keys: {unexpected}")
+            self._log.error(f"Unexpected keys: {len(unexpected)}")
+            self._log.info(f"{unexpected}")
 
         return missing, unexpected
 
