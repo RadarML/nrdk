@@ -335,7 +335,7 @@ class NRDKLightningModule(
         self.log("loss/val", loss, sync_dist=True)
 
         if batch_idx == 0 and self.global_rank == 0:
-            val_samples = self._get_val_samples()
+            val_samples = self._get_val_samples()  # type: ignore
             if val_samples is not None:
                 samples_gpu = self.transform(
                     val_samples, device=loss.device)  # type: ignore
