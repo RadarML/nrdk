@@ -146,6 +146,15 @@ class NRDKLightningModule(
             directly from `NRDKLightningModule.state_dict()`), then this is
             always removed first.
 
+        !!! danger
+
+            Any `rename` operations are applied in order, with later operations
+            potentially affecting earlier ones! For example,
+            ```
+            rename = {"a": "b", "b": "c"}
+            ```
+            will map `a -> c` and `b -> c`.
+
         Args:
             path: path to model weights, possibly inside a `state_dict` and/or
                 `model` sub-key.
@@ -184,9 +193,11 @@ class NRDKLightningModule(
         self._log.info(
             f"Loaded {len(weights) - len(unexpected)} weights from {path}.")
         if len(missing) > 0:
-            self._log.warning(f"Not loaded: {missing}")
+            self._log.warning(f"Not loaded: {len(missing)}")
+            self._log.info(f"{missing}")
         if len(unexpected) > 0:
-            self._log.error(f"Unexpected keys: {unexpected}")
+            self._log.error(f"Unexpected keys: {len(unexpected)}")
+            self._log.info(f"{unexpected}")
 
         return missing, unexpected
 
@@ -300,8 +311,8 @@ class NRDKLightningModule(
 
         return loss
 
-    @cache
     @torch.compiler.disable
+    @cache
     def _get_val_samples(self) -> YTrueRaw | None:
         """Get validation samples, and fail gracefully."""
         try:
@@ -387,3 +398,11 @@ class NRDKLightningModule(
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Configure optimizers; passthrough to the provided `Optimizer`."""
         return self.optimizer(self.parameters())
+
+    def on_before_optimizer_step(
+        self, optimizer: torch.optim.Optimizer
+    ) -> None:
+        """Called before each optimizer step."""
+        total_norm = torch.nn.utils.get_total_norm(
+            p.grad for p in self.parameters() if p.grad is not None)
+        self.log("loss/grad_norm", total_norm)

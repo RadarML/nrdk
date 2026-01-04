@@ -135,12 +135,19 @@ class PreventHydraOverwrite(Callback):
     !!! warning
 
         In multi-GPU setups, the check is only performed on the main process
-        (`LOCAL_RANK=0`) since other workers are expected to see the same
-        output directory.
+        (i.e., [`RANK=0`](https://docs.pytorch.org/docs/stable/elastic/run.html#environment-variables))
+        since other workers are expected to see the same output directory.
     """
 
     def on_run_start(self, config: DictConfig, **kwargs: Any) -> None:
-        if os.environ.get('LOCAL_RANK', '0') != '0':
+        # Rank environment variables are not reliably named
+        # Read everything I can think of to be sure
+        is_rank0 = (
+            os.environ.get('RANK', '0') == '0' and
+            os.environ.get('LOCAL_RANK', '0') == '0' and
+            os.environ.get('GLOBAL_RANK', '0') == '0'
+        )
+        if not is_rank0:
             return
 
         output_dir = config.hydra.run.dir
