@@ -201,8 +201,12 @@ class NRDKLightningModule(
 
         return missing, unexpected
 
-    def forward(self, x: YTrue) -> YPred:
-        return self.model(x)
+    def forward(
+        self, x: YTrueRaw, device: str | torch.device | None = None
+    ) -> tuple[YTrue, YPred]:
+        y_true = cast(YTrue, self.transform(x, device=device))  # type: ignore
+        y_pred = cast(YPred, self.model(y_true))  # type: ignore
+        return y_true, y_pred
 
     @torch.compiler.disable
     def _make_log(
@@ -287,10 +291,9 @@ class NRDKLightningModule(
         self, batch: YTrueRaw, batch_idx: int
     ) -> torch.Tensor:
         """Standard lightning training step."""
-        transformed = cast(YTrue, self.transform(batch))  # type: ignore
-        y_pred = cast(YPred, self(transformed))
+        y_true, y_pred = self(batch)
 
-        loss, metrics = self.objective(transformed, y_pred, train=True)
+        loss, metrics = self.objective(y_true, y_pred, train=True)
         loss = torch.mean(loss)
         metrics = {k: torch.mean(v) for k, v in metrics.items()}
 
@@ -307,7 +310,7 @@ class NRDKLightningModule(
             and (self.global_step % self.vis_interval == 0))
         if do_log:
             self.log_visualizations(
-                transformed, y_pred, split="train")  # type: ignore
+                y_true, y_pred, split="train")  # type: ignore
 
         return loss
 
@@ -324,9 +327,8 @@ class NRDKLightningModule(
 
     def validation_step(self, batch: YTrueRaw, batch_idx: int) -> None:
         """Standard lightning validation step."""
-        transformed = cast(YTrue, self.transform(batch))  # type: ignore
-        y_hat = self(transformed)
-        loss, metrics = self.objective(transformed, y_hat, train=False)
+        y_true, y_pred = self(batch)
+        loss, metrics = self.objective(y_true, y_pred, train=False)
         loss = torch.mean(loss)
         metrics = {k: torch.mean(v) for k, v in metrics.items()}
 
@@ -337,9 +339,7 @@ class NRDKLightningModule(
         if batch_idx == 0 and self.global_rank == 0:
             val_samples = self._get_val_samples()  # type: ignore
             if val_samples is not None:
-                samples_gpu = self.transform(
-                    val_samples, device=loss.device)  # type: ignore
-                y_hat = self(samples_gpu)
+                samples_gpu, y_hat = self(val_samples, device=loss.device)
                 self.log_visualizations(
                     samples_gpu, y_hat, split="val")  # type: ignore
 
@@ -348,6 +348,7 @@ class NRDKLightningModule(
         metadata: Callable[
             [YTrue], Mapping[str, Shaped[Tensor, "batch"]]] | None = None,
         device: int | str | torch.device = 0,
+        raw_outputs: bool = False
     ) -> Iterator[tuple[
         dict[str, Shaped[np.ndarray, "batch"]],
         dict[str, Shaped[np.ndarray, "batch ..."]]
@@ -361,6 +362,8 @@ class NRDKLightningModule(
             device: device to run on. This method does not implement
                 distributed data parallelism; parallelism should be applied at
                 the trace level.
+            raw_outputs: skip `.render(...)`, returning the raw model outputs
+                instead.
 
         Yields:
             Metric values for each sample in the batch as returned by the
@@ -375,15 +378,12 @@ class NRDKLightningModule(
         with torch.no_grad():
             for batch in dataset:
                 batch_gpu = optree.tree_map(lambda x: x.to(device), batch)
+                y_true, y_hat = self(batch_gpu)
 
-                transformed = cast(YTrue, self.transform(
-                    cast(YTrueRaw, batch_gpu)))  # type: ignore
-                y_hat = cast(YPred, self(transformed))
-
-                loss, metrics = self.objective(transformed, y_hat, train=False)
+                loss, metrics = self.objective(y_true, y_hat, train=False)
                 metrics["loss"] = loss
                 if metadata is not None:
-                    metrics.update(metadata(transformed))
+                    metrics.update(metadata(y_true))
 
                 # NOTE: make sure to explicitly copy the metrics here!
                 # Otherwise, a reference to the original `v.cpu()` tensor is
@@ -392,8 +392,13 @@ class NRDKLightningModule(
                 np_metrics = {
                     k: np.copy(v.cpu().numpy()) for k, v in metrics.items()}
 
-                rendered = self.objective.render(transformed, y_hat)
-                yield np_metrics, rendered
+                if raw_outputs:
+                    outputs = {
+                        k: np.copy(v.cpu().numpy()) for k, v in y_hat.items()}
+                    yield np_metrics, outputs
+                else:
+                    rendered = self.objective.render(y_true, y_hat)
+                    yield np_metrics, rendered
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Configure optimizers; passthrough to the provided `Optimizer`."""
