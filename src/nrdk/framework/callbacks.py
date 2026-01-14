@@ -86,10 +86,10 @@ class GradientStats(Callback):
 
     def on_after_backward(self, trainer, pl_module) -> None:
         # Note that gradients should be synchronized across shards already!
-        total_norm = torch.nn.utils.get_total_norm(
-            p.grad for p in pl_module.parameters() if p.grad is not None)
+        norm = torch.nn.utils.get_total_norm(
+            p.grad for p in pl_module.parameters() if p.grad is not None
+        ).item()
 
-        norm = torch.tensor(total_norm).item()
         self.m1 += norm
         self.m2 += norm**2
         self.min = min(self.min, norm)
