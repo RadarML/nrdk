@@ -403,11 +403,3 @@ class NRDKLightningModule(
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Configure optimizers; passthrough to the provided `Optimizer`."""
         return self.optimizer(self.parameters())
-
-    def on_before_optimizer_step(
-        self, optimizer: torch.optim.Optimizer
-    ) -> None:
-        """Called before each optimizer step."""
-        total_norm = torch.nn.utils.get_total_norm(
-            p.grad for p in self.parameters() if p.grad is not None)
-        self.log("loss/grad_norm", total_norm)

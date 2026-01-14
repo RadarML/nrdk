@@ -2,6 +2,7 @@
 
 from time import perf_counter
 
+import numpy as np
 import torch
 from lightning.pytorch.callbacks import Callback
 
@@ -54,3 +55,57 @@ class PerformanceMonitor(Callback):
             for k in ["allocated", "reserved", "active", "inactive_split"]
         }
         pl_module.log_dict(stats, on_step=True)
+
+
+class GradientStats(Callback):
+    """Callback to log gradient statistics.
+
+    Logs the following metrics with respect to the l2 norm of gradients
+    (namespaced with the specified `name`), calculated across the specified
+    `interval`:
+    - `mean`: mean across the specified interval
+    - `std`: standard deviation
+    - `min`, `max`: minimum and maximum values
+
+    Args:
+        interval: interval (in steps) over which to calculate statistics.
+        name: namespace to log metric under (i.e., `{name}/{metric}`).
+    """
+
+    def __init__(self, interval: int = 100, name: str = "grad_norm") -> None:
+        self.interval = interval
+        self.name = name
+
+        self.__reset_stats()
+
+    def __reset_stats(self) -> None:
+        self.m1 = 0.0
+        self.m2 = 0.0
+        self.min = float('inf')
+        self.max = 0.0
+
+    def on_after_backward(self, trainer, pl_module) -> None:
+        # Note that gradients should be synchronized across shards already!
+        total_norm = torch.nn.utils.get_total_norm(
+            p.grad for p in pl_module.parameters() if p.grad is not None)
+
+        norm = torch.tensor(total_norm).item()
+        self.m1 += norm
+        self.m2 += norm**2
+        self.min = min(self.min, norm)
+        self.max = max(self.max, norm)
+
+        if (trainer.global_step + 1) % self.interval == 0:
+            mean = self.m1 / self.interval
+
+            stats = {
+                f"{self.name}/mean": mean,
+                f"{self.name}/std": np.sqrt(
+                    (self.m2 / self.interval) - mean**2),
+                f"{self.name}/min": self.min,
+                f"{self.name}/max": self.max,
+            }
+            # Synchronization not necessary!
+            pl_module.log_dict(stats, on_step=True, sync_dist=False)
+
+            self.__reset_stats()
