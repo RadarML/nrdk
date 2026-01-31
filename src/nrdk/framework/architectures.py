@@ -49,8 +49,8 @@ class TokenizerEncoderDecoder(nn.Module):
     """
 
     def __init__(
-        self, tokenizer: nn.Module, encoder: nn.Module,
-        decoder: Mapping[str, nn.Module],
+        self, tokenizer: nn.Module, encoder: nn.Module | None = None,
+        decoder: Mapping[str, nn.Module] = {},
         key: str = "spectrum", squeeze: bool = True
     ) -> None:
         super().__init__()
@@ -83,10 +83,13 @@ class TokenizerEncoderDecoder(nn.Module):
             outputs.update(tokens.output)
             tokens = tokens.stage
 
-        encoded = self.encoder(tokens)
-        if isinstance(encoded, Output):
-            outputs.update(encoded.output)
-            encoded = encoded.stage
+        if self.encoder is not None:
+            encoded = self.encoder(tokens)
+            if isinstance(encoded, Output):
+                outputs.update(encoded.output)
+                encoded = encoded.stage
+        else:
+            encoded = tokens
 
         decoded = {k: v(encoded) for k, v in self.decoder.items()}
 
