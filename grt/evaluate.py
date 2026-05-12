@@ -121,7 +121,8 @@ def evaluate(
     traces: list[str] | None = None, filter: str | None = None,
     data_root: str | None = None,
     device: str = "cuda:0", compile: bool = False,
-    batch: int = 32, workers: int = 32, prefetch: int = 2,
+    batch: int = 32, workers: int = 32,
+    loader_profile: str = "manual",
     verbose: int = logging.INFO
 ) -> None:
     """Evaluate a trained model.
@@ -160,7 +161,8 @@ def evaluate(
         compile: whether to compile the model using `torch.compile`.
         batch: batch size.
         workers: number of workers for data loading.
-        prefetch: number of batches to prefetch per worker.
+        # prefetch: number of batches to prefetch per worker.
+        loader_profile: dataloader behavior preset.
         verbose: logging verbosity level.
     """
     torch.set_float32_matmul_precision('high')
@@ -187,7 +189,8 @@ def evaluate(
 
     cfg["datamodule"]["batch_size"] = batch
     cfg["datamodule"]["num_workers"] = workers
-    cfg["datamodule"]["prefetch_factor"] = prefetch
+    # cfg["datamodule"]["prefetch_factor"] = prefetch
+    cfg["datamodule"]["loader_profile"] = loader_profile
 
     transforms = hydra.utils.instantiate(cfg["transforms"])
     lightningmodule = hydra.utils.instantiate(

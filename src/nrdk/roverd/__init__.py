@@ -77,6 +77,7 @@ individually instantiated and applied, or assembled into a
         - ...
       batch_size: 32
       samples: 8
+      loader_profile: safe_spawn
       num_workers: 12
       prefetch_factor: 2
       subsample:

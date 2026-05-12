@@ -6,7 +6,6 @@ import torch
 from jaxtyping import Float
 from torch import Tensor, nn
 
-
 class ConvNextLayer(nn.Module):
     """Residual convolutional layer following the ConvNext architecture.
 
@@ -57,5 +56,49 @@ class ConvNextLayer(nn.Module):
         ).permute(0, 3, 1, 2).contiguous()
         x1 = self.pw2(self.act(self.pw1(x1)))
         if self.gamma is not None:
-            x1 = self.gamma[None, :, None, None] * x1
-        return x + x1
+            x1 = self.gamma.to(dtype=x1.dtype)[None, :, None, None] * x1
+        return x.to(dtype=x1.dtype) + x1
+
+
+# class ConvNextLayer(nn.Module):
+#     """Residual ConvNeXt layer with SwiGLU activation in the MLP path.
+
+#     SwiGLU uses two projected branches, so the first pointwise projection is
+#     twice as wide as the original ConvNeXt GELU variant.
+#     """
+
+#     def __init__(
+#         self, channels: int, expansion_ratio: int | float = 4.0,
+#         padding_mode: Literal[
+#             'zeros', 'reflect', 'replicate', 'circular'] = "zeros",
+#         layer_scale_init_value: float = 1e-6
+#     ) -> None:
+#         super().__init__()
+
+#         # (50 % wider than the original ConvNeXt GELU variant)
+#         # d = int(channels * expansion_ratio)
+#         # (capacity-matched to GELU ConvNeXt)
+#         d = int(channels * expansion_ratio * 2 / 3)
+
+#         self.dw = nn.Conv2d(
+#             channels, channels, kernel_size=7, padding=3, groups=channels,
+#             padding_mode=padding_mode)
+#         self.norm = nn.LayerNorm(channels)
+#         self.act = nn.SiLU()
+#         self.pw1 = nn.Conv2d(channels, 2 * d, kernel_size=1)
+#         self.pw2 = nn.Conv2d(d, channels, kernel_size=1)
+#         self.gamma = nn.Parameter(
+#             layer_scale_init_value * torch.ones((channels)), requires_grad=True
+#         ) if layer_scale_init_value > 0 else None
+
+#     def forward(self, x: Float[Tensor, "b c h w"]) -> Float[Tensor, "b c h w"]:
+#         """Forward pass through the ConvNext layer."""
+#         x1 = self.dw(x)
+#         x1 = self.norm(
+#             x1.permute(0, 2, 3, 1).contiguous()
+#         ).permute(0, 3, 1, 2).contiguous()
+#         x1, gate = self.pw1(x1).chunk(2, dim=1)
+#         x1 = self.pw2(self.act(gate) * x1)
+#         if self.gamma is not None:
+#             x1 = self.gamma[None, :, None, None] * x1
+#         return x + x1

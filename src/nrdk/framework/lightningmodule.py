@@ -254,9 +254,15 @@ class NRDKLightningModule(
             split: train/val split to put in the output path.
         """
         self._log.debug(f"Logging visualizations @ i={self.global_step}")
+        def _slice_for_vis(x):
+            if not isinstance(x, torch.Tensor):
+                return x
+            if x.ndim == 0:
+                return x.detach().cpu()
+            return x[:self.vis_samples].detach().cpu()
+
         y_true, y_pred = optree.tree_map(
-            lambda x: x[:self.vis_samples].cpu().detach(),
-            (y_true, y_pred))  # type: ignore
+            _slice_for_vis, (y_true, y_pred))  # type: ignore
         threading.Thread(
             target=self._make_log,
             args=(y_true, y_pred, split, self.global_step)).start()
@@ -275,9 +281,16 @@ class NRDKLightningModule(
             Transformed data.
         """
         if device is not None:
+            def _move_to_device(x: Any) -> Any:
+                if isinstance(x, torch.Tensor):
+                    return x.to(device, non_blocking=True)
+                if hasattr(x, "to"):
+                    return x.to(device)
+                return x
+
             batch = cast(
                 YTrueRaw,
-                optree.tree_map(lambda x: x.to(device), batch))  # type: ignore
+                optree.tree_map(_move_to_device, batch))  # type: ignore
 
         with torch.no_grad():
             if isinstance(self.transforms, spec.Pipeline):
@@ -303,6 +316,11 @@ class NRDKLightningModule(
         self.log(
             "loss/train", loss,
             on_step=True, on_epoch=True, sync_dist=True)
+        vq_meta = self._collect_vq_meta(y_pred)
+        if vq_meta:
+            self.log_dict(
+                {f"vq/{k}/train": v for k, v in vq_meta.items()},
+                on_step=True, on_epoch=True, sync_dist=True)
 
         do_log = (
             self.global_rank == 0
@@ -335,6 +353,11 @@ class NRDKLightningModule(
         self.log_dict(
             {f"{k}/val": v for k, v in metrics.items()}, sync_dist=True)
         self.log("loss/val", loss, sync_dist=True)
+        vq_meta = self._collect_vq_meta(y_pred)
+        if vq_meta:
+            self.log_dict(
+                {f"vq/{k}/val": v for k, v in vq_meta.items()},
+                sync_dist=True)
 
         if batch_idx == 0 and self.global_rank == 0:
             val_samples = self._get_val_samples()  # type: ignore
@@ -342,6 +365,20 @@ class NRDKLightningModule(
                 samples_gpu, y_hat = self(val_samples, device=loss.device)
                 self.log_visualizations(
                     samples_gpu, y_hat, split="val")  # type: ignore
+
+    @staticmethod
+    def _collect_vq_meta(y_pred: YPred) -> dict[str, Tensor]:
+        if not isinstance(y_pred, Mapping):
+            return {}
+        meta = y_pred.get("latent_quant_meta")
+        if not isinstance(meta, Mapping):
+            return {}
+        metrics: dict[str, Tensor] = {}
+        for key in ("vq_loss", "perplexity", "usage"):
+            value = meta.get(key)
+            if torch.is_tensor(value):
+                metrics[key] = torch.mean(value)
+        return metrics
 
     def evaluate(
         self, dataset: torch.utils.data.DataLoader,
