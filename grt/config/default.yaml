@@ -20,6 +20,7 @@ hydra:
 
 meta:
   dataset: data
+  radar_data_root: null
   results: results
   name: null
   version: null

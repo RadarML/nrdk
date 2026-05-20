@@ -14,14 +14,20 @@ from .transforms import SpectrumData
 
 
 def _n_range(
-    data: types.XWRRadarIQ[np.ndarray] | SpectrumData[np.ndarray]
+    data: types.XWRRadarIQ[np.ndarray] | SpectrumData[np.ndarray] | Any
 ) -> int:
     if isinstance(data, SpectrumData):
         _batch, _t, _doppler, _el, _az, n_rng, _ch = data.spectrum.shape
         return n_rng
-    else:  # XWRRadarIQ
+    if hasattr(data, "rd"):
+        _batch, _t, _doppler, _tx, _rx, n_rng = data.rd.shape
+        return n_rng
+    if hasattr(data, "iq"):
         _batch, _t, _n_slow, _tx, _rx, n_fast = data.iq.shape
         return n_fast // 2
+    raise TypeError(
+        "Expected radar data with one of: `spectrum`, `rd`, or `iq`."
+    )
 
 
 @dataclass
@@ -74,14 +80,15 @@ class Occupancy3D:
 
     def __call__(
         self, lidar: types.OSDepth[np.ndarray],
-        radar: SpectrumData[np.ndarray] | types.XWRRadarIQ[np.ndarray],
+        radar: Any,
         aug: Mapping[str, Any] = {}
     ) -> Occupancy3DData[np.ndarray]:
         """Create 3D occupancy map from Lidar depth data.
 
         Args:
             lidar: Ouster Lidar depth data with staggered measurements.
-            radar: real-valued spectrum data.
+            radar: radar-like payload carrying range resolution plus one of
+                `spectrum`, `rd`, or `iq`.
             aug: augmentations to apply.
 
         Returns:
@@ -189,14 +196,15 @@ class Occupancy2D:
 
     def __call__(
         self, lidar: types.OSDepth[np.ndarray],
-        radar: SpectrumData[np.ndarray] | types.XWRRadarIQ[np.ndarray],
+        radar: Any,
         aug: Mapping[str, Any] = {}
     ) -> Occupancy2DData[np.ndarray]:
         """Create 2D occupancy map from Lidar depth data.
 
         Args:
             lidar: Ouster Lidar depth data with staggered measurements.
-            radar: real-valued spectrum data.
+            radar: radar-like payload carrying range resolution plus one of
+                `spectrum`, `rd`, or `iq`.
             aug: augmentations to apply.
 
         Returns:

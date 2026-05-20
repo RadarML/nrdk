@@ -1,0 +1,18 @@
+rsp:
+  inputs:
+    radar: radar
+  optional:
+    aug: aug
+  output: spectrum
+  transform:
+    _target_: grt.range_doppler.RangeDopplerToSpectrum
+    rsp:
+      _target_: xwr.rsp.torch.AWR1843Boost
+      window: False  # no windowing
+      size:
+        elevation: ${size.elevation}
+        azimuth: ${size.azimuth}
+    rep_model:
+      _target_: xwr.nn.PhaseVec
+      scale: 1e-6
+      transform: sqrt
