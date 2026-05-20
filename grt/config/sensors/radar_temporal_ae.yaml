@@ -1,6 +1,6 @@
 radar:
   _partial_: true
-  _target_: grt.range_doppler.ReconstructedRangeDopplerSensor
+  _target_: grt.transforms.ReconstructedRangeDopplerSensor
   source_root: ${meta.dataset}
   data_root: ${meta.radar_data_root}
   correction: null

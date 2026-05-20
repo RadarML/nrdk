@@ -5,7 +5,7 @@ rsp:
     aug: aug
   output: spectrum
   transform:
-    _target_: grt.range_doppler.RangeDopplerToSpectrum
+    _target_: grt.transforms.RangeDopplerToSpectrum
     rsp:
       _target_: xwr.rsp.torch.AWR1843Boost
       window: False  # no windowing
