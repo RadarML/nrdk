@@ -108,6 +108,7 @@ class PointCloudMetric(ABC):
         else:  # "hausdorff"
             return torch.max(torch.concatenate([d1, d2]))
 
+    @torch.compiler.disable
     def __call__(
         self, y_hat: Shaped[Tensor, "..."], y_true: Shaped[Tensor, "..."],
     ) -> Float[Tensor, "batch"]:

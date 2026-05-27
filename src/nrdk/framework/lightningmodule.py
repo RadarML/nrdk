@@ -98,8 +98,8 @@ class NRDKLightningModule(
         self.log = torch.compiler.disable(self.log)  # type: ignore
         self.log_dict = torch.compiler.disable(self.log_dict)  # type: ignore
 
-    def compile(self, dynamic: bool = True) -> None:
-        """Compile model in-place.
+    def compile(self, dynamic: bool = True, **kwargs: Any) -> None:
+        """Compile the contained model in-place.
 
         !!! bug
 
@@ -109,6 +109,11 @@ class NRDKLightningModule(
 
             This method is a thin wrapper over pytorch's native in-place
             compile API which warns about this issue.
+
+        The LightningModule itself intentionally stays eager. Lightning wraps
+        `training_step` and `validation_step` calls with changing Python
+        arguments such as `batch_idx`, which causes unnecessary Dynamo
+        recompiles when the whole LightningModule is compiled.
         """
         jt_disable = os.environ.get("JAXTYPING_DISABLE", "0").lower()
         if jt_disable not in ("1", "true"):
@@ -116,8 +121,9 @@ class NRDKLightningModule(
                 "torch.compile is currently incompatible with jaxtyping; "
                 "if you see type errors, set the environment variable "
                 "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
-        super().compile(dynamic=dynamic)
-        self._log.info("LightningModule compiled with torch.compile.")
+        kwargs.setdefault("mode", "reduce-overhead")
+        self.model.compile(dynamic=dynamic, **kwargs)
+        self._log.info("Model compiled with torch.compile.")
 
     # NOTE: any @torch.compiler.disable method breaks the type checker. Any
     # calls to them must be # type: ignore'd.
