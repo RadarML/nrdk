@@ -33,7 +33,12 @@ def configure_rich_logging(
     """
     root = logging.getLogger()
     root.setLevel(level)
-    root.handlers.clear()
+
+    # Remove existing stdout handler to replace it with rich; other handlers
+    # (e.g., file handlers from Hydra) are preserved.
+    for handler in root.handlers[:]:
+        if type(handler) is logging.StreamHandler:
+            root.removeHandler(handler)
 
     rich_handler = RichHandler(markup=True)
     fmt = logging.Formatter("[orange1]%(name)s:[/orange1] %(message)s")
