@@ -102,10 +102,15 @@ class Occupancy3D(Objective[
             sparsity / class imbalance.
         max_range: value to assign to chamfer loss when there are no points;
             nominally the number of range bins.
+        mode: coordinate mode for range weighting; `spherical` or `cylindrical`.
         az_min: minimum azimuth angle.
         az_max: maximum azimuth angle.
         el_min: minimum elevation angle.
         el_max: maximum elevation angle.
+        max_points: if set, limit each chamfer point cloud to this many points.
+            Predictions are sampled without replacement weighted by
+            sigmoid(logit); ground truth is sampled uniformly. Prevents OOM on
+            dense occupancy grids.
         vis_config: visualization configuration; the `cmaps` can have `bev`
             and `depth` keys.
     """
@@ -116,6 +121,7 @@ class Occupancy3D(Objective[
         mode: Literal["spherical", "cylindrical"] = "spherical",
         az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
         el_min: float = -np.pi / 4, el_max: float = np.pi / 4,
+        max_points: int | None = None,
         vis_config: VisualizationConfig | Mapping[str, Any] = {},
     ) -> None:
         self.az_min = az_min
@@ -126,11 +132,12 @@ class Occupancy3D(Objective[
         self.bce = BCE(
             positive_weight=positive_weight,
             weighting=mode if range_weighted else None)
-        self.height = VoxelDepth(axis=2, reverse=True, ord=1)
-        self.depth = VoxelDepth(axis=0, reverse=False, ord=1)
+        self.height = VoxelDepth(axis=0, reverse=True, ord=1)
+        self.depth = VoxelDepth(axis=2, reverse=False, ord=1)
         self.chamfer = PolarChamfer3D(
             mode='chamfer', az_min=az_min, az_max=az_max,
-            el_min=el_min, el_max=el_max, on_empty=max_range)
+            el_min=el_min, el_max=el_max, on_empty=max_range,
+            max_points=max_points)
 
         if not isinstance(vis_config, VisualizationConfig):
             vis_config = VisualizationConfig(**vis_config)
@@ -152,9 +159,7 @@ class Occupancy3D(Objective[
             "depth": self.depth(occ_true, occ_hat)
         }
         if not train:
-            depth_true = torch.argmax(occ_true.to(torch.uint8), dim=-1)
-            depth_hat = torch.argmax(occ_hat.to(torch.uint8), dim=-1)
-            metrics["chamfer"] = self.chamfer(depth_hat, depth_true)
+            metrics["chamfer"] = self.chamfer(_y_pred, occ_true)
 
         # Temporal reduction
         metrics = {
@@ -248,6 +253,10 @@ class Occupancy2D(Objective[
         bce_weight: BCE loss weight; Dice loss is weighted `1 - bce_weight`.
         az_min: minimum azimuth angle.
         az_max: maximum azimuth angle.
+        max_points: if set, limit each chamfer point cloud to this many points.
+            Predictions are sampled without replacement weighted by
+            sigmoid(logit); ground truth is sampled uniformly. Prevents OOM on
+            dense occupancy grids.
         vis_config: visualization configuration; `cmaps` can have a `bev` key.
     """
 
@@ -255,6 +264,7 @@ class Occupancy2D(Objective[
         self, range_weighted: bool = True, positive_weight: float = 1.0,
         bce_weight: float = 0.9,
         az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
+        max_points: int | None = None,
         vis_config: VisualizationConfig | Mapping = {},
     ) -> None:
         self.az_min = az_min
@@ -267,7 +277,8 @@ class Occupancy2D(Objective[
         self.dice_loss = BinaryDiceLoss(
             weighting='cylindrical' if range_weighted else None)
         self.chamfer = PolarChamfer2D(
-            mode="chamfer", az_min=az_min, az_max=az_max)
+            mode="chamfer", az_min=az_min, az_max=az_max,
+            max_points=max_points)
 
         if not isinstance(vis_config, VisualizationConfig):
             vis_config = VisualizationConfig(**vis_config)
@@ -289,7 +300,7 @@ class Occupancy2D(Objective[
                 occ_true[:, None, :, :], sigmoid(_y_pred[:, None, :, :]))
         }
         if not train:
-            metrics["chamfer"] = self.chamfer(_y_pred > 0, occ_true)
+            metrics["chamfer"] = self.chamfer(_y_pred, occ_true)
 
         # Temporal reduction
         metrics = {

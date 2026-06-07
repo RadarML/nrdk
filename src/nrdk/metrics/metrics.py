@@ -128,13 +128,7 @@ class VoxelDepth:
                 in each azimuth/elevation bin.
         """
         diff = lp_power(y_true - y_hat)
-        batch = y_true.shape[0]
-        if mask is None:
-            return torch.mean(diff.reshape(batch, -1), dim=1)
-        else:
-            total = torch.sum((diff * mask).reshape(batch, -1), dim=1)
-            n_valid = torch.sum(mask.reshape(batch, -1), dim=1)
-            return total / n_valid
+        return mean_with_mask(diff, mask)
 
     def __call__(
         self, y_true: Bool[Tensor, "batch *spatial"],
