@@ -13,7 +13,7 @@ from nrdk._typecheck import typechecker
 
 with typechecker("nrdk.framework"):
     from .architectures import Output, TokenizerEncoderDecoder
-    from .callbacks import PerformanceMonitor
+    from .callbacks import GradientStats, PerformanceMonitor
     from .lightningmodule import NRDKLightningModule
     from .load import load_model
     from .logging import LoggerWithImages, MLFlowLogger, TensorBoardLogger
@@ -22,6 +22,6 @@ with typechecker("nrdk.framework"):
 __all__ = [
     "load_model",
     "Output", "TokenizerEncoderDecoder",
-    "PerformanceMonitor",
+    "GradientStats", "PerformanceMonitor",
     "LoggerWithImages", "MLFlowLogger", "TensorBoardLogger",
     "NRDKLightningModule", "Result"]

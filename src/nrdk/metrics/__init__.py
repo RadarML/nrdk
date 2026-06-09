@@ -18,10 +18,10 @@ with typechecker("nrdk.metrics"):
         lp_power,
         mean_with_mask,
     )
-    from .pointcloud import PolarChamfer2D, PolarChamfer3D
+    from .pointcloud import PointCloudMetric, PolarChamfer2D, PolarChamfer3D
 
 __all__ = [
     "BCE", "BinaryDiceLoss", "FocalLoss",
     "DepthWithConfidence", "Lp", "VoxelDepth", "lp_power", "mean_with_mask",
-    "PolarChamfer2D", "PolarChamfer3D",
+    "PolarChamfer2D", "PolarChamfer3D", "PointCloudMetric",
 ]
