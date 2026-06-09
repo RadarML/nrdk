@@ -122,7 +122,8 @@ class PointCloudMetric(ABC):
 class PolarChamfer2D(PointCloudMetric):
     """2D point cloud metrics for range-azimuth occupancy grids.
 
-    Returns the error in grid units.
+    Returns the error in grid units; see [`PointCloudMetric`][^.] for more
+    details.
 
     !!! warning "Not differentiable"
 
@@ -163,7 +164,8 @@ class PolarChamfer2D(PointCloudMetric):
 class PolarChamfer3D(PointCloudMetric):
     """3D point cloud metrics for elevation-azimuth depth maps.
 
-    Returns the error in grid units.
+    Returns the error in grid units; see [`PointCloudMetric`][^.] for more
+    details.
 
     !!! warning "Image Axis Order"
 
