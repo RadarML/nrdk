@@ -270,22 +270,21 @@ def test_polar_chamfer_2d_empty():
 
 
 def test_polar_chamfer_3d_basic():
-    """Test PolarChamfer3D with basic depth maps."""
+    """Test PolarChamfer3D with basic occupancy grids."""
     chamfer = PolarChamfer3D()
 
-    # Create simple depth maps with positive values
-    torch.manual_seed(42)
-    y_true = torch.zeros(2, 4, 8)
-    y_hat = torch.zeros(2, 4, 8)
+    # Shape: [batch, elevation, azimuth, range]
+    y_true = torch.zeros(2, 4, 8, 16, dtype=torch.bool)
+    y_hat = torch.zeros(2, 4, 8, 16, dtype=torch.bool)
 
-    # Add some depth values
-    y_true[0, 1, 2] = 5.0
-    y_true[0, 2, 3] = 10.0
-    y_hat[0, 1, 3] = 6.0
-    y_hat[0, 2, 2] = 9.0
+    # Occupied at (el=1, az=2, rng=5) and (el=2, az=3, rng=10)
+    y_true[0, 1, 2, 5] = True
+    y_true[0, 2, 3, 10] = True
+    y_hat[0, 1, 3, 6] = True
+    y_hat[0, 2, 2, 9] = True
 
-    y_true[1, 0, 1] = 3.0
-    y_hat[1, 0, 1] = 3.0  # Perfect match
+    y_true[1, 0, 1, 3] = True
+    y_hat[1, 0, 1, 3] = True  # Perfect match
 
     loss = chamfer(y_hat, y_true)
 
@@ -295,12 +294,13 @@ def test_polar_chamfer_3d_basic():
 
 def test_polar_chamfer_3d_modes():
     """Test PolarChamfer3D with different modes."""
-    y_true = torch.zeros(1, 4, 4)
-    y_hat = torch.zeros(1, 4, 4)
+    # Shape: [batch, elevation, azimuth, range]
+    y_true = torch.zeros(1, 4, 4, 8, dtype=torch.bool)
+    y_hat = torch.zeros(1, 4, 4, 8, dtype=torch.bool)
 
-    # Add some points
-    y_true[0, 1, 1] = 5.0
-    y_hat[0, 1, 2] = 5.0
+    # Two nearby occupied cells
+    y_true[0, 1, 1, 5] = True
+    y_hat[0, 1, 2, 5] = True
 
     # Test different modes
     for mode in ["chamfer", "hausdorff", "modhausdorff"]:
