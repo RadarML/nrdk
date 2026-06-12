@@ -269,6 +269,18 @@ def test_polar_chamfer_2d_empty():
     assert torch.all(loss == 32.0)
 
 
+def test_polar_chamfer_2d_float_logits_ignore_negative_cells():
+    """Test PolarChamfer2D treats only positive logits as occupied."""
+    chamfer = PolarChamfer2D()
+    data = -torch.ones(8, 8)
+    data[2, 3] = 0.5
+    data[4, 5] = 1.0
+
+    points = chamfer.as_points(chamfer._limit(data))
+
+    assert points.shape == (2, 2)
+
+
 def test_polar_chamfer_3d_basic():
     """Test PolarChamfer3D with basic occupancy grids."""
     chamfer = PolarChamfer3D()
@@ -290,6 +302,18 @@ def test_polar_chamfer_3d_basic():
 
     assert loss.shape == (2,)
     assert torch.all(loss >= 0)
+
+
+def test_polar_chamfer_3d_float_logits_ignore_negative_cells_below_limit():
+    """Test PolarChamfer3D keeps max_points meaningful for sparse logits."""
+    chamfer = PolarChamfer3D(max_points=10000)
+    data = -torch.ones(4, 8, 16)
+    data[1, 2, 5] = 0.5
+    data[2, 3, 10] = 1.0
+
+    points = chamfer.as_points(chamfer._limit(data))
+
+    assert points.shape == (2, 3)
 
 
 def test_polar_chamfer_3d_modes():
