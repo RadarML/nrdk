@@ -292,6 +292,20 @@ def test_polar_chamfer_3d_basic():
     assert torch.all(loss >= 0)
 
 
+def test_polar_chamfer_3d_float_logits_below_limit():
+    """Test PolarChamfer3D ignores negative logits below max_points."""
+    chamfer = PolarChamfer3D(max_points=10000)
+    data = -torch.ones(4, 8, 16)
+    data[1, 2, 5] = 0.5
+    data[2, 3, 10] = 1.0
+
+    limited = chamfer._limit(data)
+    points = chamfer.as_points(limited)
+
+    assert limited.dtype == torch.bool
+    assert points.shape == (2, 3)
+
+
 def test_polar_chamfer_3d_modes():
     """Test PolarChamfer3D with different modes."""
     # Shape: [batch, elevation, azimuth, range]

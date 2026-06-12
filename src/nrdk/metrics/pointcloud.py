@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import torch
 from beartype.typing import Literal
-from jaxtyping import Float, Shaped
+from jaxtyping import Bool, Float, Shaped
 from torch import Tensor
 
 
@@ -46,7 +46,7 @@ class PointCloudMetric(ABC):
         self.max_points = max_points
 
     @abstractmethod
-    def as_points(self, data: Shaped[Tensor, "..."]) -> Float[Tensor, "n d"]:
+    def as_points(self, data: Bool[Tensor, "..."]) -> Float[Tensor, "n d"]:
         """Convert a model's native representation to cartesian points.
 
         Note that since the output number of points may vary across a batch,
@@ -54,16 +54,18 @@ class PointCloudMetric(ABC):
         """
         ...
 
-    def _limit(self, data: Tensor) -> Tensor:
+    def _limit(self, data: Tensor) -> Bool[Tensor, "..."]:
         """Subsample occupied cells to at most max_points."""
+        occupied = data if data.dtype == torch.bool else data > 0
+        
         # not set
         if self.max_points is None:
-            return data
+            return occupied
 
         # below limit
-        occ_idx = (data > 0).nonzero(as_tuple=False)  # [n, ndim]
+        occ_idx = occupied.nonzero(as_tuple=False)  # [n, ndim]
         if len(occ_idx) <= self.max_points:
-            return data
+            return occupied
 
         # sampling required
         if data.dtype == torch.bool:
@@ -72,11 +74,8 @@ class PointCloudMetric(ABC):
             weights = torch.sigmoid(data[tuple(occ_idx.T)])
         sampled = torch.multinomial(weights, self.max_points, replacement=False)
         keep = occ_idx[sampled]
-        result = torch.zeros_like(data)
-        if data.dtype == torch.bool:
-            result[tuple(keep.T)] = True
-        else:
-            result[tuple(keep.T)] = data[tuple(keep.T)]
+        result = torch.zeros_like(occupied)
+        result[tuple(keep.T)] = True
 
         return result
 
@@ -148,7 +147,7 @@ class PolarChamfer2D(PointCloudMetric):
         self.az_max = az_max
 
     def as_points(
-        self, data: Shaped[Tensor, "azimuth range"]
+        self, data: Bool[Tensor, "azimuth range"]
     ) -> Float[Tensor, "n 2"]:
         """Convert (azimuth, range) occupancy grid to points."""
         Na, Nr = data.shape
@@ -200,7 +199,7 @@ class PolarChamfer3D(PointCloudMetric):
         self.el_max = el_max
 
     def as_points(
-        self, data: Shaped[Tensor, "elevation azimuth range"]
+        self, data: Bool[Tensor, "elevation azimuth range"]
     ) -> Float[Tensor, "n 3"]:
         """Convert (elevation, azimuth, range) occupancy grid to points."""
         Ne, Na, _Nr = data.shape
