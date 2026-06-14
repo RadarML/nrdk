@@ -116,12 +116,9 @@ class NRDKLightningModule(
                 "torch.compile is currently incompatible with jaxtyping; "
                 "if you see type errors, set the environment variable "
                 "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
-        super().compile(dynamic=dynamic)
+        self.model.compile(dynamic=dynamic)
         self._log.info("LightningModule compiled with torch.compile.")
 
-    # NOTE: any @torch.compiler.disable method breaks the type checker. Any
-    # calls to them must be # type: ignore'd.
-    @torch.compiler.disable
     def load_weights(
         self, path: str, rename: Sequence[Mapping[str, str | None]] = []
     ) -> tuple[list[str], list[str]]:
@@ -208,7 +205,6 @@ class NRDKLightningModule(
         y_pred = cast(YPred, self.model(y_true))  # type: ignore
         return y_true, y_pred
 
-    @torch.compiler.disable
     def _make_log(
         self, y_true: YTrue, y_pred: YPred, split: str, step: int
     ) -> None:
@@ -228,7 +224,6 @@ class NRDKLightningModule(
             else:
                 self.logger.log_images(images, step=step)
 
-    @torch.compiler.disable
     def log_visualizations(
         self, y_true: YTrue, y_pred: YPred, split: str = "train"
     ) -> None:
@@ -261,7 +256,6 @@ class NRDKLightningModule(
             target=self._make_log,
             args=(y_true, y_pred, split, self.global_step)).start()
 
-    @torch.compiler.disable
     def transform(
         self, batch: YTrueRaw, device: torch.device | None = None
     ) -> YTrue:
@@ -314,7 +308,6 @@ class NRDKLightningModule(
 
         return loss
 
-    @torch.compiler.disable
     @cache
     def _get_val_samples(self) -> YTrueRaw | None:
         """Get validation samples, and fail gracefully."""
