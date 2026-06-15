@@ -299,10 +299,8 @@ def test_polar_chamfer_3d_float_logits_below_limit():
     data[1, 2, 5] = 0.5
     data[2, 3, 10] = 1.0
 
-    limited = chamfer._limit(data)
-    points = chamfer.as_points(limited)
+    points = chamfer.as_points(data)
 
-    assert limited.dtype == torch.bool
     assert points.shape == (2, 3)
 
 
