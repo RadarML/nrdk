@@ -152,8 +152,14 @@ class PreventHydraOverwrite(Callback):
 
         output_dir = config.hydra.run.dir
         if os.path.exists(output_dir):
-            if "checkpoints" in os.listdir(output_dir):
+            if os.path.isdir(output_dir):
+                if "checkpoints" in os.listdir(output_dir):
+                    logging.error(
+                        f"Aborting: output directory '{output_dir}' already "
+                        f"exists and contains checkpoints.")
+                    exit(1)
+            else:
                 logging.error(
-                    f"Aborting: output directory '{output_dir}' already "
-                    f"exists and contains checkpoints.")
+                    f"Aborting: output directory path '{output_dir}' already "
+                    f"exists, but is not a directory.")
                 exit(1)
