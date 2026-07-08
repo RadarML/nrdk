@@ -3,6 +3,8 @@ name: Run CI
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   test:
@@ -23,10 +25,16 @@ jobs:
       uses: astral-sh/setup-uv@v6
       with:
         python-version: "3.12"
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+
+    - name: Install dependencies
+      run: |
+        uv sync --extra dev --extra roverd --frozen
 
     - name: Lint with ruff
       run: |
-        uv run --extra dev ruff check ./src
+        uv run --extra dev --extra roverd ruff check ./src
 
     - name: Type check with pyright
       run: |
