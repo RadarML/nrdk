@@ -18,3 +18,10 @@ class SpectrumData(Protocol, Generic[TArray]):
 
     spectrum: Float[TArray, "batch t doppler x1 x2 rng ch"]
     timestamps: Float[TArray, "batch t"]
+
+
+@runtime_checkable
+class HasTimestamps(Protocol, Generic[TArray]):
+    """Protocol for data with timestamps."""
+
+    timestamps: Float[TArray, "batch t"]
