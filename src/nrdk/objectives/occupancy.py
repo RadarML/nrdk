@@ -107,12 +107,11 @@ class Occupancy3D(Objective[
         az_max: maximum azimuth angle.
         el_min: minimum elevation angle.
         el_max: maximum elevation angle.
-        max_points: if set, limit each chamfer point cloud to this many points.
-            Predictions are sampled without replacement weighted by
-            sigmoid(logit); ground truth is sampled uniformly. Prevents OOM on
-            dense occupancy grids.
+        max_points: if set, limit each chamfer point cloud to this many points;
+            see [`PointCloudMetric`][nrdk.metrics.].
         require_knn: whether pytorch geometric should be required for
-            chamfer distance calculation.
+            chamfer distance calculation; see
+            [`PointCloudMetric`][nrdk.metrics.].
         vis_config: visualization configuration; the `cmaps` can have `bev`
             and `depth` keys.
     """
@@ -255,12 +254,11 @@ class Occupancy2D(Objective[
         bce_weight: BCE loss weight; Dice loss is weighted `1 - bce_weight`.
         az_min: minimum azimuth angle.
         az_max: maximum azimuth angle.
-        max_points: if set, limit each chamfer point cloud to this many points.
-            Predictions are sampled without replacement weighted by
-            sigmoid(logit); ground truth is sampled uniformly. Prevents OOM on
-            dense occupancy grids.
+        max_points: if set, limit each chamfer point cloud to this many points;
+            see [`PointCloudMetric`][nrdk.metrics.].
         require_knn: whether pytorch geometric should be required for
-            chamfer distance calculation.
+            chamfer distance calculation; see
+            [`PointCloudMetric`][nrdk.metrics.].
         vis_config: visualization configuration; `cmaps` can have a `bev` key.
     """
 

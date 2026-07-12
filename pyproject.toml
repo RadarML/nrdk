@@ -41,14 +41,6 @@ dependencies = [
     "rich >= 14.2.0"
 ]
 
-[tool.uv]
-# pyg_lib isn't published on PyPI; wheels are hosted per torch/cuda build at
-# https://data.pyg.org/whl instead. We pull the CPU-only build here since
-# tests only run on CPU. If your torch/cuda build differs from what's pinned
-# below, install pyg_lib separately with the matching wheel index, e.g.:
-#   pip install pyg_lib -f https://data.pyg.org/whl/torch-<TORCH_VERSION>.html
-find-links = ["https://data.pyg.org/whl/torch-2.9.1+cpu.html"]
-
 [tool.uv.sources]
 roverd = { git = "https://github.com/radarml/red-rover.git", subdirectory = "format"}
 
@@ -58,8 +50,7 @@ roverd = [
     "roverd[ouster,video] >= 0.2.2"
 ]
 
-# pyg_lib is optional (torch_geometric.nn.pool.knn falls back to a pure
-# PyTorch implementation without it); included here for local development.
+# pyg_lib is optional; the CPU version is included here for development only.
 ptg-dev = [
     "torch_geometric >= 2.8.0",
     "pyg_lib"

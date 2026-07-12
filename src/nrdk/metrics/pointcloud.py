@@ -15,15 +15,31 @@ class PointCloudMetric(ABC):
     !!! note
 
         This base class only supplies the point cloud framework;
-        inheritors must implement a `as_points` method, which specifies the
+        inheritors must implement an `as_points` method, which specifies the
         conversion from the raw inputs to cartesian points.
 
     !!! tip
 
         Distance computation is accelerated with `torch_geometric` if installed,
-        with a naive brute-force fallback otherwise. Use `require_knn=True` to
-        ensure that the optimized implementation is used (and raise an error if
-        unavailable).
+        with a naive brute-force fallback otherwise.
+
+        Use `require_knn=True` to require the optimized `torch_geometric`
+        backend (and raise an error if unavailable).
+
+    ??? info "Install `torch_geometric`"
+
+        To install the pytorch-geometric backend, add `torch-geometric` to your
+        environment, as well as `pyg_lib`. Note that `pyg_lib` does not have
+        a fully automatic installation process; using `pyproject.toml`, you
+        will need the following:
+        ```toml
+        [tool.uv]
+        find-links = [
+            "https://data.pyg.org/whl/torch-2.12.0+cu130.html"
+        ]
+        ```
+        Note that the pytorch version (e.g., `torch-2.12.0`) and CUDA version
+        (e.g., `cu130`) must match your environment.
 
     Supported modes:
 
