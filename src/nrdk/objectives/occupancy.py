@@ -111,6 +111,8 @@ class Occupancy3D(Objective[
             Predictions are sampled without replacement weighted by
             sigmoid(logit); ground truth is sampled uniformly. Prevents OOM on
             dense occupancy grids.
+        require_knn: whether pytorch geometric should be required for
+            chamfer distance calculation.
         vis_config: visualization configuration; the `cmaps` can have `bev`
             and `depth` keys.
     """
@@ -121,7 +123,7 @@ class Occupancy3D(Objective[
         mode: Literal["spherical", "cylindrical"] = "spherical",
         az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
         el_min: float = -np.pi / 4, el_max: float = np.pi / 4,
-        max_points: int | None = None,
+        max_points: int | None = None, require_knn: bool = True,
         vis_config: VisualizationConfig | Mapping[str, Any] = {},
     ) -> None:
         self.az_min = az_min
@@ -137,7 +139,7 @@ class Occupancy3D(Objective[
         self.chamfer = PolarChamfer3D(
             mode='chamfer', az_min=az_min, az_max=az_max,
             el_min=el_min, el_max=el_max, on_empty=max_range,
-            max_points=max_points)
+            max_points=max_points, require_knn=require_knn)
 
         if not isinstance(vis_config, VisualizationConfig):
             vis_config = VisualizationConfig(**vis_config)
@@ -257,6 +259,8 @@ class Occupancy2D(Objective[
             Predictions are sampled without replacement weighted by
             sigmoid(logit); ground truth is sampled uniformly. Prevents OOM on
             dense occupancy grids.
+        require_knn: whether pytorch geometric should be required for
+            chamfer distance calculation.
         vis_config: visualization configuration; `cmaps` can have a `bev` key.
     """
 
@@ -264,7 +268,7 @@ class Occupancy2D(Objective[
         self, range_weighted: bool = True, positive_weight: float = 1.0,
         bce_weight: float = 0.9,
         az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
-        max_points: int | None = None,
+        max_points: int | None = None, require_knn: bool = True,
         vis_config: VisualizationConfig | Mapping = {},
     ) -> None:
         self.az_min = az_min
@@ -278,7 +282,7 @@ class Occupancy2D(Objective[
             weighting='cylindrical' if range_weighted else None)
         self.chamfer = PolarChamfer2D(
             mode="chamfer", az_min=az_min, az_max=az_max,
-            max_points=max_points)
+            max_points=max_points, require_knn=require_knn)
 
         if not isinstance(vis_config, VisualizationConfig):
             vis_config = VisualizationConfig(**vis_config)
