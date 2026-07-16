@@ -12,9 +12,34 @@ from torch import Tensor
 class PointCloudMetric(ABC):
     """Generic point-cloud objective (e.g. Chamfer, Hausdorff).
 
-    Note that this base class only supplies the point cloud framework;
-    inheritors must implement a `as_points` method, which specifies the
-    conversion from the raw inputs to cartesian points.
+    !!! note
+
+        This base class only supplies the point cloud framework;
+        inheritors must implement an `as_points` method, which specifies the
+        conversion from the raw inputs to cartesian points.
+
+    !!! tip
+
+        Distance computation is accelerated with `torch_geometric` if installed,
+        with a naive brute-force fallback otherwise.
+
+        Use `require_knn=True` to require the optimized `torch_geometric`
+        backend (and raise an error if unavailable).
+
+    ??? info "Install `torch_geometric`"
+
+        To install the pytorch-geometric backend, add `torch-geometric` to your
+        environment, as well as `pyg_lib`. Note that `pyg_lib` does not have
+        a fully automatic installation process; using `pyproject.toml`, you
+        will need the following:
+        ```toml
+        [tool.uv]
+        find-links = [
+            "https://data.pyg.org/whl/torch-2.12.0+cu130.html"
+        ]
+        ```
+        Note that the pytorch version (e.g., `torch-2.12.0`) and CUDA version
+        (e.g., `cu130`) must match your environment.
 
     Supported modes:
 
@@ -25,14 +50,27 @@ class PointCloudMetric(ABC):
     Args:
         mode: specified modes.
         on_empty: value to use if one of the provided maps is completely empty.
+        require_knn: if `True`, raise an `ImportError` if `torch_geometric`
+            (used to accelerate nearest-neighbor lookups) is not installed.
     """
 
     def __init__(
         self, on_empty: float = 64.0,
         mode: Literal["chamfer", "hausdorff", "modhausdorff"] = "chamfer",
+        require_knn: bool = False,
     ) -> None:
         self.mode = mode
         self.on_empty = on_empty
+
+        try:
+            from torch_geometric.nn.pool import knn  # type: ignore
+            self._knn = knn
+        except ImportError:
+            self._knn = None
+            if require_knn:
+                raise ImportError(
+                    "torch_geometric is required (require_knn=True) but is "
+                    "not installed.") from None
 
     @abstractmethod
     def as_points(self, data: Shaped[Tensor, "..."]) -> Float[Tensor, "n d"]:
@@ -48,21 +86,45 @@ class PointCloudMetric(ABC):
         x: Float[Tensor, "n1 d"], y: Float[Tensor, "n2 d"]
     ) -> Float[Tensor, "n1 n2"]:
         """Compute the pairwise N-dimension l2 distances between x and y."""
-        return torch.sqrt(torch.sum(torch.square(
-            x[:, None, :] - y[None, :, :]
-        ), dim=-1))
+        x2 = torch.sum(x * x, dim=-1, keepdim=True)  # [n1, 1]
+        y2 = torch.sum(y * y, dim=-1, keepdim=True)  # [n2, 1]
+        sq = x2 - 2 * (x @ y.T) + y2.T
+        return torch.sqrt(torch.clamp(sq, min=0))
+
+    def _nearest_dists(
+        self, pts_x: Float[Tensor, "n1 d"], pts_y: Float[Tensor, "n2 d"]
+    ) -> tuple[Float[Tensor, "n2"], Float[Tensor, "n1"]]:
+        """Compute per-point nearest-neighbor distances in both directions.
+
+        Returns:
+            d1: for each point in `pts_y`, distance to its nearest neighbor
+                in `pts_x`.
+            d2: for each point in `pts_x`, distance to its nearest neighbor
+                in `pts_y`.
+        """
+        if self._knn is not None:
+            # knn(x, y, k) finds, for each element in y, the k nearest points
+            # in x; it returns [query_idx (into y), match_idx (into x)].
+            idx_y, idx_x = self._knn(pts_x, pts_y, k=1)
+            d1 = torch.linalg.norm(pts_y[idx_y] - pts_x[idx_x], dim=-1)
+            idx_x2, idx_y2 = self._knn(pts_y, pts_x, k=1)
+            d2 = torch.linalg.norm(pts_x[idx_x2] - pts_y[idx_y2], dim=-1)
+            return d1, d2
+        else:
+            dist = self.distance(pts_x, pts_y)
+            d1 = torch.min(dist, dim=0).values
+            d2 = torch.min(dist, dim=1).values
+            return d1, d2
 
     @torch.compiler.disable
     def _forward(self, x, y):
         pts_x = self.as_points(x)
         pts_y = self.as_points(y)
-        dist = self.distance(pts_x, pts_y)
 
-        if dist.shape[0] == 0 or dist.shape[1] == 0:
+        if pts_x.shape[0] == 0 or pts_y.shape[0] == 0:
             return torch.full((), self.on_empty, device=x.device)
 
-        d1 = torch.min(dist, dim=0).values
-        d2 = torch.min(dist, dim=1).values
+        d1, d2 = self._nearest_dists(pts_x, pts_y)
 
         if self.mode == "modhausdorff":
             return torch.median(torch.concatenate([d1, d2]))
@@ -98,15 +160,18 @@ class PolarChamfer2D(PointCloudMetric):
         max_points: if set, limit each point cloud to this many points before
             computing distances. Predictions are sampled without replacement
             weighted by sigmoid(logit); ground truth is sampled uniformly.
+        require_knn: if `True`, raise an `ImportError` if `torch_geometric`
+            (used to accelerate nearest-neighbor lookups) is not installed,
+            instead of silently falling back to a brute-force implementation.
     """
 
     def __init__(
         self, on_empty: float = 64.0,
         mode: Literal["chamfer", "hausdorff", "modhausdorff"] = "chamfer",
         az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
-        max_points: int | None = None,
+        max_points: int | None = None, require_knn: bool = False,
     ) -> None:
-        super().__init__(on_empty=on_empty, mode=mode)
+        super().__init__(on_empty=on_empty, mode=mode, require_knn=require_knn)
         self.az_min = az_min
         self.az_max = az_max
         self.max_points = max_points
@@ -172,6 +237,9 @@ class PolarChamfer3D(PointCloudMetric):
         max_points: if set, limit each point cloud to this many points before
             computing distances. Predictions are sampled without replacement
             weighted by sigmoid(logit); ground truth is sampled uniformly.
+        require_knn: if `True`, raise an `ImportError` if `torch_geometric`
+            (used to accelerate nearest-neighbor lookups) is not installed,
+            instead of silently falling back to a brute-force implementation.
     """
 
     def __init__(
@@ -179,9 +247,9 @@ class PolarChamfer3D(PointCloudMetric):
         mode: Literal["chamfer", "hausdorff", "modhausdorff"] = "chamfer",
         az_min: float = -np.pi / 2, az_max: float = np.pi / 2,
         el_min: float = -np.pi / 4, el_max: float = np.pi / 4,
-        max_points: int | None = None,
+        max_points: int | None = None, require_knn: bool = False,
     ) -> None:
-        super().__init__(on_empty=on_empty, mode=mode)
+        super().__init__(on_empty=on_empty, mode=mode, require_knn=require_knn)
         self.az_min = az_min
         self.az_max = az_max
         self.el_min = el_min

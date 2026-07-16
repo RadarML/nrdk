@@ -1,5 +1,6 @@
 """Streamlined tests for NRDK metrics module."""
 
+import pytest
 import torch
 
 from nrdk.metrics import (
@@ -253,6 +254,30 @@ def test_polar_chamfer_2d_basic():
     assert torch.all(loss >= 0)
     # Second batch should have lower loss due to perfect match
     assert loss[1] < loss[0]
+
+
+def test_polar_chamfer_2d_knn_matches_bruteforce():
+    """PolarChamfer2D's torch_geometric knn backend matches the fallback."""
+    try:
+        chamfer = PolarChamfer2D(require_knn=True)
+    except ImportError:
+        pytest.xfail("torch_geometric is not installed")
+
+    torch.manual_seed(42)
+    y_true = torch.zeros(2, 8, 8, dtype=torch.bool)
+    y_hat = torch.zeros(2, 8, 8, dtype=torch.bool)
+    y_true[0, 2, 3] = True
+    y_true[0, 4, 5] = True
+    y_hat[0, 2, 4] = True
+    y_hat[0, 4, 6] = True
+    y_true[1, 1, 2] = True
+    y_hat[1, 1, 2] = True
+
+    knn_loss = chamfer(y_hat, y_true)
+    chamfer._knn = None  # force brute-force fallback for comparison
+    brute_loss = chamfer(y_hat, y_true)
+
+    assert torch.allclose(knn_loss, brute_loss)
 
 
 def test_polar_chamfer_2d_empty():

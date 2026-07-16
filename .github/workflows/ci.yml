@@ -30,16 +30,16 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv sync --extra dev --extra roverd --frozen
+        uv sync --extra dev --extra roverd --extra ptg-dev --frozen
 
     - name: Lint with ruff
       run: |
-        uv run --extra dev --extra roverd ruff check ./src
+        uv run --extra dev --extra roverd --extra ptg-dev ruff check ./src
 
     - name: Type check with pyright
       run: |
-        uv run --extra dev --extra roverd pyright ./src
+        uv run --extra dev --extra roverd --extra ptg-dev pyright ./src
 
     - name: Run tests
       run: |
-        uv run --extra dev --extra roverd pytest -ra -- tests
+        uv run --extra dev --extra roverd --extra ptg-dev pytest -ra -- tests
