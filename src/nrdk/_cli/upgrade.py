@@ -84,7 +84,7 @@ def cli_upgrade(
 
     For each valid [results directory][nrdk.framework.Result] in the specified
     `path`, search for all `_target_` fields in the hydra config, and replace
-    any occurrences of `from` with `to`.
+    any occurrences of `target` with `to`.
 
     Args:
         target: full path name of the implementation to replace.

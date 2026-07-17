@@ -144,7 +144,7 @@ def cli_inspect(
     metadata = [Text(f"{size_str}", style=style)]
     shapes = [Text("", style=style)]
 
-    if len(tree) == 1:
+    if len(tree) == 1 and isinstance(next(iter(tree.values())), dict):
         root = Tree(next(iter(tree.keys())))
         tree = next(iter(tree.values()))
     else:
