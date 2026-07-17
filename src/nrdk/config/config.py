@@ -10,10 +10,10 @@ import yaml
 from hydra.experimental.callback import Callback
 from omegaconf import DictConfig
 
-Nested = Sequence[str] | Mapping[str, "Nested"]
 
-
-def expand(path: str | None = None, **nested: Nested) -> list[str]:
+def expand(
+    path: str | None = None, **nested: Sequence[str] | Mapping[str, Any]
+) -> list[str]:
     """Expand a nested sequence of mappings and lists into a flat list.
 
     Each level in the nested structure should be a mapping, except the last
@@ -27,7 +27,9 @@ def expand(path: str | None = None, **nested: Nested) -> list[str]:
     Returns:
         A flat list of file paths described by `nested`.
     """
-    def _expand(nested: Nested, base: str | None = None):
+    def _expand(
+        nested: Sequence[str] | Mapping[str, Any], base: str | None = None
+    ) -> list[str]:
 
         def _join(p: str) -> str:
             if base is not None:
@@ -36,6 +38,10 @@ def expand(path: str | None = None, **nested: Nested) -> list[str]:
                 return p
 
         if isinstance(nested, Sequence):
+            if any(not isinstance(item, str) for item in nested):
+                raise ValueError(
+                    "All items in the last level of the nested structure must "
+                    "be strings.")
             return [_join(item) for item in nested]
         elif isinstance(nested, Mapping):
             return sum((_expand(v, _join(k)) for k, v in nested.items()), [])

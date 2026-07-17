@@ -64,13 +64,18 @@ class PatchMerge(nn.Module):
             remainder = [
                 xs - ps * (xs // ps) for xs, ps in zip(shape, self.scale)]
             if self.remainder == "pad":
-                pad = sum([[0, r] for r in reversed(remainder)], start=[0, 0])
+                # Amount needed to round each axis up to the next multiple of
+                # `ps`, not the remainder itself.
+                pad_amount = [
+                    (ps - r) % ps for r, ps in zip(remainder, self.scale)]
+                pad = sum(
+                    [[0, p] for p in reversed(pad_amount)], start=[0, 0])
                 x = nn.functional.pad(x, pad, value=0.0)
             else:  # "crop"
                 slices = [slice(None)] + [
                     slice(0, xs - r) for xs, r in zip(shape, remainder)
                 ] + [slice(None)]
-                x = x[slices]
+                x = x[tuple(slices)]
 
         merged = self._merge(x)
         if self.norm is not None:

@@ -26,7 +26,7 @@ def _normalize(
 def tile_images(
     y_true: Shaped[Tensor, "b h w 3"] | Shaped[Tensor, "b h w"],
     *y_hat: Shaped[Tensor, "b h w 3"] | Shaped[Tensor, "b h w"],
-    cols: int = 8, cmap: str | Shaped[np.ndarray, "H W 3"] = 'viridis',
+    cols: int = 8, cmap: str | Shaped[np.ndarray, "N 3"] = 'viridis',
     normalize: bool = False
 ) -> UInt8[np.ndarray, "h2 w2 3"]:
     """Tile a batch of images into a single image as a grid.

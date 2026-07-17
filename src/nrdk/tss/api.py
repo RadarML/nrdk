@@ -97,7 +97,7 @@ def experiments_from_index(
 ) -> tuple[
     Mapping[str, NestedValues[Num[np.ndarray, "_N"]]],
     Mapping[str, NestedValues[Float64[np.ndarray, "_N"]]] | None,
-    list[str]
+    list[str | None]
 ]:
     """Load experiment results from indexed result files.
 
@@ -172,7 +172,7 @@ def experiments_from_index(
                 ytyt = cut_trace(t, (data[key], t), gap=cut)
                 return list(zip(*ytyt))
             else:
-                return [data[key]], [data[timestamps]]
+                return [data[key]], [t]
         else:
             return [data[key]]
 

@@ -47,13 +47,7 @@ roverd = { git = "https://github.com/radarml/red-rover.git", subdirectory = "for
 [project.optional-dependencies]
 roverd = [
     "xwr >= 0.3.3",
-    "roverd[ouster,video] >= 0.2.2"
-]
-
-# pyg_lib is optional; the CPU version is included here for development only.
-ptg-dev = [
-    "torch_geometric >= 2.8.0",
-    "pyg_lib"
+    "roverd[video] >= 0.3.5"
 ]
 
 docs = [

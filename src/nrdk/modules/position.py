@@ -183,7 +183,7 @@ class LearnableND(nn.Module):
         for i, e in enumerate(self.embeddings):
             idxs = [None] * (len(self.shape) + 1) + [slice(None)]
             idxs[i + 1] = slice(None)
-            x = x + e[idxs]
+            x = x + e[tuple(idxs)]
         return x
 
 

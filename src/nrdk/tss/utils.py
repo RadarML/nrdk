@@ -1,13 +1,13 @@
 """Data marshalling utilities."""
 
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 import optree
 from jaxtyping import Float, Num
 
 LeafType = TypeVar("LeafType")
-MetricTree = dict[str, "MetricTree"] | LeafType
+MetricTree = dict[str, Any] | LeafType
 
 
 def tree_flatten(
@@ -83,7 +83,7 @@ def cut_trace(
             as the inputs.
     """
     cuts, = np.where(np.diff(timestamps) > gap)
-    cuts = np.concatenate([[0], cuts, [timestamps.shape[0]]])
+    cuts = np.concatenate([[0], cuts + 1, [timestamps.shape[0]]])
 
     return [
         optree.tree_map(lambda x: x[start:stop], values)  # type: ignore
