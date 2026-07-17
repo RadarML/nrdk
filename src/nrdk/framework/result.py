@@ -134,6 +134,6 @@ class Result:
     def checkpoints(self) -> dict[str, float]:
         """All checkpoints and their corresponding validation metrics."""
         return {
-            os.path.join(self.path, v): k
-            for k, v in self._checkpoints["best_k"].items()
+            os.path.join(self.path, "checkpoints", filename): metric
+            for filename, metric in self._checkpoints["best_k"].items()
         }
