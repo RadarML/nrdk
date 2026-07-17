@@ -110,7 +110,7 @@ class MLPVectorDecoder(nn.Module):
 
     def __init__(
         self, layers: list[int] = [512, 512], dropout: float = 0.1,
-        activation: str = 'GELU', dim: int = 768, shape: Sequence[int] = [4],
+        activation: str = 'gelu', dim: int = 768, shape: Sequence[int] = [4],
         strategy: Literal["last", "maxpool", "avgpool"] = "last",
         channels_first: bool = False
     ) -> None:

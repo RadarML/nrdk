@@ -7,12 +7,6 @@ import torch
 
 from nrdk.objectives import Occupancy2D, Occupancy3D
 
-# `require_knn=False` everywhere below: these objectives default to
-# `require_knn=True`, which raises `ImportError` when `torch_geometric` isn't
-# installed (as in CI/pre-commit); brute-force chamfer distance is
-# functionally equivalent, just slower, and is what these tests should
-# exercise regardless of environment.
-
 
 @dataclass
 class MockOccupancy3DData:

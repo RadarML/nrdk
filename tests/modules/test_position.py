@@ -14,15 +14,6 @@ from nrdk.modules.position import (
 )
 
 
-def _small_input(shape, seed=0):
-    """Generate a small zero-filled tensor with the given shape."""
-    torch.manual_seed(seed)
-    return torch.zeros(*shape)
-
-
-# Sinusoid
-
-
 def test_sinusoid_preserves_shape():
     """Sinusoid embeddings are added elementwise; shape is unchanged."""
     x = torch.randn(2, 5, 8)
