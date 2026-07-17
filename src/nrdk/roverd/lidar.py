@@ -215,9 +215,9 @@ class Occupancy2D:
         x_crop = rng[:, :, crop_el:-crop_el, crop_az:-crop_az] * self.units
 
         if "range_scale" in aug:
-            rng = rng * aug["range_scale"]
+            x_crop = x_crop * aug["range_scale"]
         if aug.get("azimuth_flip"):
-            rng = np.flip(rng, axis=3)
+            x_crop = np.flip(x_crop, axis=3)
 
         # Project to polar
         angles = beam_angles[crop_el:-crop_el]

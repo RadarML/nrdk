@@ -2140,8 +2140,8 @@ wheels = [
 
 [[package]]
 name = "roverd"
-version = "0.3.4"
-source = { git = "https://github.com/radarml/red-rover.git?subdirectory=format#4d4b4c36903625947459728b93d28a4827dde172" }
+version = "0.3.5"
+source = { git = "https://github.com/radarml/red-rover.git?subdirectory=format#668709464d68e12ce4b5cf890b28445059d89673" }
 dependencies = [
     { name = "abstract-dataloader" },
     { name = "beartype" },

@@ -184,7 +184,7 @@ class Velocity(Transform[
         if aug.get("doppler_flip", False):
             vel *= -1
         if aug.get("azimuth_flip", False):
-            vel[..., 2] = vel[..., 2] * -1
+            vel[..., 1] = vel[..., 1] * -1
 
         if radar is not None:
             vel = vel / radar.doppler_resolution[:, None, None]

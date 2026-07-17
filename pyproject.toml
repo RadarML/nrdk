@@ -47,7 +47,7 @@ roverd = { git = "https://github.com/radarml/red-rover.git", subdirectory = "for
 [project.optional-dependencies]
 roverd = [
     "xwr >= 0.3.3",
-    "roverd[video] >= 0.3.4"
+    "roverd[video] >= 0.3.5"
 ]
 
 docs = [
