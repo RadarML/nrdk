@@ -25,19 +25,21 @@ class _RecordingGradModule(nn.Module):
         self.log_dict_calls.append((dict(values), kwargs))
 
 
-def _backward(
+def _before_optimizer_step(
     callback: GradientStats, step: int, pl_module: _RecordingGradModule
 ) -> None:
-    """Call `on_after_backward` with a lightweight `trainer` stand-in.
+    """Call `on_before_optimizer_step` with a lightweight `trainer` stand-in.
 
     `trainer`/`pl_module` are cast to `Trainer`/`LightningModule` purely to
-    satisfy static typing -- `on_after_backward`'s real signature expects
-    those types, but only reads a couple of duck-typed attributes from each,
-    so a lightweight stand-in is enough at runtime.
+    satisfy static typing -- `on_before_optimizer_step`'s real signature
+    expects those types, but only reads a couple of duck-typed attributes
+    from each, so a lightweight stand-in is enough at runtime. `optimizer`
+    is unused by the callback, so a placeholder is sufficient.
     """
     trainer = SimpleNamespace(global_step=step)
-    callback.on_after_backward(
-        cast(Trainer, trainer), cast(LightningModule, pl_module))
+    callback.on_before_optimizer_step(
+        cast(Trainer, trainer), cast(LightningModule, pl_module),
+        cast(torch.optim.Optimizer, object()))
 
 
 # GradientStats
@@ -50,7 +52,7 @@ def test_gradient_stats_does_not_log_before_interval_reached():
     for step in range(3):
         pl_module.weights[0].grad = torch.tensor(
             [float(step + 1), 0.0, 0.0, 0.0])
-        _backward(callback, step, pl_module)
+        _before_optimizer_step(callback, step, pl_module)
 
     assert pl_module.log_dict_calls == []
 
@@ -65,7 +67,7 @@ def test_gradient_stats_logs_analytical_mean_std_min_max():
     for step, norm in enumerate(norms):
         # A single nonzero component gives an exact L2 norm of `norm`.
         pl_module.weights[0].grad = torch.tensor([norm, 0.0, 0.0, 0.0])
-        _backward(callback, step, pl_module)
+        _before_optimizer_step(callback, step, pl_module)
 
     assert len(pl_module.log_dict_calls) == 1
     logged, kwargs = pl_module.log_dict_calls[0]
@@ -88,7 +90,7 @@ def test_gradient_stats_resets_accumulators_after_logging():
 
     for step, norm in enumerate([1.0, 2.0]):
         pl_module.weights[0].grad = torch.tensor([norm, 0.0, 0.0, 0.0])
-        _backward(callback, step, pl_module)
+        _before_optimizer_step(callback, step, pl_module)
 
     assert len(pl_module.log_dict_calls) == 1
     assert callback.m1 == 0.0
@@ -105,7 +107,7 @@ def test_gradient_stats_ignores_parameters_without_grad():
     pl_module.weights[0].grad = torch.tensor([3.0, 4.0, 0.0, 0.0])  # norm 5
     pl_module.weights[1].grad = None
 
-    _backward(callback, 0, pl_module)
+    _before_optimizer_step(callback, 0, pl_module)
 
     logged, _ = pl_module.log_dict_calls[0]
     assert logged["grad_norm/mean"] == pytest.approx(5.0)
@@ -121,7 +123,7 @@ def test_gradient_stats_combines_norms_across_multiple_parameters():
     pl_module.weights[0].grad = torch.tensor([3.0, 0.0, 0.0, 0.0])
     pl_module.weights[1].grad = torch.tensor([4.0, 0.0, 0.0, 0.0])
 
-    _backward(callback, 0, pl_module)
+    _before_optimizer_step(callback, 0, pl_module)
 
     logged, _ = pl_module.log_dict_calls[0]
     # Concatenated vector norm: sqrt(3^2 + 4^2) == 5.

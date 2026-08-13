@@ -84,7 +84,7 @@ class GradientStats(Callback):
         self.min = float('inf')
         self.max = 0.0
 
-    def on_after_backward(self, trainer, pl_module) -> None:
+    def on_before_optimizer_step(self, trainer, pl_module, optimizer) -> None:
         # Note that gradients should be synchronized across shards already!
         norm = torch.nn.utils.get_total_norm(
             p.grad for p in pl_module.parameters() if p.grad is not None
