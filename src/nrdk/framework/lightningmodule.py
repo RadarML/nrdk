@@ -75,14 +75,17 @@ class NRDKLightningModule(
     """
 
     def __init__(
-        self, model: TModel,
+        self,
+        model: TModel,
         objective: Objective[Tensor, YTrue, YPred],
         optimizer: Callable[
-            [Iterable[nn.parameter.Parameter]], torch.optim.Optimizer],
-        transforms:
-            spec.Pipeline[Any, Any, YTrueRaw, YTrue]
-            | spec.Transform[YTrueRaw, YTrue] | None = None,
-        vis_interval: int = 0, vis_samples: int = 16
+            [Iterable[nn.parameter.Parameter]], torch.optim.Optimizer
+        ],
+        transforms: spec.Pipeline[Any, Any, YTrueRaw, YTrue]
+        | spec.Transform[YTrueRaw, YTrue]
+        | None = None,
+        vis_interval: int = 0,
+        vis_samples: int = 16,
     ) -> None:
         super().__init__()
 
@@ -120,7 +123,8 @@ class NRDKLightningModule(
             self._log.warning(
                 "torch.compile is currently incompatible with jaxtyping; "
                 "if you see type errors, set the environment variable "
-                "`JAXTYPING_DISABLE=1` to disable jaxtyping checks.")
+                "`JAXTYPING_DISABLE=1` to disable jaxtyping checks."
+            )
         kwargs.setdefault("mode", "reduce-overhead")
         self.model.compile(dynamic=dynamic, **kwargs)
         self._log.info("Model compiled with torch.compile.")
@@ -191,13 +195,15 @@ class NRDKLightningModule(
             pat, sub = next(iter(pattern.items()))
             if sub is None:
                 weights = {
-                    k: v for k, v in weights.items() if not re.search(pat, k)}
+                    k: v for k, v in weights.items() if not re.search(pat, k)
+                }
             else:
                 weights = {re.sub(pat, sub, k): v for k, v in weights.items()}
 
         missing, unexpected = self.model.load_state_dict(weights, strict=False)
         self._log.info(
-            f"Loaded {len(weights) - len(unexpected)} weights from {path}.")
+            f"Loaded {len(weights) - len(unexpected)} weights from {path}."
+        )
         if len(missing) > 0:
             self._log.warning(f"Not loaded: {len(missing)}")
             self._log.info(f"{missing}")
@@ -230,7 +236,8 @@ class NRDKLightningModule(
             if not isinstance(self.logger, LoggerWithImages):
                 self._log.warning(
                     "Tried to log visualizations, but the logger does not "
-                    "implement the `LoggerWithImages` interface.")
+                    "implement the `LoggerWithImages` interface."
+                )
             else:
                 self.logger.log_images(images, step=step)
 
@@ -260,18 +267,19 @@ class NRDKLightningModule(
             split: train/val split to put in the output path.
         """
         self._log.debug(f"Logging visualizations @ i={self.global_step}")
+
         def _slice_for_vis(x):
             if not isinstance(x, torch.Tensor):
                 return x
             if x.ndim == 0:
                 return x.detach().cpu()
-            return x[:self.vis_samples].detach().cpu()
+            return x[: self.vis_samples].detach().cpu()
 
-        y_true, y_pred = optree.tree_map(
-            _slice_for_vis, (y_true, y_pred))  # type: ignore
+        y_true, y_pred = optree.tree_map(_slice_for_vis, (y_true, y_pred))  # type: ignore
         threading.Thread(
             target=self._make_log,
-            args=(y_true, y_pred, split, self.global_step)).start()
+            args=(y_true, y_pred, split, self.global_step),
+        ).start()
 
     @torch.compiler.disable
     def transform(
@@ -287,6 +295,7 @@ class NRDKLightningModule(
             Transformed data.
         """
         if device is not None:
+
             def _move_to_device(x: Any) -> Any:
                 if isinstance(x, torch.Tensor):
                     return x.to(device, non_blocking=True)
@@ -294,9 +303,7 @@ class NRDKLightningModule(
                     return x.to(device)
                 return x
 
-            batch = cast(
-                YTrueRaw,
-                optree.tree_map(_move_to_device, batch))  # type: ignore
+            batch = cast(YTrueRaw, optree.tree_map(_move_to_device, batch))  # type: ignore
 
         with torch.no_grad():
             if isinstance(self.transforms, spec.Pipeline):
@@ -306,9 +313,7 @@ class NRDKLightningModule(
             else:  # YTrue = YTrueRaw
                 return cast(YTrue, batch)
 
-    def training_step(
-        self, batch: YTrueRaw, batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch: YTrueRaw, batch_idx: int) -> torch.Tensor:
         """Standard lightning training step."""
         y_true, y_pred = self(batch)
 
@@ -318,23 +323,29 @@ class NRDKLightningModule(
 
         self.log_dict(
             {f"{k}/train": v for k, v in metrics.items()},
-            on_step=True, on_epoch=True, sync_dist=True)
+            on_step=True,
+            on_epoch=True,
+            sync_dist=True,
+        )
         self.log(
-            "loss/train", loss,
-            on_step=True, on_epoch=True, sync_dist=True)
-        vq_meta = self._collect_vq_meta(y_pred)
-        if vq_meta:
+            "loss/train", loss, on_step=True, on_epoch=True, sync_dist=True
+        )
+        latent_quant_metrics = self._collect_latent_quant_meta(y_pred)
+        if latent_quant_metrics:
             self.log_dict(
-                {f"vq/{k}/train": v for k, v in vq_meta.items()},
-                on_step=True, on_epoch=True, sync_dist=True)
+                {f"{k}/train": v for k, v in latent_quant_metrics.items()},
+                on_step=True,
+                on_epoch=True,
+                sync_dist=True,
+            )
 
         do_log = (
             self.global_rank == 0
             and self.vis_interval > 0
-            and (self.global_step % self.vis_interval == 0))
+            and (self.global_step % self.vis_interval == 0)
+        )
         if do_log:
-            self.log_visualizations(
-                y_true, y_pred, split="train")  # type: ignore
+            self.log_visualizations(y_true, y_pred, split="train")  # type: ignore
 
         return loss
 
@@ -357,45 +368,68 @@ class NRDKLightningModule(
         metrics = {k: torch.nanmean(v) for k, v in metrics.items()}
 
         self.log_dict(
-            {f"{k}/val": v for k, v in metrics.items()}, sync_dist=True)
+            {f"{k}/val": v for k, v in metrics.items()}, sync_dist=True
+        )
         self.log("loss/val", loss, sync_dist=True)
-        vq_meta = self._collect_vq_meta(y_pred)
-        if vq_meta:
+        latent_quant_metrics = self._collect_latent_quant_meta(y_pred)
+        if latent_quant_metrics:
             self.log_dict(
-                {f"vq/{k}/val": v for k, v in vq_meta.items()},
-                sync_dist=True)
+                {f"{k}/val": v for k, v in latent_quant_metrics.items()},
+                sync_dist=True,
+            )
 
         if batch_idx == 0 and self.global_rank == 0:
             val_samples = self._get_val_samples()  # type: ignore
             if val_samples is not None:
                 samples_gpu, y_hat = self(val_samples, device=loss.device)
-                self.log_visualizations(
-                    samples_gpu, y_hat, split="val")  # type: ignore
+                self.log_visualizations(samples_gpu, y_hat, split="val")  # type: ignore
 
     @staticmethod
-    def _collect_vq_meta(y_pred: YPred) -> dict[str, Tensor]:
+    def _collect_latent_quant_meta(y_pred: YPred) -> dict[str, Tensor]:
         if not isinstance(y_pred, Mapping):
             return {}
         meta = y_pred.get("latent_quant_meta")
         if not isinstance(meta, Mapping):
             return {}
+
+        if meta.get("type") in {
+            "vct",
+            "sliding_window_latent_codec",
+        }:
+            namespace = "rate"
+            keys = (
+                "rate_bits",
+                "bits_per_raw_scalar",
+                "compression_ratio_16bit_raw",
+                "actual_rate_bits",
+                "actual_bits_per_raw_scalar",
+                "actual_compression_ratio_16bit_raw",
+                "actual_escape_rate",
+            )
+        else:
+            namespace = "vq"
+            keys = ("vq_loss", "perplexity", "usage")
+
         metrics: dict[str, Tensor] = {}
-        for key in ("vq_loss", "perplexity", "usage"):
+        for key in keys:
             value = meta.get(key)
             if torch.is_tensor(value):
-                metrics[key] = torch.mean(value)
+                metrics[f"{namespace}/{key}"] = torch.mean(value)
         return metrics
 
     def evaluate(
-        self, dataset: torch.utils.data.DataLoader,
-        metadata: Callable[
-            [YTrue], Mapping[str, Shaped[Tensor, "batch"]]] | None = None,
+        self,
+        dataset: torch.utils.data.DataLoader,
+        metadata: Callable[[YTrue], Mapping[str, Shaped[Tensor, "batch"]]]
+        | None = None,
         device: int | str | torch.device = 0,
-        raw_outputs: bool = False
-    ) -> Iterator[tuple[
-        dict[str, Shaped[np.ndarray, "batch"]],
-        dict[str, Shaped[np.ndarray, "batch ..."]]
-    ]]:
+        raw_outputs: bool = False,
+    ) -> Iterator[
+        tuple[
+            dict[str, Shaped[np.ndarray, "batch"]],
+            dict[str, Shaped[np.ndarray, "batch ..."]],
+        ]
+    ]:
         """Evaluate model.
 
         Args:
@@ -433,11 +467,13 @@ class NRDKLightningModule(
                 # kept. Pytorch can also have trouble garbage collecting these
                 # references, leading to memory leaks.
                 np_metrics = {
-                    k: np.copy(v.cpu().numpy()) for k, v in metrics.items()}
+                    k: np.copy(v.cpu().numpy()) for k, v in metrics.items()
+                }
 
                 if raw_outputs:
                     outputs = {
-                        k: np.copy(v.cpu().numpy()) for k, v in y_hat.items()}
+                        k: np.copy(v.cpu().numpy()) for k, v in y_hat.items()
+                    }
                     yield np_metrics, outputs
                 else:
                     rendered = self.objective.render(y_true, y_hat)
@@ -457,10 +493,11 @@ class NRDKLightningModule(
                 if p.grad is not None and not torch.isfinite(p.grad).all():
                     self._log.warning(
                         f"Non-finite gradient detected at step "
-                        f"{self.global_step}; skipping update.")
+                        f"{self.global_step}; skipping update."
+                    )
                     self.log(
-                        "train/nan_grad_skip", 1.0,
-                        on_step=True, on_epoch=False)
+                        "train/nan_grad_skip", 1.0, on_step=True, on_epoch=False
+                    )
                     self.zero_grad()
                     return
 
