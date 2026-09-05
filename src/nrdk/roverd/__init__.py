@@ -97,6 +97,7 @@ with typechecker("nrdk.roverd"):
         Occupancy3D,
         Occupancy3DData,
     )
+    from .torchspectrum import TorchSpectrum
     from .transforms import (
         Semseg,
         Spectrum,
@@ -110,6 +111,6 @@ __all__ = [
     "Occupancy2D", "Occupancy2DData",
     "Occupancy3D", "Occupancy3DData",
     "Semseg",
-    "Spectrum", "SpectrumData",
+    "Spectrum", "SpectrumData", "TorchSpectrum",
     "Velocity", "VelocityData",
 ]
