@@ -8,6 +8,7 @@ import pytest
 import torch
 from lightning import LightningModule, Trainer
 from torch import nn
+from torch.utils.data import DataLoader, TensorDataset
 
 from nrdk.framework.callbacks import GradientStats
 
@@ -22,6 +23,30 @@ class _RecordingGradModule(nn.Module):
         self.log_dict_calls: list[tuple[dict, dict]] = []
 
     def log_dict(self, values: dict, **kwargs) -> None:
+        self.log_dict_calls.append((dict(values), kwargs))
+
+
+class _AccumulatingModule(LightningModule):
+    """Trainable `LightningModule` with a recording `log_dict`.
+
+    Used to exercise `GradientStats` through a real `Trainer` run; the
+    recording `log_dict` intercepts the callback's logging without needing
+    a logger to be attached.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.layer = nn.Linear(4, 1)
+        self.log_dict_calls: list[tuple[dict, dict]] = []
+
+    def training_step(self, batch, batch_idx) -> torch.Tensor:
+        (inputs,) = batch
+        return self.layer(inputs).square().mean()
+
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        return torch.optim.SGD(self.parameters(), lr=0.1)
+
+    def log_dict(self, values: dict, **kwargs) -> None:  # type: ignore[override]
         self.log_dict_calls.append((dict(values), kwargs))
 
 
@@ -84,7 +109,7 @@ def test_gradient_stats_logs_analytical_mean_std_min_max():
 
 
 def test_gradient_stats_resets_accumulators_after_logging():
-    """Internal accumulators reset to their initial values after logging."""
+    """The buffered window is cleared after logging."""
     callback = GradientStats(interval=2)
     pl_module = _RecordingGradModule()
 
@@ -93,10 +118,7 @@ def test_gradient_stats_resets_accumulators_after_logging():
         _before_optimizer_step(callback, step, pl_module)
 
     assert len(pl_module.log_dict_calls) == 1
-    assert callback.m1 == 0.0
-    assert callback.m2 == 0.0
-    assert callback.min == float("inf")
-    assert callback.max == 0.0
+    assert callback.norms == []
 
 
 def test_gradient_stats_ignores_parameters_without_grad():
@@ -128,3 +150,34 @@ def test_gradient_stats_combines_norms_across_multiple_parameters():
     logged, _ = pl_module.log_dict_calls[0]
     # Concatenated vector norm: sqrt(3^2 + 4^2) == 5.
     assert logged["grad_norm/mean"] == pytest.approx(5.0)
+
+
+def test_gradient_stats_logs_once_per_optimizer_step_under_accumulation():
+    """Gradient accumulation yields one measurement per optimizer step."""
+    torch.manual_seed(0)
+    pl_module = _AccumulatingModule()
+    callback = GradientStats(interval=2, name="grad_norm")
+    trainer = Trainer(
+        accumulate_grad_batches=4, max_epochs=1, callbacks=[callback],
+        accelerator="cpu", devices=1, logger=False,
+        enable_checkpointing=False, enable_progress_bar=False,
+        enable_model_summary=False)
+
+    dataset = TensorDataset(torch.randn(8, 4))
+    trainer.fit(pl_module, DataLoader(dataset, batch_size=1))
+
+    # 8 batches accumulated 4 at a time is 2 optimizer steps, so `interval=2`
+    # closes exactly one window. Measuring on a backward hook would instead
+    # see 8 measurements, and close four.
+    assert trainer.global_step == 2
+    assert len(pl_module.log_dict_calls) == 1
+
+    logged, kwargs = pl_module.log_dict_calls[0]
+    assert kwargs == {"on_step": True, "sync_dist": False}
+    # The two steps have distinct norms, and for a two-sample window the mean
+    # and std are exactly the midpoint and half-spread of the extremes.
+    assert logged["grad_norm/min"] < logged["grad_norm/max"]
+    assert logged["grad_norm/mean"] == pytest.approx(
+        (logged["grad_norm/min"] + logged["grad_norm/max"]) / 2)
+    assert logged["grad_norm/std"] == pytest.approx(
+        (logged["grad_norm/max"] - logged["grad_norm/min"]) / 2)

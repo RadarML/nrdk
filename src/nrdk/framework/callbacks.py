@@ -76,36 +76,30 @@ class GradientStats(Callback):
         self.interval = interval
         self.name = name
 
-        self.__reset_stats()
-
-    def __reset_stats(self) -> None:
-        self.m1 = 0.0
-        self.m2 = 0.0
-        self.min = float('inf')
-        self.max = 0.0
+        # Buffer (instead of accumulating) for numerical stability
+        # The memory overhead should be negligible.
+        self.norms: list[float] = []
 
     def on_before_optimizer_step(self, trainer, pl_module, optimizer) -> None:
-        # Note that gradients should be synchronized across shards already!
-        norm = torch.nn.utils.get_total_norm(
+        # We use the `on_before_optimizer_step` hook instead of a backward hook
+        # so that gradient accumulation gives a single measurement per logical
+        # step.
+        # - Gradients should be synchronized across shards already.
+        # - If AMP is used, the gradients are unscaled at this point, and are
+        #   not yet clipped.
+        self.norms.append(torch.nn.utils.get_total_norm(
             p.grad for p in pl_module.parameters() if p.grad is not None
-        ).item()
+        ).item())
 
-        self.m1 += norm
-        self.m2 += norm**2
-        self.min = min(self.min, norm)
-        self.max = max(self.max, norm)
-
-        if (trainer.global_step + 1) % self.interval == 0:
-            mean = self.m1 / self.interval
-
+        if len(self.norms) >= self.interval:
+            norms = np.array(self.norms)
             stats = {
-                f"{self.name}/mean": mean,
-                f"{self.name}/std": np.sqrt(
-                    (self.m2 / self.interval) - mean**2),
-                f"{self.name}/min": self.min,
-                f"{self.name}/max": self.max,
+                f"{self.name}/mean": float(norms.mean()),
+                f"{self.name}/std": float(norms.std()),
+                f"{self.name}/min": float(norms.min()),
+                f"{self.name}/max": float(norms.max()),
             }
             # Synchronization not necessary!
             pl_module.log_dict(stats, on_step=True, sync_dist=False)
 
-            self.__reset_stats()
+            self.norms.clear()
