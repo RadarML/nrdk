@@ -11,7 +11,6 @@ downstream repositories.
 from nrdk._typecheck import typechecker
 
 with typechecker("nrdk.modules"):
-    from . import scale
     from .conv import (
         ConvDecoder,
         ConvDown,
@@ -30,7 +29,6 @@ with typechecker("nrdk.modules"):
     )
 
 __all__ = [
-    "scale",
     "ConvNextLayer",
     "ConvDown", "ConvUp", "ConvResidual", "ConvEncoder", "ConvDecoder",
     "PatchMerge", "Unpatch", "Squeeze",

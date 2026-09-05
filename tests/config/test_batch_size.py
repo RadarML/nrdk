@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from nrdk.config import autoscale_batch_size
 
 
@@ -28,3 +30,15 @@ def test_autoscale_batch():
 
     with _with_gpus(3):
         assert autoscale_batch_size(10) == 3
+
+
+def test_autoscale_batch_zero_raises():
+    """Scaling down to zero is rejected rather than silently returning 0."""
+    with _with_gpus(1), pytest.raises(ValueError):
+        autoscale_batch_size(2, accumulation=4)
+
+    with _with_gpus(8), pytest.raises(ValueError):
+        autoscale_batch_size(4)
+
+    with _with_gpus(8), pytest.raises(ValueError):
+        autoscale_batch_size(4, accumulation=2)

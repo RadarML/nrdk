@@ -134,6 +134,18 @@ def test_conv_down_asymmetric_downsample():
     assert out.shape == (2, 8, 4, 4)
 
 
+def test_conv_down_bad_downsample_length_raises():
+    """A downsample sequence which is not `(height, width)` is rejected."""
+    with pytest.raises(ValueError):
+        ConvDown(d_in=4, d_out=8, downsample=(2, 2, 2), depth=1)
+
+
+def test_conv_up_bad_upsample_length_raises():
+    """An upsample sequence which is not `(height, width)` is rejected."""
+    with pytest.raises(ValueError):
+        ConvUp(d_in=8, d_out=4, upsample=(2,), depth=1)
+
+
 def test_conv_up_shape():
     """Upsampling multiplies spatial dims and remaps channels."""
     x = _small_input(c=16, h=4, w=4)
@@ -190,6 +202,18 @@ def test_conv_decoder_default_shape_and_latent_dim():
 
     assert decoder.latent_dim == 8 * 2**2
     assert out.shape == (2, 8, 16, 16)
+
+
+def test_conv_encoder_downsample_length_mismatch_raises():
+    """`downsample` must have one entry per stage."""
+    with pytest.raises(ValueError):
+        ConvEncoder(stages=(1, 1, 1), downsample=[2, 2], d_in=4, width=8)
+
+
+def test_conv_decoder_upsample_length_mismatch_raises():
+    """`upsample` must have one entry per stage."""
+    with pytest.raises(ValueError):
+        ConvDecoder(stages=(1, 1, 1), upsample=[2, 2], d_in=4, width=8)
 
 
 def test_conv_decoder_empty_stages_raises():

@@ -69,7 +69,7 @@ class ConvResidual(nn.Module):
     - Layer norm instead of batch norm.
     - GELU nonlinearity instead of ReLU.
     - Optional layer scale as in [ConvNeXt](https://arxiv.org/pdf/2201.03545).
-    - Ability to specify padding mode for convoltional layers.
+    - Ability to specify padding mode for convolutional layers.
 
     !!! info "Axis Order"
 
@@ -151,7 +151,10 @@ class ConvDown(nn.Module):
 
         if not isinstance(downsample, int):
             downsample = tuple(downsample)
-            assert len(downsample) == 2
+            if len(downsample) != 2:
+                raise ValueError(
+                    "Downsample must be an int or a sequence of 2 ints "
+                    f"(height, width); got {len(downsample)}.")
 
         self.patch = nn.Conv2d(
             d_in, d_out, kernel_size=downsample,
@@ -192,7 +195,10 @@ class ConvUp(nn.Module):
 
         if not isinstance(upsample, int):
             upsample = tuple(upsample)
-            assert len(upsample) == 2
+            if len(upsample) != 2:
+                raise ValueError(
+                    "Upsample must be an int or a sequence of 2 ints "
+                    f"(height, width); got {len(upsample)}.")
 
         self.stem = nn.Sequential(*[layer(d_in) for _ in range(depth)])
         self.unpatch = nn.ConvTranspose2d(
@@ -237,6 +243,10 @@ class ConvEncoder(nn.Sequential):
 
         if downsample is None:
             downsample = [1] + [2] * (len(stages) - 1)
+        elif len(downsample) != len(stages):
+            raise ValueError(
+                f"Got {len(downsample)} downsample factors for "
+                f"{len(stages)} stages; these must have the same length.")
 
         _stages = []
         for i, (ds, depth) in enumerate(zip(downsample, stages)):
@@ -290,6 +300,10 @@ class ConvDecoder(nn.Sequential):
 
         if upsample is None:
             upsample = [1] + [2] * (len(stages) - 1)
+        elif len(upsample) != len(stages):
+            raise ValueError(
+                f"Got {len(upsample)} upsample factors for "
+                f"{len(stages)} stages; these must have the same length.")
 
         _stages = []
         _spec = list(enumerate(zip(upsample, stages)))

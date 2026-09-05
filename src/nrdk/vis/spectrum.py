@@ -27,7 +27,7 @@ def range_doppler(
     y_true: Float[Tensor, "b d el az rng ch"],
     y_pred: Float[Tensor, "b d el az rng ch"],
     vis_config: VisualizationConfig,
-    eps: float = 0.0,
+    eps: float = 1e-6,
     include_phase: bool = True,
 ) -> dict[str, Shaped[np.ndarray, "H W 3"]]:
     """Render range-Doppler magnitude, log-magnitude, and phase visualizations.
@@ -38,6 +38,9 @@ def range_doppler(
         y_pred: predicted spectrum, same shape as `y_true`.
         vis_config: visualization configuration (cols, cmaps, ...).
         eps: if `>0`, clamp amplitudes to `[eps, inf)` before taking log.
+            Set to `0` to disable clamping; note that a single zero amplitude
+            then yields `-inf`, which propagates through min/max normalization
+            and corrupts the entire log-magnitude panel.
         include_phase: whether to include a `"phase"` entry.  Requires
             at least 2 channels (complex data).
 
@@ -107,7 +110,7 @@ def range_azimuth(
     """Render range-azimuth amplitude visualizations.
 
     The amplitude is averaged over Doppler and elevation dimensions and then
-    resized to `vis_config.height x vis_config.width` via bilinear
+    resized to `vis_config.height x vis_config.width` via nearest-neighbor
     interpolation.
 
     Args:

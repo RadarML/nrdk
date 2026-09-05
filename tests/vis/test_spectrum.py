@@ -62,3 +62,25 @@ def test_range_azimuth_shape():
     assert set(result.keys()) == {"range_azimuth"}
     assert result["range_azimuth"].shape == (12, 10, 3)
     assert result["range_azimuth"].dtype == np.uint8
+
+
+def test_range_doppler_default_eps_survives_zero_amplitude():
+    """The default `eps` keeps the log panel usable when a bin is exactly 0.
+
+    Without clamping, a single zero amplitude gives `log(0) = -inf`, which
+    propagates through `tile_images`' global min/max normalization and
+    collapses the whole ground-truth panel to garbage.
+    """
+    y_true = _small_spectrum(seed=0)
+    y_true[0, :, :, :, 0, :] = 0.0
+    y_pred = _small_spectrum(seed=1)
+    vis_config = VisualizationConfig(cols=2, width=5, height=4)
+
+    default = range_doppler(y_true, y_pred, vis_config)["log_magnitude"]
+    unclamped = range_doppler(
+        y_true, y_pred, vis_config, eps=0.0)["log_magnitude"]
+
+    # Rows 0-3 are the ground-truth panel; both batch items share a min/max.
+    assert np.isfinite(default).all()
+    assert np.unique(default[0:4]).size > np.unique(unclamped[0:4]).size
+    assert np.unique(default[0:4]).size > 8

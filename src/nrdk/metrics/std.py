@@ -11,8 +11,13 @@ class BatchStd:
 
     Computes the per-feature standard deviation of a `(batch, ch)` tensor
     across the batch dimension. In a distributed setting the statistic is
-    aggregated across all ranks via a single `all_reduce`, so the result
+    aggregated across all ranks via a single `all_gather`, so the result
     reflects the full global batch on every rank.
+
+    !!! note
+
+        We use total variance to avoid catastrophic cancellation if naively
+        accumulating moments.
 
     !!! warning
 
@@ -33,11 +38,26 @@ class BatchStd:
         Returns:
             Population std per feature.
         """
-        B = x.shape[0]
-        stats = torch.stack([x.sum(dim=0), (x ** 2).sum(dim=0)])  # [2, ch]
-        N = float(B)
+        n, ch = x.shape
+        total = x.sum(dim=0, dtype=torch.float64)
+        # An empty local batch contributes nothing; a zero mean keeps its
+        # (zero-weighted) between-rank term finite rather than NaN.
+        mean = total / n if n > 0 else total
+        stats = torch.stack([
+            x.new_full((ch,), n, dtype=torch.float64), mean,
+            ((x.double() - mean) ** 2).sum(dim=0)])  # [3, ch]
+
         if dist.is_available() and dist.is_initialized():
-            dist.all_reduce(stats)
-            N *= dist.get_world_size()
-        var = stats[1] / N - (stats[0] / N) ** 2
-        return var.clamp(min=0).sqrt()
+            world_size = dist.get_world_size()
+            flat = stats.new_empty((world_size * stats.shape[0], ch))
+            dist.all_gather_into_tensor(flat, stats)
+            stats = flat.view(world_size, *stats.shape)
+        else:
+            stats = stats[None]
+
+        n_i, mean_i, m2_i = stats[:, 0], stats[:, 1], stats[:, 2]
+        N = n_i.sum(dim=0)
+        mean_global = (n_i * mean_i).sum(dim=0) / N
+        # E[Var(x | rank)] + Var(E[x | rank]), as unnormalized second moments.
+        m2 = m2_i.sum(dim=0) + (n_i * (mean_i - mean_global) ** 2).sum(dim=0)
+        return (m2 / N).clamp(min=0).sqrt().to(x.dtype)
