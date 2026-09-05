@@ -3,6 +3,7 @@
 from nrdk._typecheck import typechecker
 
 with typechecker("nrdk.vis"):
+    from .spectrum import range_azimuth, range_doppler
     from .utils import swap_angular_conventions, tile_images
     from .voxels import (
         bev_from_polar2,
@@ -16,4 +17,6 @@ __all__ = [
     "bev_from_polar2",
     "bev_height_from_polar_occupancy",
     "depth_from_polar_occupancy",
+    "range_doppler",
+    "range_azimuth",
 ]
