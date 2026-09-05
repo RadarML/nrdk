@@ -39,7 +39,7 @@ def test_polar_chamfer_2d_knn_matches_bruteforce():
     try:
         chamfer = PolarChamfer2D(require_knn=True)
     except ImportError:
-        pytest.xfail("torch_geometric is not installed")
+        pytest.skip("torch_geometric is not installed")
 
     torch.manual_seed(42)
     y_true = torch.zeros(2, 8, 8, dtype=torch.bool)
