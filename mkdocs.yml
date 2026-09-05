@@ -11,6 +11,7 @@ nav:
       - nrdk.metrics: nrdk/metrics.md
       - nrdk.models: nrdk/models.md
       - nrdk.modules: nrdk/modules.md
+      - nrdk.modules.scale: nrdk/scale.md
       - nrdk.objectives: nrdk/objectives.md
       - nrdk.roverd: nrdk/roverd.md
       - nrdk.vis: nrdk/vis.md
