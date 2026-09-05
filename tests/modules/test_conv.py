@@ -1,8 +1,16 @@
 """Tests for `nrdk.modules.conv`."""
 
+import pytest
 import torch
 
-from nrdk.modules.conv import ConvNextLayer
+from nrdk.modules.conv import (
+    ConvDecoder,
+    ConvDown,
+    ConvEncoder,
+    ConvNextLayer,
+    ConvResidual,
+    ConvUp,
+)
 
 
 def _small_input(n=2, c=8, h=6, w=6, seed=0):
@@ -75,4 +83,150 @@ def test_convnext_layer_expansion_ratio_does_not_change_output_shape():
     """The inverted bottleneck expansion ratio is internal to the block."""
     x = _small_input(c=8)
     out = ConvNextLayer(channels=8, expansion_ratio=2.0)(x)
+    assert out.shape == x.shape
+
+
+# ConvResidual
+
+
+def test_conv_residual_preserves_shape():
+    """A residual block preserves input shape."""
+    x = _small_input(c=8)
+    out = ConvResidual(dim=8)(x)
+
+    assert out.shape == x.shape
+    assert torch.all(torch.isfinite(out))
+
+
+def test_conv_residual_no_layer_scale():
+    """`layer_scale_init_value <= 0` disables the learnable gamma."""
+    block = ConvResidual(dim=8, layer_scale_init_value=0.0)
+    assert block.gamma is None
+
+    out = block(_small_input(c=8))
+    assert torch.all(torch.isfinite(out))
+
+
+def test_conv_residual_padding_mode():
+    """Non-default padding modes run without error."""
+    x = _small_input(c=8)
+    out = ConvResidual(dim=8, padding_mode="zeros")(x)
+
+    assert out.shape == x.shape
+
+
+# ConvDown / ConvUp
+
+
+def test_conv_down_shape():
+    """Downsampling divides spatial dims and remaps channels."""
+    x = _small_input(c=4, h=8, w=8)
+    out = ConvDown(d_in=4, d_out=16, downsample=2, depth=1)(x)
+
+    assert out.shape == (2, 16, 4, 4)
+
+
+def test_conv_down_asymmetric_downsample():
+    """A `(height, width)` downsample tuple applies per-axis factors."""
+    x = _small_input(c=4, h=8, w=16)
+    out = ConvDown(d_in=4, d_out=8, downsample=(2, 4), depth=1)(x)
+
+    assert out.shape == (2, 8, 4, 4)
+
+
+def test_conv_down_bad_downsample_length_raises():
+    """A downsample sequence which is not `(height, width)` is rejected."""
+    with pytest.raises(ValueError):
+        ConvDown(d_in=4, d_out=8, downsample=(2, 2, 2), depth=1)
+
+
+def test_conv_up_bad_upsample_length_raises():
+    """An upsample sequence which is not `(height, width)` is rejected."""
+    with pytest.raises(ValueError):
+        ConvUp(d_in=8, d_out=4, upsample=(2,), depth=1)
+
+
+def test_conv_up_shape():
+    """Upsampling multiplies spatial dims and remaps channels."""
+    x = _small_input(c=16, h=4, w=4)
+    out = ConvUp(d_in=16, d_out=4, upsample=2, depth=1)(x)
+
+    assert out.shape == (2, 4, 8, 8)
+
+
+def test_conv_down_up_roundtrip_shape():
+    """A down stage followed by a matching up stage restores shape."""
+    x = _small_input(c=4, h=8, w=8)
+    down = ConvDown(d_in=4, d_out=16, downsample=2, depth=1)
+    up = ConvUp(d_in=16, d_out=4, upsample=2, depth=1)
+
+    out = up(down(x))
+    assert out.shape == x.shape
+
+
+# ConvEncoder / ConvDecoder
+
+
+def test_conv_encoder_default_shape_and_latent_dim():
+    """Default encoder downsamples spatially and grows channel width."""
+    x = _small_input(c=24, h=16, w=16)
+    encoder = ConvEncoder(stages=(1, 1, 1), d_in=24, width=8)
+
+    out = encoder(x)
+
+    assert encoder.latent_dim == 8 * 2**2
+    assert out.shape == (2, encoder.latent_dim, 4, 4)
+
+
+def test_conv_encoder_d_out_projects_channels():
+    """`d_out` adds a final 1x1 conv projecting to the target channel dim."""
+    x = _small_input(c=24, h=8, w=8)
+    encoder = ConvEncoder(stages=(1, 1), d_in=24, width=8, d_out=5)
+
+    out = encoder(x)
+    assert out.shape[1] == 5
+
+
+def test_conv_encoder_empty_stages_raises():
+    """An empty `stages` sequence is rejected."""
+    with pytest.raises(ValueError):
+        ConvEncoder(stages=())
+
+
+def test_conv_decoder_default_shape_and_latent_dim():
+    """Default decoder upsamples spatially and shrinks channel width."""
+    latent = _small_input(c=32, h=4, w=4)
+    decoder = ConvDecoder(stages=(1, 1, 1), d_in=8, width=8)
+
+    out = decoder(latent)
+
+    assert decoder.latent_dim == 8 * 2**2
+    assert out.shape == (2, 8, 16, 16)
+
+
+def test_conv_encoder_downsample_length_mismatch_raises():
+    """`downsample` must have one entry per stage."""
+    with pytest.raises(ValueError):
+        ConvEncoder(stages=(1, 1, 1), downsample=[2, 2], d_in=4, width=8)
+
+
+def test_conv_decoder_upsample_length_mismatch_raises():
+    """`upsample` must have one entry per stage."""
+    with pytest.raises(ValueError):
+        ConvDecoder(stages=(1, 1, 1), upsample=[2, 2], d_in=4, width=8)
+
+
+def test_conv_decoder_empty_stages_raises():
+    """An empty `stages` sequence is rejected."""
+    with pytest.raises(ValueError):
+        ConvDecoder(stages=())
+
+
+def test_conv_encoder_decoder_roundtrip_shape():
+    """An encoder followed by a matching decoder restores the input shape."""
+    x = _small_input(c=24, h=16, w=16)
+    encoder = ConvEncoder(stages=(1, 1, 1), d_in=24, width=8)
+    decoder = ConvDecoder(stages=(1, 1, 1), d_in=24, width=8)
+
+    out = decoder(encoder(x))
     assert out.shape == x.shape
