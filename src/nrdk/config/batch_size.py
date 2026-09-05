@@ -33,6 +33,10 @@ def autoscale_batch_size(batch: int, accumulation: int = 1) -> int:
         ValueError: if the batch size is scaled down to zero, i.e. the target
             effective batch size is smaller than the total scaling factor.
     """
+    if accumulation < 1:
+        raise ValueError(
+            f"Accumulation factor must be >= 1, got {accumulation}.")
+
     if accumulation > 1:
         logger.info(
             f"Auto-scaling batch size by accumulation={accumulation}: "
@@ -56,8 +60,9 @@ def autoscale_batch_size(batch: int, accumulation: int = 1) -> int:
             f"{batch} -> {batch // n_gpus}")
         if batch < n_gpus:
             raise ValueError(
-                f"Batch size {batch} is smaller than n_gpus={n_gpus}, which "
-                "would scale it down to zero.")
+                f"Post-accumulation (={accumulation}) batch size {batch} is "
+                f"smaller than n_gpus={n_gpus}, which would scale it down to "
+                "zero.")
         if batch % n_gpus != 0:
             logger.warning(
                 f"Batch size {batch} is not divisible by n_gpus={n_gpus}.")

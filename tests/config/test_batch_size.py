@@ -37,6 +37,9 @@ def test_autoscale_batch_zero_raises():
     with _with_gpus(1), pytest.raises(ValueError):
         autoscale_batch_size(2, accumulation=4)
 
+    with _with_gpus(1), pytest.raises(ValueError):
+        autoscale_batch_size(2, accumulation=0)
+
     with _with_gpus(8), pytest.raises(ValueError):
         autoscale_batch_size(4)
 
