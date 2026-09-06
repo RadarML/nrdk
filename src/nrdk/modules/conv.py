@@ -71,11 +71,6 @@ class ConvResidual(nn.Module):
     - Optional layer scale as in [ConvNeXt](https://arxiv.org/pdf/2201.03545).
     - Ability to specify padding mode for convolutional layers.
 
-    !!! info "Axis Order"
-
-        Tensors use channels-first `(batch, channels, height, width)` order,
-        matching [`torch.nn.Conv2d`][torch.nn.Conv2d].
-
     Args:
         dim: channel dimension.
         padding_mode: padding mode for convolutional layers.
@@ -128,11 +123,6 @@ class ConvDown(nn.Module):
 
     Applies downsampling first, followed by a series of residual layers.
 
-    !!! info "Axis Order"
-
-        Tensors use channels-first `(batch, channels, height, width)` order,
-        matching [`torch.nn.Conv2d`][torch.nn.Conv2d].
-
     Args:
         d_in: input channel dimension.
         d_out: output channel dimension.
@@ -172,11 +162,6 @@ class ConvUp(nn.Module):
 
     Applies a series of residual layers first, followed by upsampling.
 
-    !!! info "Axis Order"
-
-        Tensors use channels-first `(batch, channels, height, width)` order,
-        matching [`torch.nn.Conv2d`][torch.nn.Conv2d].
-
     Args:
         d_in: input channel dimension.
         d_out: output channel dimension.
@@ -214,10 +199,7 @@ class ConvUp(nn.Module):
 class ConvEncoder(nn.Sequential):
     """Convolutional encoder with multiple stages.
 
-    !!! info "Axis Order"
-
-        Tensors use channels-first `(batch, channels, height, width)` order.
-        The channel dimension grows by 2x at each stage.
+    The channel dimension grows by 2x at each stage.
 
     Args:
         stages: depth of each stage.
@@ -226,8 +208,8 @@ class ConvEncoder(nn.Sequential):
         d_in: input channel dimension.
         d_out: output channel dimension; if None, the output channel dimension
             is the same as the latent dimension.
-        width: initial channel width; the channel width for stage `i` is
-            `width * 2**(i - 1)`.
+        width: initial channel width; the output channel width for stage `i` is
+            `width * 2**i`.
         layer: residual layer module to use with all arguments except
             the channel dimension bound.
     """
@@ -283,7 +265,7 @@ class ConvDecoder(nn.Sequential):
         upsample: upsample factor for each stage; can be an int or a tuple
             of `(height, width)` upsample factors.
         d_in: input channel dimension.
-        width: final channel width; the channel width for stage `i` is
+        width: final channel width; the output channel width for stage `i` is
             `width * 2**(len(stages) - i - 1)`.
         layer: residual layer module to use with all arguments except
             the channel dimension bound.
