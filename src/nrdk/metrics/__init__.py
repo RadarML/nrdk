@@ -19,9 +19,11 @@ with typechecker("nrdk.metrics"):
         mean_with_mask,
     )
     from .pointcloud import PointCloudMetric, PolarChamfer2D, PolarChamfer3D
+    from .std import BatchStd
 
 __all__ = [
     "BCE", "BinaryDiceLoss", "FocalLoss",
     "DepthWithConfidence", "Lp", "VoxelDepth", "lp_power", "mean_with_mask",
     "PolarChamfer2D", "PolarChamfer3D", "PointCloudMetric",
+    "BatchStd",
 ]
