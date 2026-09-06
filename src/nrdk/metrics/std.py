@@ -9,6 +9,11 @@ from torch import Tensor
 class BatchStd:
     """Population standard deviation across the batch axis.
 
+    !!! warning
+
+        Unlike the standard metric interface, this metric returns shape `(ch,)`
+        instead of `(batch,)`.
+
     Computes the per-feature standard deviation of a `(batch, ch)` tensor
     across the batch dimension. In a distributed setting the statistic is
     aggregated across all ranks via a single `all_gather`, so the result
@@ -18,13 +23,6 @@ class BatchStd:
 
         We use total variance to avoid catastrophic cancellation if naively
         accumulating moments.
-
-    !!! warning
-
-        This metric returns shape `(ch,)` — one value per feature dimension —
-        rather than the `(batch,)` shape expected by the standard per-sample
-        metric interface. It cannot be used directly in a metrics dict without
-        further reduction.
     """
 
     def __call__(
