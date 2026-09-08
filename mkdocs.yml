@@ -1,6 +1,7 @@
 site_name: Neural Radar Development Kit
 repo_url: https://github.com/RadarML/nrdk
 repo_name: RadarML/nrdk
+site_url: https://radarml.github.io/nrdk/
 nav:
   - nrdk:
     - Overview: index.md
@@ -65,6 +66,40 @@ theme:
 plugins:
 - search
 - autorefs
+- llmstxt:
+    full_output: llms-full.txt
+    markdown_description: |
+      The Neural Radar Development Kit (NRDK) is a python library and framework
+      for developing, training, and evaluating machine learning models on radar
+      spectrum and multimodal sensor data. Built on pytorch lightning, hydra,
+      and the abstract dataloader, it provides a modular, dependency
+      injection-based training framework, a model zoo and reusable pytorch
+      modules, training objectives and metrics, data loading for red-rover
+      datasets, statistical testing for time series metrics, and a full
+      reference implementation (GRT) to use as a project template.
+    sections:
+      "nrdk":
+      - index.md: Project overview, installation, and getting started
+      - design.md: Software architecture of the framework and its dependency injection-based component model
+      - nrdk/config.md: Configuration utilities for simplifying hydra configurations
+      - nrdk/framework.md: Pytorch lightning framework components (NRDKLightningModule, tokenizer/encoder/decoder models, callbacks)
+      - nrdk/metrics.md: Reusable evaluation metrics beyond what is included in standard libraries
+      - nrdk/models.md: Model zoo of stable, reusable models
+      - nrdk/modules.md: General purpose pytorch modules with n-dimensional support
+      - nrdk/objectives.md: Training objectives following the abstract dataloader objective specification
+      - nrdk/roverd.md: Data loading and transforms for roverd datasets
+      - nrdk/vis.md: General purpose visualization utilities
+      "cli":
+      - cli.md: Command line tools for working with NRDK output conventions (export, inspect, upgrade-config)
+      "nrdk.tss":
+      - tss/index.md: Statistical testing for time-correlated, finite-sample time series performance metrics
+      - tss/api.md: High level API for indexing, loading, and comparing evaluation metrics
+      - tss/stats.md: Effective sample size-corrected statistical tests
+      - tss/utils.md: Utilities for loading and manipulating time series metrics
+      "grt":
+      - grt/index.md: GRT reference implementation and project template
+      - grt/models.md: Models used by the GRT reference implementation
+      - grt/config.md: Hydra configuration groups included in the reference training script
 - mkdocstrings:
     default_handler: python_xref
     handlers:
