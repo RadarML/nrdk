@@ -63,6 +63,7 @@ class GradientStats(Callback):
     Logs the following metrics with respect to the l2 norm of gradients
     (namespaced with the specified `name`), calculated across the specified
     `interval`:
+
     - `mean`: mean across the specified interval
     - `std`: standard deviation
     - `min`, `max`: minimum and maximum values

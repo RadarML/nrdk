@@ -59,6 +59,7 @@ docs = [
     "mkdocstrings-python == 1.16.6",
     "griffe == 1.8.0",
     "mkdocstrings == 0.29.*",
+    "mkdocs-llmstxt>=0.5.0",
     "ruff >= 0.10.0"
 ]
 dev = [
