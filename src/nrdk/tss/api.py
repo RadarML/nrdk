@@ -2,7 +2,9 @@
 
 import os
 import re
-from collections.abc import Mapping, Sequence
+from collections import Counter
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from multiprocessing import pool
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -196,6 +198,42 @@ def experiments_from_index(
         return yy, None, common
 
 
+def _relative_stats(
+    y: Mapping[str, NestedValues[Num[np.ndarray, "_N"]]],
+    t: Mapping[str, NestedValues[Float64[np.ndarray, "_N"]]] | None,
+    names: Sequence[str], baselines: Mapping[str, str],
+    workers: int = -1, t_max: int | None = None
+) -> NDStats:
+    """Compute paired statistics against a per-experiment baseline.
+
+    Args:
+        y: mapping of experiment names and metric values.
+        t: mapping of experiment names and timestamps; if provided, each
+            difference is taken at timestamps common to the pair.
+        names: experiments to compute statistics for, in output order.
+        baselines: maps each entry of `names` to the experiment it should be
+            compared against.
+        workers: number of worker threads to use for computation.
+        t_max: maximum time delay to consider when computing effective sample
+            size; if `None`, do not use any additional constraints.
+
+    Returns:
+        Relative statistics, stacked along the leading axis in `names` order.
+    """
+    y_sorted = [y[k] for k in names]
+    y_base = [y[baselines[k]] for k in names]
+    if t is not None:
+        t_sorted = [t[k] for k in names]
+        t_base = [t[baselines[k]] for k in names]
+        diff = optree.tree_map(
+            intersect_difference,
+            y_sorted, y_base, t_sorted, t_base)  # type: ignore
+    else:
+        diff = optree.tree_map(
+            lambda a, b: a - b, y_sorted, y_base)  # type: ignore
+    return NDStats.from_values(diff, workers=workers, t_max=t_max)  # type: ignore
+
+
 def stats_from_experiments(
     y: Mapping[str, NestedValues[Num[np.ndarray, "_N"]]],
     t: Mapping[str, NestedValues[Float64[np.ndarray, "_N"]]] | None = None,
@@ -228,20 +266,9 @@ def stats_from_experiments(
     y_sorted = [y[k] for k in n_sorted]
     stats_abs = NDStats.from_values(y_sorted, workers=workers, t_max=t_max)
     if baseline is not None:
-        if t is not None:
-            t_sorted = [t[k] for k in n_sorted]
-            diff = optree.tree_map(
-                intersect_difference,
-                y_sorted, [y[baseline]] * len(y),  # type: ignore
-                t_sorted, [t[baseline]] * len(y))  # type: ignore
-            stats_rel = NDStats.from_values(
-                diff, workers=workers, t_max=t_max)  # type: ignore
-        else:
-            diff = optree.tree_map(
-                lambda x, y: x - y, y_sorted,   # type: ignore
-                [y[baseline]] * len(y))  # type: ignore
-            stats_rel = NDStats.from_values(
-                diff, workers=workers, t_max=t_max)  # type: ignore
+        stats_rel = _relative_stats(
+            y, t, n_sorted, {k: baseline for k in n_sorted},
+            workers=workers, t_max=t_max)
     else:
         stats_rel = None
     return n_sorted, stats_abs, stats_rel
@@ -296,17 +323,207 @@ def dataframe_from_stats(
     return df
 
 
+@dataclass
+class Control:
+    r"""A control variable for paired comparisons against varying baselines.
+
+    Passed to [`dataframe_from_index`][^.] to add a `rel_{name}/*` column
+    group which is computed against a different baseline for each experiment,
+    instead of the single global `baseline`.
+
+    !!! info
+
+        Since each experiment is paired against its own baseline, no grouping
+        is needed: `baselines` is simply a mapping from each experiment
+        to the experiment it should be compared against.
+
+    !!! example
+
+        Comparing each experiment against the `base` variant of its family:
+        ```python
+        Control("family", {
+            e: f"{e.rsplit('/', 1)[0]}/base" for e in index})
+        ```
+        For the common case where the experiment name encodes a factor of a
+        full-factorial sweep, use [`from_factor`][.] instead.
+
+    Attributes:
+        name: names the resulting `rel_{name}/*`, `pct_{name}/*`, and
+            `p0.05_{name}` columns.
+        baselines: maps each experiment to the baseline it should be compared
+            against for this control. Experiments which are absent are
+            excluded from this control (their `rel_{name}/*` columns are
+            `NaN`); every baseline named must itself be present in the index.
+    """
+
+    name: str
+    baselines: Mapping[str, str]
+
+    @classmethod
+    def from_factor(
+        cls, name: str, pattern: str | re.Pattern,
+        experiments: Iterable[str | None], baseline: str
+    ) -> "Control":
+        r"""Create a control from one factor of a full-factorial sweep.
+
+        Each experiment matching `pattern` is paired against `baseline`, with
+        `baseline`'s own factor value substituted for the experiment's. This
+        holds the remaining factors fixed at their baseline values, so the
+        resulting comparison controls for the factor captured by `pattern`.
+
+        !!! example
+
+            For a sweep over `midtrain/t1_2k_p{ratio}_b4x8/{split}` with
+            `baseline="midtrain/t1_2k_p0.8_b4x8/p100"`:
+            ```python
+            # each experiment vs. the p0.8 model at the same split
+            Control.from_factor(
+                "split", r"^midtrain/t1_2k_p[\d.]+_b4x8/(?P<value>[^/]+)$",
+                index, baseline)
+            # each experiment vs. the p100 split at the same ratio
+            Control.from_factor(
+                "ratio", r"^midtrain/t1_2k_p(?P<value>[\d.]+)_b4x8/p\d+$",
+                index, baseline)
+            ```
+
+        Args:
+            name: name of the control; names the added column groups.
+            pattern: regex matched against experiment names, defining a single
+                `value` group which captures the controlled factor.
+                Experiments which do not match are excluded, so `pattern` can
+                also be used to restrict the control to a family of
+                experiments.
+            experiments: experiment names to build the mapping over; an
+                [`index`][^^^.api.] can be passed directly.
+            baseline: the global baseline experiment, which the factor value
+                is substituted into. Must match `pattern`.
+
+        Returns:
+            A `Control` pairing each matching experiment with its baseline.
+        """
+        if isinstance(pattern, str):
+            pattern = re.compile(pattern)
+        if "value" not in pattern.groupindex:
+            raise ValueError(
+                f"Control '{name}': the factor pattern must define a `value` "
+                f"group capturing the controlled factor; got: "
+                f"{pattern.pattern}")
+
+        matched = pattern.match(baseline)
+        if matched is None:
+            raise ValueError(
+                f"Control '{name}': the factor pattern does not match the "
+                f"baseline '{baseline}', so the factor value cannot be "
+                f"substituted; got: {pattern.pattern}")
+        start, end = matched.span("value")
+
+        baselines = {}
+        for experiment in experiments:
+            if experiment is None:
+                continue
+            matched = pattern.match(experiment)
+            if matched is not None:
+                baselines[experiment] = (
+                    baseline[:start] + matched.group("value") + baseline[end:])
+
+        if len(baselines) == 0:
+            raise ValueError(
+                f"Control '{name}': the factor pattern did not match any "
+                f"experiments; got: {pattern.pattern}")
+
+        return cls(name=name, baselines=baselines)
+
+
+def _append_control(
+    df: pd.DataFrame, control: Control,
+    y: Mapping[str, NestedValues[Num[np.ndarray, "_N"]]],
+    t: Mapping[str, NestedValues[Float64[np.ndarray, "_N"]]] | None,
+    names: Sequence[str], baseline: str, workers: int = -1,
+    t_max: int | None = None
+) -> pd.DataFrame:
+    """Add a single control's columns to a statistics dataframe.
+
+    Args:
+        df: statistics dataframe to add columns to, indexed by experiment.
+        control: the control variable to compute; see [`Control`][^.].
+        y: mapping of experiment names and metric values.
+        t: mapping of experiment names and timestamps.
+        names: all loaded experiment names.
+        baseline: the global baseline, used as the denominator for the
+            `pct_{name}/*` columns.
+        workers: number of worker threads to use for computation.
+        t_max: maximum time delay to consider when computing effective sample
+            size.
+
+    Returns:
+        The dataframe, with this control's columns added.
+    """
+    covered = [k for k in names if k in control.baselines]
+    if len(covered) == 0:
+        raise ValueError(
+            f"Control '{control.name}' does not cover any of the loaded "
+            f"experiments: {list(names)}")
+
+    missing = sorted({control.baselines[k] for k in covered} - set(names))
+    if len(missing) > 0:
+        raise ValueError(
+            f"Control '{control.name}' refers to baselines which were not "
+            f"loaded: {missing}. Check that these experiments are present in "
+            f"the index, and are not excluded by `experiments`.")
+
+    rel = _relative_stats(
+        y, t, covered, control.baselines, workers=workers, t_max=t_max)
+    prefix = f"rel_{control.name}/"
+    df_rel = rel.reshape(
+        len(covered), -1).sum(axis=-1).as_df(covered, prefix=prefix)
+    df = df.merge(df_rel, on="name", how="left")
+
+    _baseline = df.loc[baseline]["abs/mean"]
+    df[f"pct_{control.name}/mean"] = df[f"{prefix}mean"] / _baseline * 100
+    df[f"pct_{control.name}/stderr"] = df[f"{prefix}stderr"] / _baseline * 100
+
+    # Bonferroni correction over the experiments sharing each baseline,
+    # mirroring `dataframe_from_stats`' correction over all experiments.
+    sizes = Counter(control.baselines[k] for k in covered)
+    n_compared = pd.Series(
+        {k: sizes[control.baselines[k]] for k in covered}
+    ).reindex(df.index)
+    z = norm.ppf(1 - 0.05 / 2 / np.maximum(n_compared - 1, 1))
+    df[f"p0.05_{control.name}"] = (
+        (df[f"{prefix}mean"] / df[f"{prefix}stderr"]) > z
+    ).where(df[f"{prefix}mean"].notna()).astype("boolean")
+
+    return df
+
+
 def dataframe_from_index(
     index: dict[str | None, dict[str | None, str]],
     key: str, timestamps: str | None = None,
     experiments: Sequence[str | None] | None = None,
     cut: float | None = None, baseline: str | None = None, workers: int = -1,
-    t_max: int | None = None
+    t_max: int | None = None, controls: Sequence[Control] = ()
 ) -> pd.DataFrame:
     """Load and calculate statistics from indexed experiment results.
 
     See (1) [`dataframe_from_stats`][^.], (2) [`stats_from_experiments`][^.],
     and (3) and [`experiments_from_index`][^.].
+
+    !!! tip "Controlling for a second variable"
+
+        By default, every experiment is compared against a single global
+        `baseline`, so the difference mixes together every axis along which
+        the two differ. A [`Control`][^.] adds a second comparison which
+        holds one of those axes fixed, pairing each experiment against the
+        baseline sharing its value on that axis. Since the paired difference
+        cancels that axis out, it generally yields a tighter standard error.
+
+        Which axis to fix is a matter of the question being asked, not of
+        which axis matters: pass one `Control` per axis to compare along
+        each in turn.
+
+        Each control adds a `rel_{name}/*`, `pct_{name}/*`, and
+        `p0.05_{name}` column group, computed independently of the others.
+        Experiments not covered by a control are `NaN` in its columns.
 
     Args:
         index: 2-level dictionary with experiment names, sequence/trace names,
@@ -322,14 +539,27 @@ def dataframe_from_index(
             all in parallel; if `=0`, load all in the main thread.
         t_max: maximum time delay to consider when computing effective sample
             size; if `None`, do not use any additional constraints.
+        controls: additional control variables to compute paired statistics
+            for; see [`Control`][^.]. Requires a `baseline`.
 
     Returns:
         Dataframe with statistics for each experiment.
     """
+    if len(controls) > 0 and baseline is None:
+        raise ValueError(
+            "Provided `controls`, but no global `baseline`; a baseline is "
+            "required to compute the `pct_{name}/*` columns.")
+
     y, t, _ = experiments_from_index(
         index, key, timestamps=timestamps, experiments=experiments,
         cut=cut, workers=workers)
     names, stats_abs, stats_rel = stats_from_experiments(
         y, t, baseline=baseline, workers=workers, t_max=t_max)
     df = dataframe_from_stats(names, stats_abs, stats_rel, baseline=baseline)
+
+    for control in controls:
+        df = _append_control(
+            df, control, y, t, names, baseline,  # type: ignore
+            workers=workers, t_max=t_max)
+
     return df

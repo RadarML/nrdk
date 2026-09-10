@@ -437,3 +437,234 @@ def test_dataframe_from_index_end_to_end(tmp_path):
     assert (
         df.loc["treatment", "abs/mean"]  # type: ignore
         > df.loc["base", "abs/mean"])
+
+
+# Control / controls
+
+
+def _grid_index(tmp_path, rng, n=200, effects=None):
+    """Write a 2-factor grid `fam{a,b}/split{x,y}` sharing a common signal.
+
+    The shared per-trace signal dominates the per-experiment effects, so an
+    unpaired comparison is noisy while a paired one is not.
+    """
+    common = rng.normal(size=n) * 5.0
+    t = np.arange(n, dtype=float)
+    if effects is None:
+        effects = {"a": 0.0, "b": 0.25}, {"x": 0.0, "y": 0.5}
+    fam_eff, split_eff = effects
+    data = {
+        f"fam{f}/split{s}": {"seq1": {
+            "y": common + fam_eff[f] + split_eff[s] + rng.normal(size=n) * 0.1,
+            "t": t,
+        }}
+        for f in fam_eff for s in split_eff
+    }
+    return _make_index(tmp_path, data)
+
+
+def test_control_from_factor_substitutes_into_baseline():
+    """Each experiment is paired against the baseline at its factor value."""
+    experiments = [
+        f"midtrain/t1_2k_p{r}_b4x8/{s}"
+        for r in ["0.2", "0.5", "0.8"] for s in ["p10", "p100"]]
+    baseline = "midtrain/t1_2k_p0.8_b4x8/p100"
+
+    split = api.Control.from_factor(
+        "split", r"^midtrain/t1_2k_p[\d.]+_b4x8/(?P<value>[^/]+)$",
+        experiments, baseline)
+    ratio = api.Control.from_factor(
+        "ratio", r"^midtrain/t1_2k_p(?P<value>[\d.]+)_b4x8/p\d+$",
+        experiments, baseline)
+
+    # Controlling for `split` holds the split fixed and varies the ratio.
+    assert split.baselines["midtrain/t1_2k_p0.2_b4x8/p10"] == (
+        "midtrain/t1_2k_p0.8_b4x8/p10")
+    # Controlling for `ratio` holds the ratio fixed and varies the split.
+    assert ratio.baselines["midtrain/t1_2k_p0.2_b4x8/p10"] == (
+        "midtrain/t1_2k_p0.2_b4x8/p100")
+    # Every derived baseline exists, and is its own group's baseline.
+    for control in [split, ratio]:
+        assert set(control.baselines) == set(experiments)
+        assert set(control.baselines.values()) <= set(experiments)
+        for b in set(control.baselines.values()):
+            assert control.baselines[b] == b
+
+
+def test_control_from_factor_excludes_non_matching_experiments():
+    """Experiments outside the pattern are left out of the mapping."""
+    experiments = ["fam/a/x", "fam/b/x", "other/model"]
+
+    control = api.Control.from_factor(
+        "fam", r"^fam/[^/]+/(?P<value>[^/]+)$", experiments, "fam/a/x")
+
+    assert set(control.baselines) == {"fam/a/x", "fam/b/x"}
+
+
+def test_control_from_factor_accepts_an_index_directly():
+    """`index`-shaped dicts (whose keys may be `None`) can be passed as-is."""
+    index = {"fam/a/x": {}, "fam/b/x": {}, None: {}}
+
+    control = api.Control.from_factor(
+        "fam", r"^fam/[^/]+/(?P<value>[^/]+)$", index, "fam/a/x")
+
+    assert set(control.baselines) == {"fam/a/x", "fam/b/x"}
+
+
+@pytest.mark.parametrize("pattern,baseline,match", [
+    (r"^fam/[^/]+/([^/]+)$", "fam/a/x", "must define a `value` group"),
+    (r"^other/(?P<value>.*)$", "fam/a/x", "does not match the baseline"),
+    (r"^nope/(?P<value>.*)$", "nope/z", "did not match any experiments"),
+])
+def test_control_from_factor_raises_on_bad_pattern(pattern, baseline, match):
+    """Malformed or non-matching factor patterns raise at construction."""
+    with pytest.raises(ValueError, match=match):
+        api.Control.from_factor(
+            "fam", pattern, ["fam/a/x", "fam/b/x"], baseline)
+
+
+def test_controls_add_expected_columns_and_leave_others_untouched(tmp_path):
+    """A control adds its own column group without changing existing ones."""
+    rng = np.random.default_rng(30)
+    index = _grid_index(tmp_path, rng)
+    baseline = "fama/splitx"
+    control = api.Control.from_factor(
+        "fam", r"^fam[ab]/(?P<value>.*)$", index, baseline)
+
+    plain = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0)
+    df = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0,
+        controls=[control])
+
+    added = [
+        "rel_fam/mean", "rel_fam/std", "rel_fam/stderr", "rel_fam/n",
+        "rel_fam/ess", "pct_fam/mean", "pct_fam/stderr", "p0.05_fam"]
+    assert list(df.columns) == list(plain.columns) + added
+    pd.testing.assert_frame_equal(df[plain.columns], plain)
+
+
+def test_control_against_global_baseline_reproduces_rel_columns(tmp_path):
+    """A control pairing everything against `baseline` matches `rel/*`.
+
+    This is the degenerate case: controlling for nothing must reproduce the
+    unconditioned comparison exactly.
+    """
+    rng = np.random.default_rng(31)
+    index = _grid_index(tmp_path, rng)
+    baseline = "fama/splitx"
+    control = api.Control("same", {k: baseline for k in index})
+
+    df = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0,
+        controls=[control])
+
+    for field in ["mean", "std", "stderr", "n", "ess"]:
+        np.testing.assert_allclose(
+            df[f"rel_same/{field}"].to_numpy(),
+            df[f"rel/{field}"].to_numpy(), equal_nan=True)
+    np.testing.assert_allclose(
+        df["pct_same/mean"].to_numpy(), df["pct/mean"].to_numpy(),
+        equal_nan=True)
+    assert df["p0.05_same"].astype("object").tolist() == df["p0.05"].tolist()
+
+
+def test_control_pairs_out_the_controlled_variable(tmp_path):
+    """Pairing on the matched variable removes it from the comparison.
+
+    Each experiment is `common + fam_effect + split_effect + noise`; the
+    `fam`-controlled comparison holds `split` fixed, so it should recover the
+    fam effect alone, with a far tighter standard error than the
+    unconditioned comparison (which also absorbs the split effect).
+    """
+    rng = np.random.default_rng(32)
+    index = _grid_index(
+        tmp_path, rng, effects=({"a": 0.0, "b": 0.25}, {"x": 0.0, "y": 5.0}))
+    baseline = "fama/splitx"
+    control = api.Control.from_factor(
+        "fam", r"^fam[ab]/(?P<value>.*)$", index, baseline)
+
+    df = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0,
+        controls=[control])
+
+    # `famb/splity` vs. baseline mixes both effects (0.25 + 5.0)...
+    assert df.loc["famb/splity", "rel/mean"] == pytest.approx(5.25, abs=0.05)
+    # ...while controlling for `fam` isolates the fam effect.
+    assert df.loc["famb/splity", "rel_fam/mean"] == pytest.approx(
+        0.25, abs=0.05)
+    # Each control group's own baseline is exactly zero.
+    assert df.loc["fama/splity", "rel_fam/mean"] == pytest.approx(0.0)
+    assert df.loc["fama/splitx", "rel_fam/mean"] == pytest.approx(0.0)
+
+
+def test_control_partial_coverage_is_na_not_false(tmp_path):
+    """Experiments outside a control get `NaN` stats and a `pd.NA` verdict."""
+    rng = np.random.default_rng(33)
+    index = _grid_index(tmp_path, rng)
+    index.update(_make_index(tmp_path, {"other/lone": {"seq1": {
+        "y": rng.normal(size=200), "t": np.arange(200, dtype=float)}}}))
+    baseline = "fama/splitx"
+    control = api.Control.from_factor(
+        "fam", r"^fam[ab]/(?P<value>.*)$", index, baseline)
+
+    df = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0,
+        controls=[control])
+
+    assert len(df) == 5
+    assert np.isnan(df.loc["other/lone", "rel_fam/mean"])  # type: ignore
+    # `pd.NA`, not `False`: this experiment was never tested.
+    assert df["p0.05_fam"].dtype == "boolean"
+    assert df.loc["other/lone", "p0.05_fam"] is pd.NA
+    assert df.loc["famb/splity", "p0.05_fam"] is not pd.NA
+
+
+def test_multiple_controls_are_computed_independently(tmp_path):
+    """Two controls each get their own columns and don't interact."""
+    rng = np.random.default_rng(34)
+    index = _grid_index(tmp_path, rng)
+    baseline = "fama/splitx"
+    fam = api.Control.from_factor(
+        "fam", r"^fam[ab]/(?P<value>.*)$", index, baseline)
+    split = api.Control.from_factor(
+        "split", r"^(?P<value>fam[ab])/split.*$", index, baseline)
+
+    both = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0,
+        controls=[fam, split])
+    only_fam = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0,
+        controls=[fam])
+
+    pd.testing.assert_frame_equal(
+        both[only_fam.columns], only_fam)
+    # `fam` holds the split fixed; `split` holds the fam fixed.
+    assert fam.baselines["famb/splity"] == "fama/splity"
+    assert split.baselines["famb/splity"] == "famb/splitx"
+
+
+def test_controls_require_a_global_baseline(tmp_path):
+    """`controls` without a `baseline` raises: `pct_*` has no denominator."""
+    rng = np.random.default_rng(35)
+    index = _grid_index(tmp_path, rng)
+    control = api.Control("fam", {k: "fama/splitx" for k in index})
+
+    with pytest.raises(ValueError, match="no global `baseline`"):
+        api.dataframe_from_index(
+            index, key="y", timestamps="t", workers=0, controls=[control])
+
+
+@pytest.mark.parametrize("baselines,match", [
+    ({"fama/splity": "fama/nope"}, "baselines which were not loaded"),
+    ({"nothere": "fama/splitx"}, "does not cover any of the loaded"),
+])
+def test_control_validation_errors(tmp_path, baselines, match):
+    """Unknown baselines raise; a control covering nothing raises."""
+    rng = np.random.default_rng(36)
+    index = _grid_index(tmp_path, rng)
+
+    with pytest.raises(ValueError, match=match):
+        api.dataframe_from_index(
+            index, key="y", timestamps="t", baseline="fama/splitx",
+            workers=0, controls=[api.Control("bad", baselines)])

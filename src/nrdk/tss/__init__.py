@@ -23,6 +23,12 @@ The high level API is broken up into four steps:
 
     We also provide [`dataframe_from_index`][.], which combines the last three
     steps into a single function for convenience.
+
+!!! tip
+
+    If the experiments vary along more than one axis, pass a [`Control`][.]
+    to [`dataframe_from_index`][.] to additionally pair each experiment
+    against a baseline which holds one of those axes fixed.
 """
 
 from nrdk._typecheck import typechecker
@@ -31,6 +37,7 @@ with typechecker("nrdk.tss"):
     from . import stats, utils
     from ._cli import _cli_main
     from .api import (
+        Control,
         NestedValues,
         dataframe_from_index,
         dataframe_from_stats,
@@ -41,7 +48,7 @@ with typechecker("nrdk.tss"):
 
 
 __all__ = [
-    "NestedValues",
+    "Control", "NestedValues",
     "dataframe_from_index", "dataframe_from_stats",
     "experiments_from_index", "stats_from_experiments",
     "index", "stats", "utils", "_cli_main"
