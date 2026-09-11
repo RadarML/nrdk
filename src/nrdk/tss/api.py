@@ -2,27 +2,24 @@
 
 import os
 import re
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from multiprocessing import pool
 
 import numpy as np
-import optree
 import pandas as pd
 from jaxtyping import Float64, Num
 from scipy.stats import norm
 
+from .control import Control, _append_control, _relative_stats
 from .stats import NDStats
-from .utils import NestedValues, cut_trace, intersect_difference
+from .utils import NestedValues, cut_trace
 
 
 def index(
     path: str, pattern: str | re.Pattern, follow_symlinks: bool = False
 ) -> dict[str | None, dict[str | None, str]]:
     r"""Recursively find all evaluations matching the given pattern.
-
-    !!! tip
-
-        LLM chat bots are very good at writing simple regex patterns!
 
     The pattern can have two groups: `experiment`, and `trace`, which
     respectively indicate the name of the experiment and trace. If either group
@@ -206,20 +203,9 @@ def stats_from_experiments(
     y_sorted = [y[k] for k in n_sorted]
     stats_abs = NDStats.from_values(y_sorted, workers=workers, t_max=t_max)
     if baseline is not None:
-        if t is not None:
-            t_sorted = [t[k] for k in n_sorted]
-            diff = optree.tree_map(
-                intersect_difference,
-                y_sorted, [y[baseline]] * len(y),  # type: ignore
-                t_sorted, [t[baseline]] * len(y))  # type: ignore
-            stats_rel = NDStats.from_values(
-                diff, workers=workers, t_max=t_max)  # type: ignore
-        else:
-            diff = optree.tree_map(
-                lambda x, y: x - y, y_sorted,   # type: ignore
-                [y[baseline]] * len(y))  # type: ignore
-            stats_rel = NDStats.from_values(
-                diff, workers=workers, t_max=t_max)  # type: ignore
+        stats_rel = _relative_stats(
+            y, t, n_sorted, {k: baseline for k in n_sorted},
+            workers=workers, t_max=t_max)
     else:
         stats_rel = None
     return n_sorted, stats_abs, stats_rel
@@ -273,7 +259,7 @@ def dataframe_from_stats(
         df['pct/mean'] = df['rel/mean'] / _baseline * 100
         df['pct/stderr'] = df['rel/stderr'] / _baseline * 100
 
-        # Two-sided, with a Bonferroni correction over the experiments
+        # Two-sided, Bonferroni-corrected by the number of experiments
         # compared against the baseline
         z = norm.ppf(1 - 0.05 / 2 / max(len(names) - 1, 1))
         df['p0.05'] = (
@@ -288,12 +274,25 @@ def dataframe_from_index(
     key: str, timestamps: str | None = None,
     experiments: Sequence[str | None] | None = None,
     cut: float | None = None, baseline: str | None = None, workers: int = -1,
-    t_max: int | None = None
+    t_max: int | None = None, controls: Sequence[Control] = ()
 ) -> pd.DataFrame:
     """Load and calculate statistics from indexed experiment results.
 
     See (1) [`dataframe_from_stats`][^.], (2) [`stats_from_experiments`][^.],
-    and (3) and [`experiments_from_index`][^.].
+    and (3) [`experiments_from_index`][^.].
+
+    !!! info "Controlling for additional variables"
+
+        By default, every experiment is compared against a single global
+        `baseline`. A [`Control`][^.] adds a second comparison which
+        holds one of those axes fixed, pairing each experiment against the
+        baseline sharing its value on that axis.
+
+        Each control adds a `rel_{name}/*`, `pct_{name}/*`, and
+        `p0.05_{name}` column group, computed independently of the others,
+        which report the effect of every axis *except* the one it holds
+        fixed. Experiments which a control does not cover are `NaN` in its
+        columns, and every baseline it names must itself be loaded.
 
     Args:
         index: 2-level dictionary with experiment names, sequence/trace names,
@@ -309,14 +308,34 @@ def dataframe_from_index(
             all in parallel; if `=0`, load all in the main thread.
         t_max: maximum time delay to consider when computing effective sample
             size; if `None`, do not use any additional constraints.
+        controls: additional control variables to compute paired statistics
+            for; see [`Control`][^.]. Requires a `baseline`.
 
     Returns:
         Dataframe with statistics for each experiment.
     """
+    if len(controls) > 0 and baseline is None:
+        raise ValueError(
+            "Provided `controls`, but no global `baseline`; a baseline is "
+            "required to compute the `pct_{name}/*` columns.")
+
+    duplicates = sorted({
+        k for k, v in Counter(c.name for c in controls).items() if v > 1})
+    if len(duplicates) > 0:
+        raise ValueError(
+            f"Controls must have unique names, since each control adds its "
+            f"own column group; got duplicates: {duplicates}")
+
     y, t, _ = experiments_from_index(
         index, key, timestamps=timestamps, experiments=experiments,
         cut=cut, workers=workers)
     names, stats_abs, stats_rel = stats_from_experiments(
         y, t, baseline=baseline, workers=workers, t_max=t_max)
     df = dataframe_from_stats(names, stats_abs, stats_rel, baseline=baseline)
+
+    for control in controls:
+        df = _append_control(
+            df, control, y, t, names, baseline,  # type: ignore
+            workers=workers, t_max=t_max)
+
     return df

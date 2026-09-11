@@ -160,7 +160,9 @@ The file path to each evaluation, relative to some base path, should contain inf
 
 ## High Level API
 
-**Index evaluations**: using [`index`][nrdk.tss.index], provide a base path where the evaluations are stored, and a regex pattern for finding evaluation files and extracting their `experiment` and `trace` names.
+### Index evaluations
+
+Using [`index`][nrdk.tss.index], provide a base path where the evaluations are stored, and a regex pattern for finding evaluation files and extracting their `experiment` and `trace` names.
 
 ```python
 import tss
@@ -178,7 +180,9 @@ index = tss.index_results(path, pattern)
     a directory with 20k total files on a SMB share). You may want to
     cache the index or save them to disk somewhere!
 
-**Compute Statistics**: we provide a all-inclusive [`dataframe_from_index`][nrdk.tss.dataframe_from_index] function which returns a dataframe containing summary statistics[^4] for the specified index, given a key of interest and baseline method.
+### Compute Statistics
+
+We provide a all-inclusive [`dataframe_from_index`][nrdk.tss.dataframe_from_index] function which returns a dataframe containing summary statistics[^4] for the specified index, given a key of interest and baseline method.
 
 ```python
 experiments = ["small/p10", "small/p20", "small/p50", "small/base"]
@@ -195,6 +199,26 @@ small/p10   0.161236  0.088207    0.002991  162931  869.479694  0.035865  0.0390
 small/p20   0.152850  0.097548    0.003209  162931  924.222609  0.027480  0.045835    0.000945  162931  2353.289155  21.918760    0.753636   True
 small/p50   0.134158  0.076811    0.002594  162931  877.094752  0.008787  0.027099    0.000406  162931  4453.599831   7.009018    0.323892   True
 ```
+
+### Controlling for a Second Variable
+
+If experiments vary along more than one axis, the difference from a single baseline mixes every axis together. A [`Control`][nrdk.tss.Control] pairs each experiment against the baseline which shares its value on one axis, cancelling that axis out of the difference and tightening the standard error.
+
+```python
+# experiments named `<model>/<split>`, e.g. `small/p10` or `large/p100`
+df = tss.dataframe_from_index(
+    index, "loss", baseline="small/p100",
+    controls=[
+        # each experiment vs. the small model at the same split
+        tss.Control.from_index_rule(
+            "split", index, lambda e: f"small/{e.rsplit('/', 1)[1]}"),
+        # each experiment vs. the full split of the same model
+        tss.Control.from_index_rule(
+            "model", index, lambda e: re.sub(r"/p\d+$", "/p100", e)),
+    ])
+```
+
+Each control adds a `rel_{name}/*`, `pct_{name}/*`, and `p0.05_{name}` column group; experiments which it does not cover are `NaN`. Note that `pct_{name}/*` is still normalized by the global `baseline`, so that percentages remain comparable across every row.
 
 [^2]: Intuitively, sampling the same signal (e.g., radar-lidar-camera tuples) with a greater frequency yields diminishing information: sampling an infinitesimally short video at an infinite frame rate clearly does not yield an infinite sample size.
 [^3]: This concept is best explained via the "natural image manifold:" images have a lot of dimensions (`HxWxC`), but take a `np.random.random((h, w, c))` image, and you'll almost surely not end up with a "natural" image that you might actually encounter. The space of all such *natural images* can be thought of as a low-dimensional manifold, embedded in the high-dimensional image space.
