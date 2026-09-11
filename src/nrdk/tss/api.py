@@ -296,8 +296,7 @@ def dataframe_from_stats(
         df['pct/stderr'] = df['rel/stderr'] / _baseline * 100
 
         # Two-sided, with a Bonferroni correction over the experiments
-        # compared against the baseline (`max(..., 1)`: a lone experiment has
-        # nothing to compare against, and is never significant anyways).
+        # compared against the baseline
         z = norm.ppf(1 - 0.05 / 2 / max(len(names) - 1, 1))
         df['p0.05'] = (
             (df['rel/mean'].abs() / df['rel/stderr']) > z
