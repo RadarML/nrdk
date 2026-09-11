@@ -4,7 +4,6 @@ import os
 import re
 from collections.abc import Mapping, Sequence
 from multiprocessing import pool
-from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 import optree
@@ -13,28 +12,7 @@ from jaxtyping import Float64, Num
 from scipy.stats import norm
 
 from .stats import NDStats
-from .utils import cut_trace, intersect_difference
-
-LeafType = TypeVar("LeafType", bound=np.ndarray)
-
-if TYPE_CHECKING:
-    # NOTE: mkdocstrings uses TYPE_CHECKING mode, so we put the docstring here.
-    NestedValues = Sequence["NestedValues"] | LeafType
-    """An arbitrarily nested sequence, parameterized by a leaf type.
-
-    For example, these are valid examples of
-    `NestedValues[Float[np.ndarray, "_N"]]`:
-    ```python
-    nested_leaf = Float[np.ndarray, "N1"]
-    nested_list = [Float[np.ndarray, "N1"], Float[np.ndarray, "N2"]]
-    nested_list_list = [
-        [Float[np.ndarray, "N1"], Float[np.ndarray, "N2"]],
-        [Float[np.ndarray, "N3"], Float[np.ndarray, "N4"]],
-    ]
-    ```
-    """
-else:
-    NestedValues = Sequence[Any] | LeafType
+from .utils import NestedValues, cut_trace, intersect_difference
 
 
 def index(
