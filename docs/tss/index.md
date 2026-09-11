@@ -196,5 +196,7 @@ small/p20   0.152850  0.097548    0.003209  162931  924.222609  0.027480  0.0458
 small/p50   0.134158  0.076811    0.002594  162931  877.094752  0.008787  0.027099    0.000406  162931  4453.599831   7.009018    0.323892   True
 ```
 
+The `p0.05` column is a **two-sided** Z-test at the 5% level, Bonferroni-corrected by the number of experiments compared against the baseline; an experiment which significantly *improves* on the baseline is flagged just like one which is significantly worse. Experiments which were not compared against anything are `pd.NA`.
+
 [^2]: Intuitively, sampling the same signal (e.g., radar-lidar-camera tuples) with a greater frequency yields diminishing information: sampling an infinitesimally short video at an infinite frame rate clearly does not yield an infinite sample size.
 [^3]: This concept is best explained via the "natural image manifold:" images have a lot of dimensions (`HxWxC`), but take a `np.random.random((h, w, c))` image, and you'll almost surely not end up with a "natural" image that you might actually encounter. The space of all such *natural images* can be thought of as a low-dimensional manifold, embedded in the high-dimensional image space.

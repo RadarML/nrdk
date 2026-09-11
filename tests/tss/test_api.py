@@ -370,7 +370,7 @@ def test_dataframe_from_stats_pct_and_p_value_formulas():
     expected_pct_mean = df["rel/mean"] / base_abs_mean * 100  # type: ignore
     expected_pct_stderr = df["rel/stderr"] / base_abs_mean * 100  # type: ignore
     z = norm.ppf(1 - 0.05 / 2 / (len(names) - 1))
-    expected_p = (df["rel/mean"] / df["rel/stderr"]) > z
+    expected_p = (df["rel/mean"].abs() / df["rel/stderr"]) > z
 
     # NOTE: the baseline row's `rel/stderr` is `0/sqrt(0) = nan` (its own
     # diff-from-itself is a constant-zero array, whose ESS is reported as
@@ -394,6 +394,37 @@ def test_dataframe_from_stats_rel_without_baseline_raises_value_error():
 
     with pytest.raises(ValueError, match="baseline"):
         api.dataframe_from_stats(names, stats_abs, stats_rel, baseline=None)
+
+
+def test_dataframe_from_stats_p_value_is_two_sided():
+    """Experiments which *improve* on the baseline are flagged, not ignored."""
+    rng = np.random.default_rng(24)
+    names = ["base", "worse", "better"]
+    arrays = [rng.normal(size=200) + i for i in [0.0, 1.0, -1.0]]
+    stats_abs = NDStats.from_values(arrays)
+    stats_rel = NDStats.from_values([arr - arrays[0] for arr in arrays])
+
+    df = api.dataframe_from_stats(names, stats_abs, stats_rel, baseline="base")
+
+    assert df.loc["worse", "rel/mean"] > 0  # type: ignore
+    assert df.loc["better", "rel/mean"] < 0  # type: ignore
+    assert df.loc["worse", "p0.05"]
+    assert df.loc["better", "p0.05"]
+    # The baseline is never significant against itself.
+    assert not df.loc["base", "p0.05"]
+
+
+def test_dataframe_from_stats_single_experiment():
+    """A frame with nothing to compare against has no Bonferroni family."""
+    rng = np.random.default_rng(25)
+    arrays = [rng.normal(size=30)]
+    stats_abs = NDStats.from_values(arrays)
+    stats_rel = NDStats.from_values([arrays[0] - arrays[0]])
+
+    df = api.dataframe_from_stats(
+        ["only"], stats_abs, stats_rel, baseline="only")
+
+    assert not df.loc["only", "p0.05"]
 
 
 def test_dataframe_from_index_end_to_end(tmp_path):
