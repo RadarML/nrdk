@@ -196,15 +196,17 @@ small/p20   0.152850  0.097548    0.003209  162931  924.222609  0.027480  0.0458
 small/p50   0.134158  0.076811    0.002594  162931  877.094752  0.008787  0.027099    0.000406  162931  4453.599831   7.009018    0.323892   True
 ```
 
+The `p0.05` column is a **two-sided** Z-test at the 5% level, Bonferroni-corrected by the number of experiments compared against the baseline; an experiment which significantly *improves* on the baseline is flagged just like one which is significantly worse. Experiments which were not compared against anything are `pd.NA`.
+
 ### Controlling for a Second Variable
 
 The unconditioned comparison pairs each experiment against a single global baseline, so the difference it reports mixes together every axis along which the two experiments differ. If the experiments vary along more than one axis, a [`Control`][nrdk.tss.Control] adds a second comparison which holds one of those axes fixed: each experiment is additionally paired against the baseline which shares its value on that axis, so that axis cancels out of the difference and the standard error tightens.
 
-Note that this says nothing about which axis is "interesting" — controls are symmetric, and a sweep over two factors is usually best read by passing one `Control` for each, so that every experiment is compared along both.
+A control is named after the axis it **holds fixed**, so `rel_split/*` reports the effect of everything *except* the split, measured at matched splits. Note that this says nothing about which axis is "interesting" — controls are symmetric, and a sweep over two factors is usually best read by passing one `Control` for each, so that every experiment is compared along both.
 
 !!! example "A two-factor sweep"
 
-    Experiments named `midtrain/t1_2k_p{ratio}_b4x8/{split}` vary along both a masking `ratio` and an evaluation `split`. [`Control.from_factor`][nrdk.tss.Control.from_factor] matches experiment names with a regex defining a `value` group which captures the factor, then pairs each experiment against the `baseline` with that value substituted in:
+    Experiments named `midtrain/t1_2k_p{ratio}_b4x8/{split}` vary along both a masking `ratio` and an evaluation `split`. [`Control.from_factor`][nrdk.tss.Control.from_factor] matches experiment names with a regex defining a `value` group which captures the factor being held fixed, then pairs each experiment against the `reference` with that value substituted in:
 
     ```python
     baseline = "midtrain/t1_2k_p0.8_b4x8/p100"
@@ -225,6 +227,10 @@ Note that this says nothing about which axis is "interesting" — controls are s
 
     Each control adds a `rel_{name}/*`, `pct_{name}/*`, and `p0.05_{name}` column group alongside the unconditioned `rel/*` columns; the group's own baselines are exactly zero, and experiments which the regex does not match are `NaN`.
 
+!!! tip "The reference does not have to be the baseline"
+
+    `from_factor`'s last argument is only the experiment which the factor value is substituted into, so it can be any experiment matching the pattern — for instance, comparing every configuration against the *best* one at its split, while `pct_*` percentages stay normalized by the global baseline.
+
 ??? question "What is this, formally?"
 
     Each level of the controlled variable defines a *block* (or *stratum*), and the comparison is made only within blocks. What a `rel_{name}/*` column reports is therefore the **simple effect** of the remaining factors at a fixed level of the controlled one, as opposed to the unconditioned `rel/*` columns, which mix every factor together. This is the same idea as the paired test [described above](#procedure) — which blocks on the *data* — applied a second time to block on an *experiment factor*.
@@ -234,12 +240,16 @@ Note that this says nothing about which axis is "interesting" — controls are s
     [`Control`][nrdk.tss.Control] itself is just a mapping from each experiment to the baseline it should be compared against, so any pairing can be expressed directly:
 
     ```python
-    tss.Control("family", {e: f"{e.rsplit('/', 1)[0]}/base" for e in index})
+    tss.Control("family", {
+        e: f"{e.rsplit('/', 1)[0]}/base" for e in index if e is not None})
     ```
+
+    Controls are also available from the step-by-step API: [`stats_from_controls`][nrdk.tss.stats_from_controls] computes them from loaded experiments, and [`dataframe_from_stats`][nrdk.tss.dataframe_from_stats] tabulates them.
 
 !!! warning "Percentages use the global baseline"
 
     `pct_{name}/*` is normalized by the *global* `baseline`'s `abs/mean`, not by each group's baseline, so that percentages remain comparable across every row of the dataframe.
+
 
 [^2]: Intuitively, sampling the same signal (e.g., radar-lidar-camera tuples) with a greater frequency yields diminishing information: sampling an infinitesimally short video at an infinite frame rate clearly does not yield an infinite sample size.
 [^3]: This concept is best explained via the "natural image manifold:" images have a lot of dimensions (`HxWxC`), but take a `np.random.random((h, w, c))` image, and you'll almost surely not end up with a "natural" image that you might actually encounter. The space of all such *natural images* can be thought of as a low-dimensional manifold, embedded in the high-dimensional image space.

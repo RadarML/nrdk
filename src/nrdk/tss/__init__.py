@@ -16,6 +16,12 @@ The high level API is broken up into four steps:
     [`NDStats`][.stats.] and [`effective_sample_size`][.stats.] for more
     details about how and what statistics are computed.
 
+    !!! info
+
+        If the experiments vary along more than one axis, also compute
+        [`stats_from_controls`][.], which pairs each experiment against a
+        baseline holding one of those axes fixed; see [`Control`][.].
+
 4. [`dataframe_from_stats`][.]: Aggregate the statistics into a readable
     dataframe, ready to be plotted or exported.
 
@@ -26,9 +32,8 @@ The high level API is broken up into four steps:
 
 !!! tip
 
-    If the experiments vary along more than one axis, pass a [`Control`][.]
-    to [`dataframe_from_index`][.] to additionally pair each experiment
-    against a baseline which holds one of those axes fixed.
+    [`dataframe_from_index`][.] also accepts [`Control`][.]s directly, and
+    computes the controlled statistics along the way.
 """
 
 from nrdk._typecheck import typechecker
@@ -38,18 +43,20 @@ with typechecker("nrdk.tss"):
     from ._cli import _cli_main
     from .api import (
         Control,
+        ControlStats,
         NestedValues,
         dataframe_from_index,
         dataframe_from_stats,
         experiments_from_index,
         index,
+        stats_from_controls,
         stats_from_experiments,
     )
 
 
 __all__ = [
-    "Control", "NestedValues",
+    "Control", "ControlStats", "NestedValues",
     "dataframe_from_index", "dataframe_from_stats",
-    "experiments_from_index", "stats_from_experiments",
-    "index", "stats", "utils", "_cli_main"
+    "experiments_from_index", "stats_from_controls",
+    "stats_from_experiments", "index", "stats", "utils", "_cli_main"
 ]
