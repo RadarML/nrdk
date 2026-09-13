@@ -4,7 +4,7 @@ from typing import Literal
 
 import torch
 from einops import reduce
-from jaxtyping import Bool, Float
+from jaxtyping import Bool, Float, Integer
 from torch import Tensor
 from torch.nn.functional import binary_cross_entropy_with_logits
 
@@ -148,3 +148,53 @@ class FocalLoss:
 
         batch_size = y_true.shape[0]
         return torch.mean(fl.reshape(batch_size, -1), dim=1)
+
+
+class MeanIoU:
+    """Mean Intersection-over-Union (mIoU) for multi-class segmentation.
+
+    Classes which are absent from both the ground truth and the prediction
+    have an undefined (`0 / 0`) IoU; these are excluded from the per-sample
+    mean.
+
+    !!! warning
+
+        This is a **per-sample** mIoU, which the caller is expected to average
+        across samples. This is *not* the same as a dataset-level mIoU, which
+        accumulates intersections and unions across an entire split before
+        dividing.
+    """
+
+    def __call__(
+        self, y_true: Integer[Tensor, "batch *spatial"],
+        y_hat: Float[Tensor, "batch cls *spatial"]
+    ) -> Float[Tensor, "batch"]:
+        """Compute mean IoU.
+
+        Args:
+            y_true: true class labels.
+            y_hat: predicted class logits, with the class axis immediately
+                following the batch axis; the number of classes is inferred
+                from this axis.
+
+        Returns:
+            Mean IoU for each item in the batch, averaged over only the
+                classes present in the ground truth or the prediction.
+        """
+        nc = y_hat.shape[1]
+        y_pred = torch.argmax(y_hat, dim=1)
+
+        true_flat = y_true.reshape(y_true.shape[0], -1)
+        pred_flat = y_pred.reshape(y_pred.shape[0], -1)
+
+        classes = torch.arange(nc, device=y_true.device).reshape(-1, 1, 1)
+        true_c = true_flat.unsqueeze(0) == classes
+        pred_c = pred_flat.unsqueeze(0) == classes
+
+        intersection = reduce(
+            true_c & pred_c, "cls batch n -> batch cls", "sum")
+        union = reduce(true_c | pred_c, "cls batch n -> batch cls", "sum")
+
+        present = union > 0
+        iou = torch.where(present, intersection / union.clamp(min=1), 0.0)
+        return torch.sum(iou, dim=1) / present.sum(dim=1).clamp(min=1)

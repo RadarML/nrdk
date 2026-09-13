@@ -8,10 +8,11 @@ import torch
 import torchvision
 from abstract_dataloader.ext.objective import Objective, VisualizationConfig
 from einops import rearrange, reduce
-from jaxtyping import Float, Integer, Shaped, UInt8
+from jaxtyping import Float, Shaped, UInt8
 from torch import Tensor
 
 from nrdk import vis
+from nrdk.metrics import MeanIoU
 
 
 @runtime_checkable
@@ -31,10 +32,11 @@ class Semseg(
     """Semantic segmentation.
 
     Metrics:
-        - `seg_loss`: categorical cross-entropy loss.
-        - `seg_acc`: segmentation top-1 accuracy.
-        - `seg_acc2`: segmentation top-2 accuracy.
-        - `seg_miou`: segmentation Mean Intersection-Over-Union.
+        - `bce`: categorical cross-entropy loss (identical to the loss).
+        - `acc`: segmentation top-1 accuracy.
+        - `top2`: segmentation top-2 accuracy.
+        - `miou`: segmentation Mean Intersection-Over-Union, averaged per
+            sample (see [`nrdk.metrics.MeanIoU`][nrdk.metrics.MeanIoU]).
 
     Visualizations:
         - `semseg`: semantic segmentation class labels, colored according to
@@ -67,21 +69,11 @@ class Semseg(
         self, vis_config: VisualizationConfig | Mapping[str, Any] = {}
     ) -> None:
         self.ce = torch.nn.CrossEntropyLoss(reduction='none')
+        self.miou = MeanIoU()
 
         if not isinstance(vis_config, VisualizationConfig):
             vis_config = VisualizationConfig(**vis_config)
         self.vis_config = vis_config
-
-    @staticmethod
-    def __miou(
-        y_true: Integer[Tensor, "batch h w"],
-        y_hat: Integer[Tensor, "batch h w"], nc: int = 8
-    ) -> Float[Tensor, "batch"]:
-        y_true_onehot = torch.nn.functional.one_hot(y_true, num_classes=nc)
-        y_hat_onehot = torch.nn.functional.one_hot(y_hat, num_classes=nc)
-        intersection = torch.sum(y_true_onehot & y_hat_onehot, dim=(2, 3))
-        union = torch.sum(y_true_onehot | y_hat_onehot, dim=(2, 3))
-        return torch.mean(intersection / union, dim=1)
 
     def __call__(
         self, y_true: SemsegData, y_pred: Float[Tensor, "batch t h w cls"],
@@ -94,7 +86,6 @@ class Semseg(
         loss = torch.mean(self.ce(y_hat_logits, y_true_idx), dim=(1, 2))
 
         with torch.no_grad():
-            nc = y_hat_logits.shape[1]
             top2 = torch.topk(
                 y_hat_logits, k=2, dim=1, largest=True, sorted=True).indices
             metrics = {
@@ -103,7 +94,7 @@ class Semseg(
                 "top2": torch.mean((
                     (top2[:, 0] == y_true_idx) | (top2[:, 1] == y_true_idx)
                 ).to(torch.float32), dim=(1, 2)),
-                "miou": self.__miou(y_true_idx, top2[:, 0], nc=nc),
+                "miou": self.miou(y_true_idx, y_hat_logits),
             }
             metrics["bce"] = loss
 

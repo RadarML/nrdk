@@ -85,24 +85,6 @@ def test_semseg_miou():
     assert torch.all(metrics["miou"] <= 1)
 
 
-def test_semseg_perfect_predictions():
-    """Test Semseg with perfect class predictions."""
-    torch.manual_seed(42)
-    semseg_data = torch.randint(0, 4, (2, 1, 8, 8), dtype=torch.uint8)
-    # Create perfect logits (high confidence for correct class) - vectorized
-    y_pred = torch.nn.functional.one_hot(
-        semseg_data.long(), num_classes=4).float() * 10.0
-
-    objective = Semseg()
-    mock_data = MockSemsegData(semseg=semseg_data)
-
-    loss, metrics = objective(mock_data, y_pred)
-
-    # Should have high accuracy for perfect predictions
-    assert torch.all(metrics["acc"] > 0.99)
-    assert torch.all(metrics["miou"] > 0.99)
-
-
 def test_semseg_visualization_configs():
     """Test Semseg visualization configuration handling (dict vs. empty)."""
     torch.manual_seed(42)

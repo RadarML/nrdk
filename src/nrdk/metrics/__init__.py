@@ -10,7 +10,7 @@
 from nrdk._typecheck import typechecker
 
 with typechecker("nrdk.metrics"):
-    from .classification import BCE, BinaryDiceLoss, FocalLoss
+    from .classification import BCE, BinaryDiceLoss, FocalLoss, MeanIoU
     from .metrics import (
         DepthWithConfidence,
         Lp,
@@ -22,7 +22,7 @@ with typechecker("nrdk.metrics"):
     from .std import BatchStd
 
 __all__ = [
-    "BCE", "BinaryDiceLoss", "FocalLoss",
+    "BCE", "BinaryDiceLoss", "FocalLoss", "MeanIoU",
     "DepthWithConfidence", "Lp", "VoxelDepth", "lp_power", "mean_with_mask",
     "PolarChamfer2D", "PolarChamfer3D", "PointCloudMetric",
     "BatchStd",
