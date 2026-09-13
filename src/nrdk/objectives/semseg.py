@@ -54,6 +54,7 @@ class Semseg(
           y_pred: semseg
           objective:
             _target_: nrdk.objectives.Semseg
+            label_smoothing: 0.1
             vis_config:
             cols: 8
             cmaps:
@@ -63,12 +64,17 @@ class Semseg(
     Args:
         vis_config: visualization configuration; the `cmaps` should have a
             `semseg` key.
+        label_smoothing: cross-entropy label smoothing; the target
+            distribution assigns `1 - label_smoothing` to the true class, and
+            spreads the remainder uniformly across all classes.
     """
 
     def __init__(
-        self, vis_config: VisualizationConfig | Mapping[str, Any] = {}
+        self, vis_config: VisualizationConfig | Mapping[str, Any] = {},
+        label_smoothing: float = 0.0
     ) -> None:
-        self.ce = torch.nn.CrossEntropyLoss(reduction='none')
+        self.ce = torch.nn.CrossEntropyLoss(
+            reduction='none', label_smoothing=label_smoothing)
         self.miou = MeanIoU()
 
         if not isinstance(vis_config, VisualizationConfig):
