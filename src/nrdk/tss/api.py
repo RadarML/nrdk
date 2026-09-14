@@ -255,14 +255,19 @@ def dataframe_from_stats(
 
     Returns a dataframe where each row is a different experiment.
 
-    - `abs/(mean|std|stderr|zscore|n|ess)`: absolute statistics for the
+    - `abs/(mean|std|stderr|n|ess)`: absolute statistics for the
         provided metric for each experiment.
-    - `rel/(mean|std|stderr|zscore|n|ess)`: relative statistics for the
+    - `rel/(mean|std|stderr|n|ess)`: relative statistics for the
         provided metric for each experiment, relative to the `baseline`. If no
         `baseline` is provided, these columns are not included.
     - `pct/(mean|stderr)`: percent difference and standard error relative to
         the `baseline`, computed as `100 * <rel/mean>/<abs/mean>` and
-        `100 * <rel/stderr>/<abs/mean>`.
+        `100 * <rel/stderr>/<abs/mean>`, where `<abs/mean>` is the
+        *baseline's* absolute mean.
+    - `p0.05`: whether the difference from the `baseline` is significant at
+        the 5% level (two-sided), Bonferroni-corrected by the number of
+        experiments compared against the baseline; `pd.NA` where no
+        comparison was made.
 
     Args:
         names: names of the experiments corresponding to the leading axis in
@@ -286,12 +291,16 @@ def dataframe_from_stats(
         df_rel = rel.reshape(
             len(names), -1).sum(axis=-1).as_df(names, prefix="rel/")
         df = df.merge(df_rel, on='name')
-        _baseline = df.loc[baseline]['abs/mean']
+        _baseline = float(df.at[baseline, 'abs/mean'])  # type: ignore
         df['pct/mean'] = df['rel/mean'] / _baseline * 100
         df['pct/stderr'] = df['rel/stderr'] / _baseline * 100
 
-        z = norm.ppf(1 - 0.05 / 2 / (len(names) - 1))
-        df['p0.05'] = (df['rel/mean'] / df['rel/stderr']) > z
+        # Two-sided, with a Bonferroni correction over the experiments
+        # compared against the baseline
+        z = norm.ppf(1 - 0.05 / 2 / max(len(names) - 1, 1))
+        df['p0.05'] = (
+            (df['rel/mean'].abs() / df['rel/stderr']) > z
+        ).where(df['rel/mean'].notna()).astype("boolean")
 
     return df
 
