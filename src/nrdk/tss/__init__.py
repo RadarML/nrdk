@@ -31,17 +31,17 @@ with typechecker("nrdk.tss"):
     from . import stats, utils
     from ._cli import _cli_main
     from .api import (
-        NestedValues,
         dataframe_from_index,
         dataframe_from_stats,
         experiments_from_index,
         index,
         stats_from_experiments,
     )
+    from .control import Control
 
 
 __all__ = [
-    "NestedValues",
+    "Control",
     "dataframe_from_index", "dataframe_from_stats",
     "experiments_from_index", "stats_from_experiments",
     "index", "stats", "utils", "_cli_main"

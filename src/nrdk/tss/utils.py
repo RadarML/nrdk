@@ -1,6 +1,7 @@
 """Data marshalling utilities."""
 
-from typing import Any, TypeVar
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 import optree
@@ -8,6 +9,27 @@ from jaxtyping import Float, Num
 
 LeafType = TypeVar("LeafType")
 MetricTree = dict[str, Any] | LeafType
+
+ArrayLeaf = TypeVar("ArrayLeaf", bound=np.ndarray)
+
+if TYPE_CHECKING:
+    # NOTE: mkdocstrings uses TYPE_CHECKING mode, so we put the docstring here.
+    NestedValues = Sequence["NestedValues"] | ArrayLeaf
+    """An arbitrarily nested sequence, parameterized by a leaf type.
+
+    For example, these are valid examples of
+    `NestedValues[Float[np.ndarray, "_N"]]`:
+    ```python
+    nested_leaf = Float[np.ndarray, "N1"]
+    nested_list = [Float[np.ndarray, "N1"], Float[np.ndarray, "N2"]]
+    nested_list_list = [
+        [Float[np.ndarray, "N1"], Float[np.ndarray, "N2"]],
+        [Float[np.ndarray, "N3"], Float[np.ndarray, "N4"]],
+    ]
+    ```
+    """
+else:
+    NestedValues = Sequence[Any] | ArrayLeaf
 
 
 def tree_flatten(

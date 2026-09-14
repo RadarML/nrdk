@@ -4,12 +4,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import partial
 from multiprocessing.pool import ThreadPool
-from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 import pandas as pd
 from jaxtyping import Float, Integer, Num, Shaped
 from scipy.signal import correlate
+
+from .utils import NestedValues
 
 
 def __pmean(x: Shaped[np.ndarray, "N"], n: int = 0) -> Float[np.ndarray, "N2"]:
@@ -129,14 +130,6 @@ def effective_sample_size(
 
         rho_sum = np.sum(rho).item()
         return x.shape[0] / (1 + 2 * rho_sum)
-
-
-LeafType = TypeVar("LeafType", bound=np.ndarray)
-
-if TYPE_CHECKING:
-    NestedValues = Sequence["NestedValues"] | LeafType
-else:
-    NestedValues = Sequence[Any] | LeafType
 
 
 @dataclass
