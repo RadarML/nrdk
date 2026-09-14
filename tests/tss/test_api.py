@@ -8,6 +8,7 @@ import pytest
 from scipy.stats import norm
 
 from nrdk.tss import api
+from nrdk.tss.control import Control
 from nrdk.tss.stats import NDStats
 
 
@@ -468,3 +469,176 @@ def test_dataframe_from_index_end_to_end(tmp_path):
     assert (
         df.loc["treatment", "abs/mean"]  # type: ignore
         > df.loc["base", "abs/mean"])
+
+
+# Control columns
+
+
+def _grid_index(tmp_path, rng, n=200, effects=None):
+    """Write a 2-factor grid `fam{a,b}/split{x,y}` sharing a common signal.
+
+    The shared per-trace signal dominates the per-experiment effects, so an
+    unpaired comparison is noisy while a paired one is not.
+    """
+    common = rng.normal(size=n) * 5.0
+    t = np.arange(n, dtype=float)
+    if effects is None:
+        effects = {"a": 0.0, "b": 0.25}, {"x": 0.0, "y": 0.5}
+    fam_eff, split_eff = effects
+    data = {
+        f"fam{f}/split{s}": {"seq1": {
+            "y": common + fam_eff[f] + split_eff[s] + rng.normal(size=n) * 0.1,
+            "t": t,
+        }}
+        for f in fam_eff for s in split_eff
+    }
+    return _make_index(tmp_path, data)
+
+
+def _split_control(name="split", reference="fama"):
+    """Control holding `split` fixed: each experiment vs. `reference`."""
+    return Control(name, {
+        f"fam{f}/split{s}": f"{reference}/split{s}"
+        for f in "ab" for s in "xy"})
+
+
+def _fam_control(name="fam", reference="splitx"):
+    """Control holding `fam` fixed: each experiment vs. `reference`."""
+    return Control(name, {
+        f"fam{f}/split{s}": f"fam{f}/{reference}"
+        for f in "ab" for s in "xy"})
+
+
+def test_controls_add_expected_columns_and_leave_others_untouched(tmp_path):
+    """A control adds its own column group without changing existing ones."""
+    rng = np.random.default_rng(30)
+    index = _grid_index(tmp_path, rng)
+    baseline = "fama/splitx"
+
+    plain = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0)
+    df = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0,
+        controls=[_split_control()])
+
+    added = [
+        "rel_split/mean", "rel_split/std", "rel_split/stderr", "rel_split/n",
+        "rel_split/ess", "pct_split/mean", "pct_split/stderr", "p0.05_split"]
+    assert list(df.columns) == list(plain.columns) + added
+    pd.testing.assert_frame_equal(df[plain.columns], plain)
+
+
+def test_control_against_global_baseline_reproduces_rel_columns(tmp_path):
+    """A control pairing everything against `baseline` matches `rel/*`.
+
+    This is the degenerate case: controlling for nothing must reproduce the
+    unconditioned comparison exactly.
+    """
+    rng = np.random.default_rng(31)
+    index = _grid_index(tmp_path, rng)
+    baseline = "fama/splitx"
+    control = Control("same", {k: baseline for k in index})
+
+    df = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0,
+        controls=[control])
+
+    for field in ["mean", "std", "stderr", "n", "ess"]:
+        np.testing.assert_allclose(
+            df[f"rel_same/{field}"].to_numpy(),
+            df[f"rel/{field}"].to_numpy(), equal_nan=True)
+    np.testing.assert_allclose(
+        df["pct_same/mean"].to_numpy(), df["pct/mean"].to_numpy(),
+        equal_nan=True)
+    pd.testing.assert_series_equal(
+        df["p0.05_same"], df["p0.05"], check_names=False)
+
+
+def test_control_pairs_out_the_controlled_variable(tmp_path):
+    """Pairing on the controlled variable removes it from the comparison.
+
+    Each experiment is `common + fam_effect + split_effect + noise`; the
+    `split`-controlled comparison holds `split` fixed, so it should recover
+    the fam effect alone, with a far tighter standard error than the
+    unconditioned comparison (which also absorbs the split effect).
+    """
+    rng = np.random.default_rng(32)
+    index = _grid_index(
+        tmp_path, rng, effects=({"a": 0.0, "b": 0.25}, {"x": 0.0, "y": 5.0}))
+    baseline = "fama/splitx"
+
+    df = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0,
+        controls=[_split_control()])
+
+    # `famb/splity` vs. baseline mixes both effects (0.25 + 5.0)...
+    assert df.loc["famb/splity", "rel/mean"] == pytest.approx(5.25, abs=0.05)
+    # ...while controlling for `split` isolates the fam effect.
+    assert df.loc["famb/splity", "rel_split/mean"] == pytest.approx(
+        0.25, abs=0.05)
+    assert (
+        df.loc["famb/splity", "rel_split/stderr"]  # type: ignore
+        < df.loc["famb/splity", "rel/stderr"])  # type: ignore
+    # Each control group's own baseline is exactly zero.
+    assert df.loc["fama/splity", "rel_split/mean"] == pytest.approx(0.0)
+    assert df.loc["fama/splitx", "rel_split/mean"] == pytest.approx(0.0)
+
+
+def test_control_partial_coverage_is_na_not_false(tmp_path):
+    """Experiments outside a control get `NaN` stats and a `pd.NA` verdict."""
+    rng = np.random.default_rng(33)
+    index = _grid_index(tmp_path, rng)
+    index.update(_make_index(tmp_path, {"other/lone": {"seq1": {
+        "y": rng.normal(size=200), "t": np.arange(200, dtype=float)}}}))
+
+    df = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline="fama/splitx", workers=0,
+        controls=[_split_control()])
+
+    assert len(df) == 5
+    assert np.isnan(df.loc["other/lone", "rel_split/mean"])  # type: ignore
+    # `pd.NA`, not `False`: this experiment was never tested.
+    assert df["p0.05_split"].dtype == "boolean"
+    assert df.loc["other/lone", "p0.05_split"] is pd.NA
+    assert df.loc["famb/splity", "p0.05_split"] is not pd.NA
+
+
+def test_multiple_controls_are_computed_independently(tmp_path):
+    """Two controls each get their own columns and don't interact."""
+    rng = np.random.default_rng(34)
+    index = _grid_index(tmp_path, rng)
+    baseline = "fama/splitx"
+
+    both = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0,
+        controls=[_split_control(), _fam_control()])
+    only_split = api.dataframe_from_index(
+        index, key="y", timestamps="t", baseline=baseline, workers=0,
+        controls=[_split_control()])
+
+    pd.testing.assert_frame_equal(both[only_split.columns], only_split)
+    # `split` holds the split fixed; `fam` holds the fam fixed.
+    assert _split_control().baselines["famb/splity"] == "fama/splity"
+    assert _fam_control().baselines["famb/splity"] == "famb/splitx"
+
+
+def test_duplicate_control_names_raise(tmp_path):
+    """Two controls sharing a name would collide in the merged columns."""
+    rng = np.random.default_rng(35)
+    index = _grid_index(tmp_path, rng)
+
+    with pytest.raises(ValueError, match="unique names"):
+        api.dataframe_from_index(
+            index, key="y", timestamps="t", baseline="fama/splitx", workers=0,
+            controls=[_split_control(), _split_control()])
+
+
+def test_controls_require_a_global_baseline(tmp_path):
+    """`controls` without a `baseline` raises: `pct_*` has no denominator."""
+    rng = np.random.default_rng(36)
+    index = _grid_index(tmp_path, rng)
+
+    with pytest.raises(ValueError, match="no global `baseline`"):
+        api.dataframe_from_index(
+            index, key="y", timestamps="t", workers=0,
+            controls=[_split_control()])
