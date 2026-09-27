@@ -14,6 +14,7 @@ nav:
       - nrdk.modules: nrdk/modules.md
       - nrdk.objectives: nrdk/objectives.md
       - nrdk.roverd: nrdk/roverd.md
+      - nrdk.types: nrdk/types.md
       - nrdk.vis: nrdk/vis.md
   - cli: cli.md
   - nrdk.tss:
@@ -88,6 +89,7 @@ plugins:
       - nrdk/modules.md: General purpose pytorch modules with n-dimensional support
       - nrdk/objectives.md: Training objectives following the abstract dataloader objective specification
       - nrdk/roverd.md: Data loading and transforms for roverd datasets
+      - nrdk/types.md: Protocol types for common data structures
       - nrdk/vis.md: General purpose visualization utilities
       "cli":
       - cli.md: Command line tools for working with NRDK output conventions (export, inspect, upgrade-config)
