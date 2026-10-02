@@ -164,7 +164,7 @@ class NRDKLightningModule(
             A list of the `unexpected_keys` provided in the loaded weights,
                 but are not used by the model.`
         """
-        weights = torch.load(path, weights_only=True)
+        weights = torch.load(path, weights_only=True, map_location="cpu")
         if "state_dict" in weights:
             weights = weights["state_dict"]
         if "model" in weights:

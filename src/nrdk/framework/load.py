@@ -41,7 +41,7 @@ def load_model(
         model_spec = yaml.safe_load(f)
 
     model = hydra.utils.instantiate(model_spec["model"])
-    weights = torch.load(path)
+    weights = torch.load(path, map_location="cpu")
     model.load_state_dict(weights, strict=True)
 
     if freeze:
