@@ -67,15 +67,28 @@ class Semseg(
         label_smoothing: cross-entropy label smoothing; the target
             distribution assigns `1 - label_smoothing` to the true class, and
             spreads the remainder uniformly across all classes.
+        ignore_index: class label to exclude from supervision (e.g. a `void`
+            class). If `None`, all pixels are used.
+
+    !!! info "Ignored pixels"
+
+        When `ignore_index` is set, pixels with that label are excluded from
+        the loss, `acc`, `top2`, and `miou`; per-sample averages are taken
+        over the remaining (valid) pixels only, and samples with no valid
+        pixels have a loss and metrics of `0`. The ignored class is also
+        excluded from the `miou` class mean, though the model still has an
+        output channel for it.
     """
 
     def __init__(
         self, vis_config: VisualizationConfig | Mapping[str, Any] = {},
-        label_smoothing: float = 0.0
+        label_smoothing: float = 0.0, ignore_index: int | None = None
     ) -> None:
+        self.ignore_index = ignore_index
         self.ce = torch.nn.CrossEntropyLoss(
-            reduction='none', label_smoothing=label_smoothing)
-        self.miou = MeanIoU()
+            reduction='none', label_smoothing=label_smoothing,
+            ignore_index=-100 if ignore_index is None else ignore_index)
+        self.miou = MeanIoU(ignore_index=ignore_index)
 
         if not isinstance(vis_config, VisualizationConfig):
             vis_config = VisualizationConfig(**vis_config)
@@ -89,17 +102,25 @@ class Semseg(
         y_true_idx = rearrange(
             y_true.semseg.to(torch.long), "b t h w -> (b t) h w")
 
-        loss = torch.mean(self.ce(y_hat_logits, y_true_idx), dim=(1, 2))
+        if self.ignore_index is None:
+            valid = torch.ones_like(y_true_idx, dtype=torch.bool)
+        else:
+            valid = y_true_idx != self.ignore_index
+        n_valid = torch.sum(valid, dim=(1, 2)).clamp(min=1)
+
+        def _mean(x: Float[Tensor, "bt h w"]) -> Float[Tensor, "bt"]:
+            return torch.sum(x * valid, dim=(1, 2)) / n_valid
+
+        loss = _mean(self.ce(y_hat_logits, y_true_idx))
 
         with torch.no_grad():
             top2 = torch.topk(
                 y_hat_logits, k=2, dim=1, largest=True, sorted=True).indices
             metrics = {
-                "acc": torch.mean(
-                    (top2[:, 0] == y_true_idx).to(torch.float32), dim=(1, 2)),
-                "top2": torch.mean((
+                "acc": _mean((top2[:, 0] == y_true_idx).to(torch.float32)),
+                "top2": _mean((
                     (top2[:, 0] == y_true_idx) | (top2[:, 1] == y_true_idx)
-                ).to(torch.float32), dim=(1, 2)),
+                ).to(torch.float32)),
                 "miou": self.miou(y_true_idx, y_hat_logits),
             }
             metrics["bce"] = loss

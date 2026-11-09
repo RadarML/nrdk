@@ -163,7 +163,16 @@ class MeanIoU:
         across samples. This is *not* the same as a dataset-level mIoU, which
         accumulates intersections and unions across an entire split before
         dividing.
+
+    Args:
+        ignore_index: class label to ignore. Pixels with this ground truth
+            label are excluded from both the ground truth and the prediction,
+            and the class itself is excluded from the mean. If `None`, all
+            pixels and classes are used.
     """
+
+    def __init__(self, ignore_index: int | None = None) -> None:
+        self.ignore_index = ignore_index
 
     def __call__(
         self, y_true: Integer[Tensor, "batch *spatial"],
@@ -191,10 +200,17 @@ class MeanIoU:
         true_c = true_flat.unsqueeze(0) == classes
         pred_c = pred_flat.unsqueeze(0) == classes
 
+        if self.ignore_index is not None:
+            valid = true_flat != self.ignore_index
+            true_c = true_c & valid
+            pred_c = pred_c & valid
+
         intersection = reduce(
             true_c & pred_c, "cls batch n -> batch cls", "sum")
         union = reduce(true_c | pred_c, "cls batch n -> batch cls", "sum")
 
         present = union > 0
+        if self.ignore_index is not None and 0 <= self.ignore_index < nc:
+            present[:, self.ignore_index] = False
         iou = torch.where(present, intersection / union.clamp(min=1), 0.0)
         return torch.sum(iou, dim=1) / present.sum(dim=1).clamp(min=1)
