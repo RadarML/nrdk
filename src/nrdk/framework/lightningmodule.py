@@ -16,6 +16,7 @@ from abstract_dataloader import spec
 from abstract_dataloader.ext.objective import Objective
 from jaxtyping import Shaped
 from torch import Tensor, nn
+from torch.types import Storage
 
 from .logging import LoggerWithImages
 
@@ -120,7 +121,9 @@ class NRDKLightningModule(
         self._log.info("LightningModule compiled with torch.compile.")
 
     def load_weights(
-        self, path: str, rename: Sequence[Mapping[str, str | None]] = []
+        self, path: str, rename: Sequence[Mapping[str, str | None]] = [],
+        map_location: Callable[[Storage, str], Storage] | torch.device | str
+            | dict[str, str] | None = "cpu",
     ) -> tuple[list[str], list[str]]:
         """Load weights from an existing model for fine-tuning, resuming, etc.
 
@@ -157,6 +160,8 @@ class NRDKLightningModule(
                 `model` sub-key.
             rename: substitutions to apply to the state dict. If resuming or
                 loading for evaluation, this should be empty!
+            map_location: where to place the loaded weights; see
+                [`torch.load`][torch.load].
 
         Returns:
             A list of the `missing_keys` which were not present in the weights
@@ -164,7 +169,8 @@ class NRDKLightningModule(
             A list of the `unexpected_keys` provided in the loaded weights,
                 but are not used by the model.`
         """
-        weights = torch.load(path, weights_only=True, map_location="cpu")
+        weights = torch.load(
+            path, weights_only=True, map_location=map_location)
         if "state_dict" in weights:
             weights = weights["state_dict"]
         if "model" in weights:
