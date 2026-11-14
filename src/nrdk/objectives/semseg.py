@@ -69,15 +69,6 @@ class Semseg(
             spreads the remainder uniformly across all classes.
         ignore_index: class label to exclude from supervision (e.g. a `void`
             class). If `None`, all pixels are used.
-
-    !!! info "Ignored pixels"
-
-        When `ignore_index` is set, pixels with that label are excluded from
-        the loss, `acc`, `top2`, and `miou`; per-sample averages are taken
-        over the remaining (valid) pixels only, and samples with no valid
-        pixels have a loss and metrics of `0`. The ignored class is also
-        excluded from the `miou` class mean, though the model still has an
-        output channel for it.
     """
 
     def __init__(

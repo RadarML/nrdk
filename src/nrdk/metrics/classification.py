@@ -165,10 +165,9 @@ class MeanIoU:
         dividing.
 
     Args:
-        ignore_index: class label to ignore. Pixels with this ground truth
-            label are excluded from both the ground truth and the prediction,
-            and the class itself is excluded from the mean. If `None`, all
-            pixels and classes are used.
+        ignore_index: Pixels with this ground truth label are excluded from
+            both the ground truth and the prediction, and the class itself is
+            excluded from the mean. If `None`, all pixels and classes are used.
     """
 
     def __init__(self, ignore_index: int | None = None) -> None:
