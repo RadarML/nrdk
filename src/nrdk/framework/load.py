@@ -1,15 +1,19 @@
 """Load pre-trained model for inference."""
 
 import os
+from collections.abc import Callable
 
 import hydra
 import torch
 import yaml
+from torch.types import Storage
 
 
 def load_model(
     path: str, config: str | None = None, freeze: bool = True,
-    eval: bool = True
+    eval: bool = True,
+    map_location: Callable[[Storage, str], Storage] | torch.device | str
+        | dict[str, str] | None = "cpu"
 ) -> torch.nn.Module:
     """Load a pre-trained model from a given path.
 
@@ -23,6 +27,8 @@ def load_model(
             here.
         freeze: whether to freeze the model parameters.
         eval: whether the model should be set to eval mode.
+        map_location: where to place the loaded weights; see
+            [`torch.load`][torch.load].
 
     Returns:
         Loaded model.
@@ -41,7 +47,7 @@ def load_model(
         model_spec = yaml.safe_load(f)
 
     model = hydra.utils.instantiate(model_spec["model"])
-    weights = torch.load(path)
+    weights = torch.load(path, map_location=map_location)
     model.load_state_dict(weights, strict=True)
 
     if freeze:
