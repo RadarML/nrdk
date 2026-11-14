@@ -33,6 +33,7 @@ extra_css:
 
 theme:
   name: material
+  variant: classic
   custom_dir: docs/overrides
   icon:
     logo: octicons/ai-model-16

@@ -82,7 +82,7 @@ The NRDK is intended to be used as a library; we recommend installing it as a su
     The NRDK library also includes the following extras:
 
     - `nrdk[roverd]`: support for loading and processing data using the [roverd](https://radarml.github.io/red-rover/roverd/) format (i.e., as collected by the [`red-rover`](https://radarml.github.io/red-rover/) system).
-    - `nrdk[docs]`: a mkdocs + mkdocs-material + mdocstrings-python documentation stack.
+    - `nrdk[docs]`: a [zensical](https://zensical.org) + mkdocstrings-python documentation stack.
     - `nrdk[dev]`: linters, testing, pre-commit hooks, etc.
 
 ## Development
@@ -94,7 +94,7 @@ After setting up `nrdk` for development (see above &mdash; don't forget to insta
 uv run pytest --cov=src/nrdk --cov-report=html tests
 
 # Build & serve documentation locally
-uv run --extra docs mkdocs serve
+uv run --extra docs zensical serve
 ```
 
 Note that all code must pass our pre-commit hooks (ruff + pyright + pytest), which you can also run manually:
