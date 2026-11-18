@@ -28,18 +28,27 @@ jobs:
         enable-cache: true
         cache-dependency-glob: "uv.lock"
 
-    - name: Install dependencies
+    # We use a CPU-only torch in CI to skip ~2.5GB of CUDA wheels.
+    # `--no-sync` below keeps `uv run` from reinstalling CUDA torch.
+    - name: Install dependencies (CPU-only torch)
       run: |
-        uv sync --extra dev --extra roverd --frozen
+        uv export --frozen --extra dev --extra roverd --no-hashes \
+          -o "$RUNNER_TEMP/requirements-locked.txt"
+        grep -vE '^(nvidia-|cuda-|triton==)' \
+          "$RUNNER_TEMP/requirements-locked.txt" \
+          > "$RUNNER_TEMP/requirements-cpu.txt"
+        uv venv
+        uv pip install --torch-backend=cpu \
+          -r "$RUNNER_TEMP/requirements-cpu.txt"
 
     - name: Lint with ruff
       run: |
-        uv run --extra dev --extra roverd ruff check ./src
+        uv run --no-sync ruff check ./src
 
     - name: Type check with pyright
       run: |
-        uv run --extra dev --extra roverd pyright ./src
+        uv run --no-sync pyright ./src
 
     - name: Run tests
       run: |
-        uv run --extra dev --extra roverd pytest -ra -- tests
+        uv run --no-sync pytest -ra -- tests
