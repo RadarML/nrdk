@@ -92,14 +92,16 @@ class Tokenizer(nn.Module):
 
 
 class Encoder(nn.Module):
-    """GRTv2b Encoder (VideoMAE-style).
+    """GRTv2 Encoder.
 
-    Video-MAE style encoder, where masked tokens are dropped from the sequence
-    before the transformer stem.
+    Uses a Video-MAE style encoder, where masked tokens are dropped from the
+    sequence before the transformer stem.
 
-    The mask is provided at spatial (input) resolution and converted to token
-    resolution with AND semantics: a token is masked only if every spatial
-    position that maps to it is masked.
+    - The mask is provided at spatial (input) resolution and converted to token
+        resolution with AND semantics: a token is masked only if every spatial
+        position that maps to it is masked.
+    - If no mask is provided, the encoder acts like a standard transformer
+        encoder.
 
     Args:
         tokenizer: tokenizer stage; must output a NT(DR)C data format.
