@@ -1,5 +1,5 @@
 occ3d:
-  _target_: nrdk.models.TransformerTensorDecoder
+  _target_: nrdk.models.grt.TransformerTensorDecoder
   decoder_layer:
     _target_: torch.nn.TransformerDecoderLayer
     d_model: ${size.d_model}

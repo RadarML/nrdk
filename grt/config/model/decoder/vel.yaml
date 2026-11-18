@@ -1,5 +1,5 @@
 vel:
-  _target_: nrdk.models.MLPVectorDecoder
+  _target_: nrdk.models.grt.MLPVectorDecoder
   layers:
     - ${size.d_model}
     - ${size.d_model}

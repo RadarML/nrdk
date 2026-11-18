@@ -1,5 +1,9 @@
 """Model zoo of reusable, stable models.
 
+Models are organized into sub-namespaces by architecture:
+
+- [`nrdk.models.grt`][nrdk.models.grt]: GRT tokenizers and decoders.
+
 !!! warning
 
     Research models should not be placed here! Only stable (and
@@ -9,9 +13,11 @@
     as a dependency; see the [reference implementation](../grt/index.md).
 """
 
-from nrdk._typecheck import typechecker
+from . import grt
 
-with typechecker("nrdk.models"):
-    from .grt import MLPVectorDecoder, TransformerTensorDecoder
+# Deprecated aliases: old configs use e.g.
+# `_target_: nrdk.models.TransformerTensorDecoder`.
+from .grt import MLPVectorDecoder as MLPVectorDecoder
+from .grt import TransformerTensorDecoder as TransformerTensorDecoder
 
-__all__ = ["TransformerTensorDecoder", "MLPVectorDecoder"]
+__all__ = ["grt"]

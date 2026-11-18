@@ -24,7 +24,6 @@ nav:
     - Utils: tss/utils.md
   - grt:
     - Overview: grt/index.md
-    - Models: grt/models.md
     - Configuration: grt/config.md
 
 
@@ -101,7 +100,6 @@ plugins:
       - tss/utils.md: Utilities for loading and manipulating time series metrics
       "grt":
       - grt/index.md: GRT reference implementation and project template
-      - grt/models.md: Models used by the GRT reference implementation
       - grt/config.md: Hydra configuration groups included in the reference training script
 - mkdocstrings:
     default_handler: python_xref
