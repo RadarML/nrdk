@@ -34,8 +34,8 @@ jobs:
       - name: Sync docs environment
         run: uv sync --extra docs --extra roverd
 
-      - name: Build MkDocs site
-        run: uv run mkdocs build --strict
+      - name: Build docs site
+        run: uv run zensical build --strict
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

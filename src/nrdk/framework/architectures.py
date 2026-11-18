@@ -13,8 +13,8 @@ class Output[Tstage, Toutput]:
     """Module with "shortcut" outputs which are directly passed to the output.
 
     Type Parameters:
-        - Tstage: type of the primary module output.
-        - Toutput: type of the regularization side channel; must be a dictionary
+        Tstage: type of the primary module output.
+        Toutput: type of the regularization side channel; must be a dictionary
             with string keys.
 
     Attributes:
