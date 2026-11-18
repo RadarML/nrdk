@@ -37,10 +37,12 @@ class RMSNorm(nn.Module):
 class AATransformerEncoder(nn.Module):
     """Alternating global/frame attention transformer.
 
-    Follows the VGGT, with alternating global and frame-wise attention layers,
-    each implemented by a [`VisionTransformerEncoderLayer`][^.].
-    The choice of global or frame first is arbitrary, which we default to
-    global-first following VGGT.
+    Uses the architecture described by VGGT:
+
+    - Includes alternating global and frame-wise attention layers,
+        each implemented by a [`VisionTransformerEncoderLayer`][^.].
+    - As the choice of global or frame first is arbitrary; like VGGT, we
+        default to global-first.
 
     Note that this architecture also cleanly degrades to a standard transformer
     (i.e., as in GRT) when `t=1`.
