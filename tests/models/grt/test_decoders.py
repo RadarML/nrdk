@@ -1,4 +1,4 @@
-"""Tests for GRT models."""
+"""Tests for GRT decoders."""
 
 from typing import Literal
 

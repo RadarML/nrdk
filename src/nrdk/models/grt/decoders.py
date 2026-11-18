@@ -1,4 +1,4 @@
-"""GRT models."""
+"""GRT decoders."""
 
 from collections.abc import Sequence
 from typing import Literal
@@ -109,7 +109,7 @@ class MLPVectorDecoder(nn.Module):
     """
 
     def __init__(
-        self, layers: list[int] = [512, 512], dropout: float = 0.1,
+        self, layers: Sequence[int] = [512, 512], dropout: float = 0.1,
         activation: str = 'gelu', dim: int = 768, shape: Sequence[int] = [4],
         strategy: Literal["last", "maxpool", "avgpool"] = "last",
         channels_first: bool = False
@@ -127,12 +127,13 @@ class MLPVectorDecoder(nn.Module):
         self.shape = list(shape)
 
         _layers = []
-        for d1, d2 in zip(([dim] + layers)[:-1], layers):
+        dims = [dim, *layers]
+        for d1, d2 in zip(dims[:-1], dims[1:]):
             _layers += [
                 nn.Linear(d1, d2, bias=True),
                 _get_activation_fn(activation),
                 nn.Dropout(dropout)]
-        _layers.append(nn.Linear(([dim] + layers)[-1], np.prod(shape).item()))
+        _layers.append(nn.Linear(dims[-1], np.prod(shape).item()))
         self.mlp = nn.Sequential(*_layers)
 
     def forward(
