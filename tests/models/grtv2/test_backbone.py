@@ -1,4 +1,4 @@
-"""Tests for GRTv2 tokenizer and encoder."""
+"""Tests for GRTv2 tokenizer, encoder, decoder, and end-to-end model."""
 
 import functools
 
@@ -6,9 +6,18 @@ import pytest
 import torch
 from abstract_dataloader.ext import types
 from jaxtyping import Float
-from torch import Tensor
+from torch import Tensor, nn
 
-from nrdk.models.grtv2 import Encoder, InputPositionalEncoder, Tokenizer
+from nrdk.models.grtv2 import (
+    Decoder,
+    Encoder,
+    GRTv2,
+    InputPositionalEncoder,
+    LinearHead,
+    OutputPositionalEncoder,
+    Query,
+    Tokenizer,
+)
 from nrdk.modules import AATransformerEncoder, ConvNextLayer
 
 D_MODEL = 16
@@ -53,6 +62,24 @@ def _encoder(n_registers=1, mask_token=True):
             d_model=D_MODEL, nhead=2, dim_feedforward=32, num_layers=2,
             norm="rms", layer_scale_init_value=0.0),
         d_model=D_MODEL, n_registers=n_registers)
+
+
+def _decoder():
+    return Decoder(
+        decoder=nn.TransformerDecoder(
+            nn.TransformerDecoderLayer(
+                d_model=D_MODEL, nhead=2, dim_feedforward=32,
+                batch_first=True, norm_first=True),
+            num_layers=1),
+        positional_encoder=OutputPositionalEncoder(
+            d_model=D_MODEL, d_features=8))
+
+
+def _query(n=SHAPE[0], q=6, **overrides):
+    torch.manual_seed(1)
+    fields = {k: torch.randn(n, q) for k in ("t", "rng", "az", "el")}
+    fields.update(overrides)
+    return Query(**fields)
 
 
 # Tokenizer
@@ -133,3 +160,31 @@ def test_encoder_tensor_without_timestamps_raises():
     with pytest.raises(ValueError):
         _encoder()(_spectrum())
 
+
+# Decoder
+
+
+def test_decoder_output_shape():
+    """One output token is produced per query."""
+    latents = torch.randn(SHAPE[0], SHAPE[1], 5, D_MODEL)
+    out = _decoder()(latents, _query(q=7))
+    assert out.shape == (SHAPE[0], 7, D_MODEL)
+
+
+# End-to-end
+
+
+def test_grtv2_end_to_end():
+    """A full GRTv2 model produces the configured output grid."""
+    model = GRTv2(
+        encoder=_encoder(), decoder=_decoder(),
+        heads={"occ": LinearHead(
+            d_model=D_MODEL, out_channels=1, output_size=[1, 8, 4],
+            patch_size=[1, 4, 2], squeeze=True)},
+        key="spectrum", queries={"occ": "occ_query"})
+    x, t = _spectrum(), _timestamps()
+    out = model({
+        "spectrum": _Spectrum(spectrum=x, timestamps=t),
+        "occ_query": _query(q=4)})
+    assert out["occ"].shape == (SHAPE[0], 1, 8, 4)
+    assert torch.all(torch.isfinite(out["occ"]))
