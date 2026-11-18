@@ -27,10 +27,16 @@ with typechecker("nrdk.modules"):
         Readout,
         Sinusoid,
     )
+    from .transformer import (
+        AATransformerEncoder,
+        RMSNorm,
+        VisionTransformerEncoderLayer,
+    )
 
 __all__ = [
     "ConvNextLayer",
     "ConvDown", "ConvUp", "ConvResidual", "ConvEncoder", "ConvDecoder",
     "PatchMerge", "Unpatch", "Squeeze",
-    "Sinusoid", "LearnableND", "Readout", "BasisChange", "FourierFeatures"
+    "Sinusoid", "LearnableND", "Readout", "BasisChange", "FourierFeatures",
+    "RMSNorm", "VisionTransformerEncoderLayer", "AATransformerEncoder",
 ]
