@@ -307,5 +307,4 @@ class NDStats:
             "name": name, f"{prefix}mean": mean, f"{prefix}std": std,
             f"{prefix}stderr": stderr, f"{prefix}n": n, f"{prefix}ess": ess
         } for name, n, ess, mean, std, stderr in rows])
-        df.set_index("name", inplace=True)
-        return df
+        return df.set_index("name")
