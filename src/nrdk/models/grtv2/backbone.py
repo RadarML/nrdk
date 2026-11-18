@@ -1,10 +1,11 @@
-"""GRTv2 tokenizer and encoder."""
+"""GRTv2 tokenizer, encoder, and decoder."""
 
 from collections.abc import Callable, Sequence
+from typing import Any
 
 import torch
 from einops import rearrange, reduce, repeat
-from jaxtyping import Bool, Float
+from jaxtyping import Bool, Float, Shaped
 from torch import Tensor, nn
 
 from nrdk.modules import ConvEncoder, ConvNextLayer
@@ -194,3 +195,44 @@ class Encoder(nn.Module):
 
         return tokens
 
+
+class Decoder(nn.Module):
+    """GRTv2 Decoder.
+
+    Args:
+        decoder: transformer decoder stage; must use a NSC data format.
+        positional_encoder: positional encoding stage for output queries,
+            which maps a query to `(batch, n, d_model)` position tokens;
+            nominally an
+            [`OutputPositionalEncoder`][nrdk.models.grtv2.OutputPositionalEncoder].
+    """
+
+    def __init__(
+        self, decoder: nn.Module,
+        positional_encoder: nn.Module,
+    ) -> None:
+        super().__init__()
+
+        self.decoder = decoder
+        self.positional_encoder = positional_encoder
+
+    def forward(
+        self, x: Float[Tensor, "n t s c"],
+        query: Any
+    ) -> Shaped[Tensor, "n ..."] | dict[str, Shaped[Tensor, "..."]]:
+        """Decode output queries from encoded tokens.
+
+        Args:
+            x: encoded tokens, including any register tokens.
+            query: output query positions, in the format expected by
+                `positional_encoder` (nominally a
+                [`Query`][nrdk.models.grtv2.Query]). Each query is positionally
+                encoded and used as an input token to the decoder, which
+                attends to the (flattened) encoded tokens.
+
+        Returns:
+            Decoder output for each query.
+        """
+        pos = self.positional_encoder(query)
+        nsc = rearrange(x, "n t s c -> n (t s) c")
+        return self.decoder(pos, nsc)
