@@ -241,12 +241,14 @@ def test_configure_optimizers_returns_bound_optimizer():
 
 # on_before_optimizer_step
 
-@pytest.mark.parametrize("finite", [True, False])
-def test_on_before_optimizer_step_skips_and_zeros_on_nonfinite_grad(finite):
-    """A finite gradient is left untouched.
+@pytest.mark.parametrize("value", [
+    1.0, 3e38, float("nan"), float("inf"), float("-inf")])
+def test_on_before_optimizer_step_skips_and_zeros_on_nonfinite_grad(value):
+    """Finite gradients (including large ones) are left untouched.
 
     A non-finite one logs a skip event and zeros every gradient.
     """
+    finite = np.isfinite(value)
     module = _make_module()
     log_calls = []
     module.log = lambda *a, **k: log_calls.append((a, k))
@@ -254,8 +256,7 @@ def test_on_before_optimizer_step_skips_and_zeros_on_nonfinite_grad(finite):
     params = list(module.model.parameters())
     for p in params:
         p.grad = torch.ones_like(p)
-    if not finite:
-        params[0].grad = torch.full_like(params[0], float("nan"))
+    params[0].grad = torch.full_like(params[0], value)
 
     # `on_before_optimizer_step`'s `optimizer` argument is strictly type
     # checked against `torch.optim.Optimizer`, so a real optimizer is used
@@ -265,7 +266,8 @@ def test_on_before_optimizer_step_skips_and_zeros_on_nonfinite_grad(finite):
 
     if finite:
         assert log_calls == []
-        for p in params:
+        assert torch.equal(params[0].grad, torch.full_like(params[0], value))
+        for p in params[1:]:
             assert torch.equal(p.grad, torch.ones_like(p))
     else:
         assert len(log_calls) == 1

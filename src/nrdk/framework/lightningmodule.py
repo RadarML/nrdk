@@ -408,17 +408,22 @@ class NRDKLightningModule(
         `fp16-mixed` does not use a `GradScaler` and therefore does not
         automatically skip updates on NaN/Inf gradients.
         """
-        for group in optimizer.param_groups:
-            for p in group["params"]:
-                if p.grad is not None and not torch.isfinite(p.grad).all():
-                    self._log.warning(
-                        f"Non-finite gradient detected at step "
-                        f"{self.global_step}; skipping update.")
-                    self.log(
-                        "train/nan_grad_skip", 1.0,
-                        on_step=True, on_epoch=False)
-                    self.zero_grad()
-                    return
+        grads = [
+            p.grad for group in optimizer.param_groups
+            for p in group["params"] if p.grad is not None]
+        if len(grads) == 0:
+            return
+
+        max_norm = torch.nn.utils.get_total_norm(
+            grads, norm_type=float("inf"))
+        if not torch.isfinite(max_norm):
+            self._log.warning(
+                f"Non-finite gradient detected at step "
+                f"{self.global_step}; skipping update.")
+            self.log(
+                "train/nan_grad_skip", 1.0,
+                on_step=True, on_epoch=False)
+            self.zero_grad()
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Configure optimizers; passthrough to the provided `Optimizer`."""
